@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Interactive multi-objective Pareto analysis of drug-like molecules. Rank by MW, LogP, HBD, HBA, TPSA, RotBonds. 100% client-side, no data leaves your browser." />
+    <meta name="author" content="Ilkham Yabbarov" />
+    <meta name="keywords" content="drug discovery, Pareto, multi-objective, SMILES, Lipinski, ADMET, cheminformatics, RDKit" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="ParetoMol — Multi-Objective Molecule Analysis" />
+    <meta property="og:description" content="Free, open-source Pareto analysis for drug discovery. 14 interactive views, 41 ADMET predictions, drug-likeness filters. 100% client-side — your molecules never leave the browser." />
+    <meta property="og:url" content="https://paretomol.com" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ParetoMol" />
+    <meta property="og:image" content="https://paretomol.com/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ParetoMol — Multi-Objective Molecule Analysis" />
+    <meta name="twitter:description" content="Pareto ranking, drug filters, AI copilot — all in the browser. Open source." />
+    <meta name="twitter:image" content="https://paretomol.com/og-image.jpg" />
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href="https://paretomol.com" />
+    <title>ParetoMol — Multi-Objective Molecule Analysis</title>
+    <script>
+      // Restore theme preference before first paint to prevent flash
+      try { if (localStorage.getItem('paretomol-theme') === 'light') document.documentElement.classList.remove('dark'); } catch(e) {}
+    </script>
+    <style>
+      body { margin: 0; }
+      .dark body { background-color: #1A1918; color: #E8E6E3; }
+      body { background-color: #FAFAF9; color: #1A1918; }
+    </style>
+    <!-- RDKit WASM -->
+    <script src="https://unpkg.com/@rdkit/rdkit@2025.3.4-1.0.0/dist/RDKit_minimal.js"></script>
+    <!-- 3Dmol.js for interactive 3D molecular visualization -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/3Dmol/2.4.2/3Dmol-min.js"></script>
+    <script defer data-domain="paretomol.com" src="https://plausible.io/js/script.js"></script>
+
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "ParetoMol",
+      "url": "https://paretomol.com",
+      "description": "Interactive multi-objective Pareto analysis of drug-like molecules. Rank by MW, LogP, HBD, HBA, TPSA, RotBonds. 100% client-side, no data leaves your browser.",
+      "applicationCategory": "ScienceApplication",
+      "operatingSystem": "Web Browser",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "author": [
+        {
+          "@type": "Person",
+          "name": "Ilkham Yabbarov",
+          "url": "https://ilkham.com"
+        },
+        {
+          "@type": "Person",
+          "name": "Rodrigo A. Vargas-Hernández",
+          "url": "https://ravh.ca"
+        }
+      ],
+      "license": "https://opensource.org/licenses/MIT",
+      "isAccessibleForFree": true,
+      "browserRequirements": "Requires a modern browser with WebAssembly support"
+    }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

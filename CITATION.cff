@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "ParetoMol: A Free Web Application for Multi-Objective Pareto Analysis of Molecular Safety and Pharmacokinetics"
+authors:
+  - family-names: Yabbarov
+    given-names: Ilkham
+  - family-names: Vargas-Hernández
+    given-names: Rodrigo A.
+url: "https://paretomol.com"
+repository-code: "https://github.com/IlkhamFY/paretomol"
+license: MIT
+version: "0.19.0"
+date-released: "2026-01-01"
+abstract: "A free, browser-based web application for multi-objective Pareto analysis of drug-like molecules. Computes physicochemical properties, identifies Pareto-optimal subsets, and provides 14 interactive analysis views. All computation runs client-side via RDKit.js WebAssembly. Optionally integrates ADMET-AI predictions via Chemprop D-MPNN."
+keywords:
+  - drug discovery
+  - multi-objective optimization
+  - Pareto analysis
+  - cheminformatics
+  - ADMET
+  - RDKit
+  - WebAssembly
+preferred-citation:
+  type: article
+  title: "ParetoMol: A Free Web Application for Multi-Objective Pareto Analysis of Molecular Safety and Pharmacokinetics"
+  authors:
+    - family-names: Yabbarov
+      given-names: Ilkham
+    - family-names: Vargas-Hernández
+      given-names: Rodrigo A.
+  status: in-preparation
+  year: 2026
