@@ -36,7 +36,7 @@ export default function LandingPage({ onLoadExample, onOpenSidebar }: LandingPag
         </div>
 
         <p className="text-[11px] text-[var(--text2)] opacity-40">
-          100% client-side · no data leaves your browser · <a href="https://github.com/IlkhamFY/molparetolab" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-70">open source</a> · <a href="https://github.com/IlkhamFY/molparetolab/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-70">contribute</a>
+          100% client-side · no data leaves your browser · <a href="https://github.com/IlkhamFY/paretomol" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-70">open source</a> · <a href="https://github.com/IlkhamFY/paretomol/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-70">contribute</a>
         </p>
 
         <details className="mt-6 text-[12px] text-[var(--text2)] text-left">

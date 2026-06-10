@@ -422,7 +422,7 @@ export default function App() {
   title = {ParetoMol: Interactive Multi-Objective Pareto Analysis of Drug-Like Molecules},
   year = {2026},
   url = {https://paretomol.com},
-  note = {Client-side web application. Source: https://github.com/IlkhamFY/molparetolab}
+  note = {Client-side web application. Source: https://github.com/IlkhamFY/paretomol}
 }`;
     navigator.clipboard.writeText(citation).then(
       () => setToast('BibTeX citation copied'),
@@ -571,9 +571,9 @@ export default function App() {
           <span>·</span>
           <span>Client-side only</span>
           <span>·</span>
-          <a href="https://github.com/IlkhamFY/molparetolab" target="_blank" className="hover:text-[var(--text2)] transition-colors">Open Source</a>
+          <a href="https://github.com/IlkhamFY/paretomol" target="_blank" className="hover:text-[var(--text2)] transition-colors">Open Source</a>
           <span>·</span>
-          <a href="https://github.com/IlkhamFY/molparetolab/blob/main/CONTRIBUTING.md" target="_blank" className="hover:text-[var(--text2)] transition-colors">Contribute</a>
+          <a href="https://github.com/IlkhamFY/paretomol/blob/main/CONTRIBUTING.md" target="_blank" className="hover:text-[var(--text2)] transition-colors">Contribute</a>
         </footer>
       )}
 

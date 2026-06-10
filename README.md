@@ -1,6 +1,6 @@
 <p align="center">
-  <img src="docs/logo-light.svg#gh-light-mode-only" alt="ParetoMol" height="68">
-  <img src="docs/logo-dark.svg#gh-dark-mode-only" alt="ParetoMol" height="68">
+  <img src=".github/logo-light.svg#gh-light-mode-only" alt="ParetoMol" height="68">
+  <img src=".github/logo-dark.svg#gh-dark-mode-only" alt="ParetoMol" height="68">
 </p>
 
 <p align="center"><strong>Multi-objective Pareto analysis of drug-like molecules. Entirely in your browser.</strong></p>
@@ -81,8 +81,8 @@ The workflow no other tool provides: **load > analyze > predict > re-Pareto > fi
 ## Development
 
 ```bash
-git clone https://github.com/IlkhamFY/molparetolab.git
-cd molparetolab && npm install && npm run dev
+git clone https://github.com/IlkhamFY/paretomol.git
+cd paretomol && npm install && npm run dev
 ```
 
 TypeScript strict mode. `npx tsc -b && npx vite build` must pass.

@@ -43,7 +43,7 @@ const sections: Section[] = [
       {
         id: 'open-source',
         q: 'Is it open source?',
-        a: <p>Yes. The full source code is available on <a href="https://github.com/IlkhamFY/molparetolab" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline">GitHub</a> under the MIT license. Contributions, bug reports, and feature requests are welcome.</p>,
+        a: <p>Yes. The full source code is available on <a href="https://github.com/IlkhamFY/paretomol" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline">GitHub</a> under the MIT license. Contributions, bug reports, and feature requests are welcome.</p>,
       },
       {
         id: 'free',
@@ -373,7 +373,7 @@ https://paretomol.com (2026).`}</pre>
       {
         id: 'contribute',
         q: 'How can I contribute or report a bug?',
-        a: <p>Open an issue or pull request on <a href="https://github.com/IlkhamFY/molparetolab" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline">GitHub</a>. Feature requests, bug reports, and documentation improvements are all welcome. If you use ParetoMol in your research and want to collaborate, reach out at <a href="mailto:ilkhamfy@gmail.com" className="text-[var(--accent)] hover:underline">ilkhamfy@gmail.com</a>.</p>,
+        a: <p>Open an issue or pull request on <a href="https://github.com/IlkhamFY/paretomol" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline">GitHub</a>. Feature requests, bug reports, and documentation improvements are all welcome. If you use ParetoMol in your research and want to collaborate, reach out at <a href="mailto:ilkhamfy@gmail.com" className="text-[var(--accent)] hover:underline">ilkhamfy@gmail.com</a>.</p>,
       },
     ],
   },
@@ -510,7 +510,7 @@ export default function DocsPage({ onClose }: DocsPageProps) {
             <div className="border-t border-[var(--border-5)] pt-8 mt-4 text-[12px] text-[var(--text2)]/50 text-center space-x-2">
               <span>ParetoMol</span>
               <span>·</span>
-              <a href="https://github.com/IlkhamFY/molparetolab" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text2)] transition-colors">GitHub</a>
+              <a href="https://github.com/IlkhamFY/paretomol" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text2)] transition-colors">GitHub</a>
               <span>·</span>
               <a href="https://ilkham.com" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text2)] transition-colors">ilkham.com</a>
             </div>

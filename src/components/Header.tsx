@@ -167,7 +167,7 @@ export default function Header({ moleculeCount, onReset, onExportCSV, onExportJS
 
         {/* Star + Feedback */}
         <a
-          href="https://github.com/IlkhamFY/molparetolab"
+          href="https://github.com/IlkhamFY/paretomol"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-[var(--text2)] bg-[var(--surface2)] border border-[var(--border-5)] rounded-md hover:border-[var(--border-20)] hover:text-[var(--text-heading)] transition-colors"
@@ -175,7 +175,7 @@ export default function Header({ moleculeCount, onReset, onExportCSV, onExportJS
           <GitHubIcon /> <span className="hidden sm:inline">Star</span>
         </a>
         <a
-          href="https://github.com/IlkhamFY/molparetolab/issues"
+          href="https://github.com/IlkhamFY/paretomol/issues"
           target="_blank"
           rel="noopener noreferrer"
           className="hidden sm:flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-[var(--text2)] bg-[var(--surface2)] border border-[var(--border-5)] rounded-md hover:border-[var(--border-20)] hover:text-[var(--text-heading)] transition-colors"

@@ -4,8 +4,8 @@ Thanks for your interest in contributing! ParetoMol is an open-source tool for m
 
 ## Ways to contribute
 
-- **Bug reports** — found something broken? [Open an issue](https://github.com/IlkhamFY/molparetolab/issues/new?template=bug_report.md)
-- **Feature requests** — have an idea? [Start a discussion](https://github.com/IlkhamFY/molparetolab/issues/new?template=feature_request.md)
+- **Bug reports** — found something broken? [Open an issue](https://github.com/IlkhamFY/paretomol/issues/new?template=bug_report.md)
+- **Feature requests** — have an idea? [Start a discussion](https://github.com/IlkhamFY/paretomol/issues/new?template=feature_request.md)
 - **Code** — fix a bug, add a feature, improve performance
 - **Documentation** — improve the docs, add examples, fix typos
 - **Testing** — try the tool on your own datasets and report what works / doesn't
@@ -13,8 +13,8 @@ Thanks for your interest in contributing! ParetoMol is an open-source tool for m
 ## Getting started
 
 ```bash
-git clone https://github.com/IlkhamFY/molparetolab.git
-cd molparetolab
+git clone https://github.com/IlkhamFY/paretomol.git
+cd paretomol
 npm install
 npm run dev
 ```
@@ -64,7 +64,7 @@ src/
 
 ## Issues labeled `good first issue`
 
-Look for issues tagged [`good first issue`](https://github.com/IlkhamFY/molparetolab/labels/good%20first%20issue) if you're new to the project. These are scoped, well-defined tasks with clear acceptance criteria.
+Look for issues tagged [`good first issue`](https://github.com/IlkhamFY/paretomol/labels/good%20first%20issue) if you're new to the project. These are scoped, well-defined tasks with clear acceptance criteria.
 
 ## Communication
 
