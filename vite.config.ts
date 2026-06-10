@@ -1,5 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from 'tailwindcss'
+import autoprefixer from 'autoprefixer'
 import fs from 'fs'
 import path from 'path'
 
@@ -24,6 +26,11 @@ export default defineConfig({
     },
   ],
   base: '/',
+  css: {
+    postcss: {
+      plugins: [tailwindcss(), autoprefixer()],
+    },
+  },
   build: {
     copyPublicDir: false, // handled by copy-public-wsl plugin above
   },
