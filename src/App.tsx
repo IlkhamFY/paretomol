@@ -13,9 +13,12 @@ import type { SerializedMolecule } from './utils/session';
 import { packFingerprint, parseAndAnalyze, filterBySubstructure } from './utils/chem';
 import { useTheme } from './contexts/ThemeContext';
 import { detectLocalServer } from './utils/admetTiers';
+import { fetchRAScore, getRascoreUrl } from './utils/rascore';
+import { fetchBuyabilityBatch } from './utils/cost';
+import { fetchZincPrices } from './utils/zinc';
 
 import { getInitialPayloadFromUrl, getInitialTabFromUrl, getShareableUrl } from './utils/share';
-import { downloadCSV, downloadJSON, downloadSDF, downloadSDFPareto } from './utils/export';
+import { downloadCSV, downloadScoredCSV, downloadJSON, downloadSDF, downloadSDFPareto, downloadManifest } from './utils/export';
 import { clearSvgCache } from './utils/chem';
 import { applyPropertyFilters } from './components/PropertyFilters';
 
@@ -344,6 +347,86 @@ export default function App() {
     setMolecules(updated);
   };
 
+  // Compute make-ability scores (Ertl SA, RAScore, SCScore) for every molecule via the
+  // micro-service. Lifted to App so it can be triggered from either the sidebar or the
+  // Make-ability tab; merges results into customProps, prop names, and Pareto objectives.
+  const handleComputeMakeability = useCallback(async () => {
+    if (molecules.length === 0) return { sa: 0, ra: 0, sc: 0, total: 0 };
+    const map = await fetchRAScore(molecules.map(m => m.smiles), getRascoreUrl());
+    let sa = 0, ra = 0, sc = 0;
+    for (const v of map.values()) {
+      if (v.sa !== undefined) sa++;
+      if (v.ra !== undefined) ra++;
+      if (v.sc !== undefined) sc++;
+    }
+    setMolecules(prev => prev.map(m => {
+      const v = map.get(m.smiles);
+      if (!v) return m;
+      const cp = { ...m.customProps };
+      if (v.sa !== undefined) cp.SA_Score = v.sa;
+      if (v.ra !== undefined) cp.RAScore = v.ra;
+      if (v.sc !== undefined) cp.SCScore = v.sc;
+      return { ...m, customProps: cp };
+    }));
+    setCustomPropNames(prev => {
+      const n = [...prev];
+      if (sa > 0 && !n.includes('SA_Score')) n.push('SA_Score');
+      if (ra > 0 && !n.includes('RAScore')) n.push('RAScore');
+      if (sc > 0 && !n.includes('SCScore')) n.push('SCScore');
+      return n.length === prev.length ? prev : n;
+    });
+    setParetoObjectives(prev => {
+      const n = [...prev];
+      if (sa > 0 && !n.some(o => o.key === 'SA_Score')) n.push({ key: 'SA_Score', direction: 'min' as const });
+      if (ra > 0 && !n.some(o => o.key === 'RAScore')) n.push({ key: 'RAScore', direction: 'max' as const });
+      if (sc > 0 && !n.some(o => o.key === 'SCScore')) n.push({ key: 'SCScore', direction: 'min' as const });
+      return n.length === prev.length ? prev : n;
+    });
+    const total = molecules.length;
+    setToast(sa + ra + sc === 0
+      ? 'Make-ability: no scores returned — check the endpoint'
+      : `Make-ability: ${sa} SA, ${ra} RAScore, ${sc} SCScore (of ${total})`);
+    return { sa, ra, sc, total };
+  }, [molecules]);
+
+  // Commercial availability (PubChem vendor counts) → adds 'Vendors' as a Pareto objective.
+  const handleCheckBuyability = useCallback(async () => {
+    if (molecules.length === 0) return { resolved: 0, buyable: 0, total: 0 };
+    const map = await fetchBuyabilityBatch(molecules.map(m => m.smiles));
+    let resolved = 0, buyable = 0;
+    for (const b of map.values()) { resolved++; if (b.vendors > 0) buyable++; }
+    setMolecules(prev => prev.map(m => {
+      const b = map.get(m.smiles);
+      return b ? { ...m, customProps: { ...m.customProps, Vendors: b.vendors, PubChemCID: b.cid } } : m;
+    }));
+    if (resolved > 0) {
+      setCustomPropNames(prev => prev.includes('Vendors') ? prev : [...prev, 'Vendors']);
+      setParetoObjectives(prev => prev.some(o => o.key === 'Vendors') ? prev : [...prev, { key: 'Vendors', direction: 'max' as const }]);
+    }
+    setToast(resolved === 0
+      ? 'Buyability: PubChem did not respond (likely throttled) — try again'
+      : `Buyability: ${buyable}/${resolved} purchasable`);
+    return { resolved, buyable, total: molecules.length };
+  }, [molecules]);
+
+  // ZINC-22 catalog availability → adds 'ZINC catalogs' as a plottable axis.
+  const handleCheckAvailability = useCallback(async () => {
+    if (molecules.length === 0) return { inZinc: 0, total: 0 };
+    const map = await fetchZincPrices(molecules.map(m => m.smiles));
+    let inZinc = 0;
+    for (const z of map.values()) { if (z.purchasable) inZinc++; }
+    setMolecules(prev => prev.map(m => {
+      const z = map.get(m.smiles);
+      if (!z) return m;
+      const cp = { ...m.customProps };
+      if (z.catalogs > 0) cp.ZincCatalogs = z.catalogs;
+      return { ...m, cost: z, customProps: cp };
+    }));
+    if (inZinc > 0) setCustomPropNames(prev => prev.includes('ZincCatalogs') ? prev : [...prev, 'ZincCatalogs']);
+    setToast(`ZINC: ${inZinc}/${molecules.length} found in vendor catalogs`);
+    return { inZinc, total: molecules.length };
+  }, [molecules]);
+
   const handleShareURL = () => {
     if (molecules.length === 0) return;
     const currentTab = new URLSearchParams(window.location.search).get('tab') ?? undefined;
@@ -360,6 +443,14 @@ export default function App() {
     if (molecules.length === 0) return;
     downloadCSV(molecules);
     setToast('CSV exported');
+  };
+
+  // Researcher round-trip: their molecules back as a clean CSV with the make-ability
+  // scores (and any imported/formula columns) appended — same numbers the app shows.
+  const handleExportScores = () => {
+    if (molecules.length === 0) return;
+    downloadScoredCSV(moleculesWithFormulas, allCustomPropNames);
+    setToast('Scored CSV exported');
   };
 
   const exportContainerRef = useRef<HTMLDivElement>(null);
@@ -417,12 +508,14 @@ export default function App() {
   }, [molecules, moleculesWithFormulas, substructureFilter, propertyFilters]);
 
   const handleCite = () => {
-    const citation = `@software{paretomol2026,
-  author = {Yabbarov, Ilkham},
-  title = {ParetoMol: Interactive Multi-Objective Pareto Analysis of Drug-Like Molecules},
-  year = {2026},
-  url = {https://paretomol.com},
-  note = {Client-side web application. Source: https://github.com/IlkhamFY/paretomol}
+    const citation = `@article{yabbarov2026paretomol,
+  author  = {Yabbarov, Ilkham and Vargas-Hernández, Rodrigo A.},
+  title   = {ParetoMol: A Free Web Application for Multi-Objective Pareto Analysis of Molecular Safety and Pharmacokinetics},
+  journal = {ChemRxiv},
+  year    = {2026},
+  doi     = {10.26434/chemrxiv.15002217/v1},
+  url     = {https://doi.org/10.26434/chemrxiv.15002217/v1},
+  note    = {Preprint}
 }`;
     navigator.clipboard.writeText(citation).then(
       () => setToast('BibTeX citation copied'),
@@ -433,7 +526,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen max-w-[100vw] overflow-x-hidden bg-[var(--bg-deep)] flex flex-col font-sans text-[var(--text)]">
+    <div className="h-screen max-w-[100vw] overflow-hidden bg-[var(--bg-deep)] flex flex-col font-sans text-[var(--text)]">
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 bg-[var(--surface2)] border border-[var(--accent)] rounded-md text-sm text-[var(--text)] shadow-lg animate-fade-in">
           {toast}
@@ -465,13 +558,14 @@ export default function App() {
         onExportSDF={() => { if (molecules.length > 0) { downloadSDF(molecules); setToast('SDF exported (all)'); } }}
         onExportSDFPareto={() => { const pareto = molecules.filter(m => m.paretoRank === 1); if (pareto.length > 0) { downloadSDFPareto(molecules); setToast(`SDF exported (${pareto.length} Pareto-optimal)`); } else { setToast('No Pareto-optimal molecules'); } }}
         onExportFigure={handleExportFigure}
+        onExportManifest={() => { if (molecules.length > 0) { downloadManifest(molecules, paretoObjectives, propertyFilters, substructureFilter, formulaColumns); setToast('Reproducibility manifest exported'); } }}
         onCite={handleCite}
         onDocs={() => setDocsOpen(true)}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen(v => !v)}
       />
 
-      <main className="flex-1 flex min-h-[calc(100vh-73px)] relative">
+      <main className="flex-1 flex min-h-0 relative">
         {/* Mobile sidebar backdrop */}
         {sidebarOpen && (
           <div
@@ -539,7 +633,7 @@ export default function App() {
           />
         </div>
 
-        <div className="flex-1 bg-[var(--bg)] min-w-0">
+        <div className="flex-1 bg-[var(--bg)] min-w-0 min-h-0">
           <Content
             molecules={filteredMolecules}
             compareIndices={compareIndices}
@@ -549,7 +643,12 @@ export default function App() {
             setCompareIndices={setCompareIndices}
             isInitialLoading={isInitialLoading}
             customPropNames={allCustomPropNames}
+            paretoObjectives={paretoObjectives}
             onADMETPredictions={handleADMETPredictions}
+            onComputeMakeability={handleComputeMakeability}
+            onCheckBuyability={handleCheckBuyability}
+            onCheckAvailability={handleCheckAvailability}
+            onExportScores={handleExportScores}
             onLoadExample={handleLoadExample}
             onOpenSidebar={() => setSidebarOpen(true)}
             activeTab={activeTab}
@@ -564,18 +663,6 @@ export default function App() {
           />
         </div>
       </main>
-
-      {molecules.length > 0 && (
-        <footer className="text-center py-3 text-[11px] text-[var(--text2)]/40 space-x-1">
-          <span>Created by <a href="https://ilkham.com" target="_blank" className="hover:text-[var(--text2)] transition-colors underline-offset-2">Ilkham Yabbarov</a></span>
-          <span>·</span>
-          <span>Client-side only</span>
-          <span>·</span>
-          <a href="https://github.com/IlkhamFY/paretomol" target="_blank" className="hover:text-[var(--text2)] transition-colors">Open Source</a>
-          <span>·</span>
-          <a href="https://github.com/IlkhamFY/paretomol/blob/main/CONTRIBUTING.md" target="_blank" className="hover:text-[var(--text2)] transition-colors">Contribute</a>
-        </footer>
-      )}
 
       <button
         onClick={() => setIsCopilotOpen(true)}

@@ -1,4 +1,4 @@
-import type { Molecule, ParetoObjective } from './types';
+import type { Molecule, ParetoObjective, FormulaColumn } from './types';
 import { PROPERTIES, DRUG_FILTERS } from './types';
 
 /** Escape a single CSV field value (wrap in quotes, double any internal quotes). */
@@ -103,6 +103,45 @@ export function downloadCSV(molecules: Molecule[], filename = 'paretomol_export.
   URL.revokeObjectURL(a.href);
 }
 
+/** Minimal CSV cell: quote only when the value contains a comma, quote, or newline.
+ *  Numbers stay unquoted so the file is clean and parses with pandas out of the box. */
+function csvCell(val: unknown): string {
+  if (val === null || val === undefined) return '';
+  const s = String(val);
+  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+/** Researcher-friendly "scored" CSV: each molecule's identity plus every custom column —
+ *  the columns imported from the source file (kept in their original order and names) and
+ *  the computed make-ability scores SA_Score / RAScore / SCScore, alongside any
+ *  formula/assay columns. Pandas-ready: no leading comment line, minimal quoting, so a
+ *  researcher drops in a file and gets it straight back with the scores appended. */
+export function buildScoredCSV(molecules: Molecule[], propNames: string[]): string {
+  const header = ['smiles', 'name', ...propNames].map(csvCell).join(',') + '\n';
+  const rows = molecules.map((m) => {
+    const cells = [
+      csvCell(m.smiles || ''),
+      csvCell(m.name || ''),
+      ...propNames.map((k) => {
+        const v = m.customProps?.[k];
+        return v === undefined || v === null || (typeof v === 'number' && !isFinite(v)) ? '' : csvCell(v);
+      }),
+    ];
+    return cells.join(',') + '\n';
+  });
+  return header + rows.join('');
+}
+
+/** Trigger download of the scored CSV. */
+export function downloadScoredCSV(molecules: Molecule[], propNames: string[], filename = 'paretomol_scored.csv'): void {
+  const blob = new Blob([buildScoredCSV(molecules, propNames)], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 /** Build SDF export with properties as SD tags.
  *  Uses RDKit.js molblock if available, otherwise a stub molblock. */
 export function buildExportSDF(molecules: Molecule[]): string {
@@ -189,6 +228,52 @@ export function buildExportJSON(molecules: Molecule[]): string {
 export function downloadJSON(molecules: Molecule[], filename = 'paretomol_export.json'): void {
   const json = buildExportJSON(molecules);
   const blob = new Blob([json], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ─── Reproducibility manifest ────────────────────────────────────────────────
+// A self-contained, re-runnable record of the analysis: the exact objectives,
+// filters, and derived columns; the input molecules; tool/data versions; and a
+// timestamp. Makes any ParetoMol result citable and reproducible.
+export function downloadManifest(
+  molecules: Molecule[],
+  objectives: ParetoObjective[],
+  propertyFilters: Record<string, { min: number; max: number }>,
+  substructureFilter: string,
+  formulaColumns: FormulaColumn[],
+  filename = 'paretomol_manifest.json'
+): void {
+  const manifest = {
+    tool: 'ParetoMol',
+    url: 'https://paretomol.com',
+    generatedAt: new Date().toISOString(),
+    methods: {
+      descriptors: 'RDKit.js 2025.03 (WebAssembly, client-side)',
+      fingerprint: 'Morgan ECFP4, 2048-bit',
+      admet: 'ADMET-AI v2.0.1 (Chemprop D-MPNN, Therapeutics Data Commons)',
+      chembl: 'ChEMBL 34',
+    },
+    analysis: {
+      objectives: objectives.map(o => ({ key: o.key, direction: o.direction })),
+      propertyFilters,
+      substructureFilter: substructureFilter || null,
+      formulaColumns: formulaColumns.map(f => ({ name: f.name, expr: f.expr })),
+      nMolecules: molecules.length,
+      nParetoOptimal: molecules.filter(m => m.paretoRank === 1).length,
+    },
+    molecules: molecules.map(m => ({
+      name: m.name,
+      smiles: m.smiles,
+      paretoRank: m.paretoRank ?? null,
+      props: { ...m.props },
+      customProps: { ...m.customProps },
+    })),
+  };
+  const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = filename;
@@ -339,6 +424,88 @@ export function buildSummaryReport(
   );
 
   return lines.join('\n');
+}
+
+// ─── Figure export (editable SVG) ────────────────────────────────────────────
+
+function triggerDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  // Defer cleanup: revoking the object URL synchronously after click() can cancel
+  // the (async) download in some browsers.
+  setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 0);
+}
+
+function svgIntrinsicSize(svg: SVGSVGElement): { w: number; h: number } {
+  const wAttr = parseFloat(svg.getAttribute('width') || '');
+  const hAttr = parseFloat(svg.getAttribute('height') || '');
+  if (isFinite(wAttr) && isFinite(hAttr) && wAttr > 0 && hAttr > 0) return { w: wAttr, h: hAttr };
+  const vb = svg.getAttribute('viewBox');
+  if (vb) { const p = vb.split(/[ ,]+/).map(Number); if (p.length === 4 && p[2] > 0) return { w: p[2], h: p[3] }; }
+  const r = svg.getBoundingClientRect();
+  return { w: r.width || 200, h: r.height || 150 };
+}
+
+/**
+ * Export the active view as a single editable SVG file.
+ * 2D structure depictions (RDKit) are written as true vector graphics; Chart.js
+ * canvases are embedded as raster `<image>` elements so the resulting .svg is
+ * always placeable in a vector editor / manuscript. Returns false if nothing
+ * exportable was found. Background matches the app's current theme.
+ */
+export function exportViewAsSVG(container: HTMLElement, filename = 'paretomol_figure.svg'): boolean {
+  const NS = 'http://www.w3.org/2000/svg';
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#ffffff';
+
+  // Only export figure-sized SVGs (2D depictions/heatmaps), skipping UI-chrome
+  // icons (chevrons, info/download glyphs, which live inside buttons or are tiny).
+  const MIN_FIG = 64; // px
+  const svgEls = (Array.from(container.querySelectorAll('svg')) as SVGSVGElement[])
+    .filter(s => {
+      if (s.closest('button')) return false;
+      const r = s.getBoundingClientRect();
+      return r.width >= MIN_FIG && r.height >= MIN_FIG;
+    });
+  const canvases = Array.from(container.querySelectorAll('canvas'))
+    .filter((c): c is HTMLCanvasElement => c instanceof HTMLCanvasElement && c.width > 0 && c.height > 0);
+
+  // Export vector structures and chart canvases together so a tab with both
+  // (or only one) always yields the actual figure rather than an icon grid.
+  const cells: { content: string; w: number; h: number }[] = [];
+  for (const svg of svgEls) {
+    const { w, h } = svgIntrinsicSize(svg);
+    const viewBox = svg.getAttribute('viewBox') || `0 0 ${w} ${h}`;
+    cells.push({ content: `<svg x="0" y="0" width="${w}" height="${h}" viewBox="${viewBox}" xmlns="${NS}">${svg.innerHTML}</svg>`, w, h });
+  }
+  for (const c of canvases) {
+    cells.push({ content: `<image x="0" y="0" width="${c.width}" height="${c.height}" href="${c.toDataURL('image/png')}" />`, w: c.width, h: c.height });
+  }
+  if (cells.length === 0) return false;
+
+  const pad = 12;
+  const ncols = cells.length === 1 ? 1 : 2;
+  const nrows = Math.ceil(cells.length / ncols);
+  const cellW = Math.max(...cells.map(c => c.w));
+  const cellH = Math.max(...cells.map(c => c.h));
+  const totalW = ncols * cellW + (ncols + 1) * pad;
+  const totalH = nrows * cellH + (nrows + 1) * pad;
+
+  const body = cells.map((cell, i) => {
+    const x = pad + (i % ncols) * (cellW + pad);
+    const y = pad + Math.floor(i / ncols) * (cellH + pad);
+    return `<g transform="translate(${x},${y})">${cell.content}</g>`;
+  }).join('');
+
+  const doc = `<?xml version="1.0" encoding="UTF-8"?>\n` +
+    `<svg xmlns="${NS}" xmlns:xlink="http://www.w3.org/1999/xlink" width="${totalW}" height="${totalH}" ` +
+    `viewBox="0 0 ${totalW} ${totalH}"><rect width="100%" height="100%" fill="${bg}"/>${body}</svg>`;
+  triggerDownload(new Blob([doc], { type: 'image/svg+xml' }), filename);
+  return true;
 }
 
 /** Download the summary report as a .md file. */

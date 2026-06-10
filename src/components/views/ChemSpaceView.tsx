@@ -3,6 +3,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { UMAP } from 'umap-js';
 import type { Molecule } from '../../utils/types';
 import { PROPERTIES } from '../../utils/types';
+import { morganFpStrings } from '../../utils/chem';
 
 interface ChemSpaceViewProps {
   molecules: Molecule[];
@@ -35,6 +36,12 @@ const PROJECTION_OPTIONS: { value: ProjectionMethod; label: string }[] = [
   { value: 'umap', label: 'UMAP' },
   { value: 'pca', label: 'PCA' },
   { value: 'tsne', label: 't-SNE' },
+];
+
+const FP_OPTIONS: { value: number; label: string }[] = [
+  { value: 2, label: 'ECFP4 (r=2)' },
+  { value: 3, label: 'ECFP6 (r=3)' },
+  { value: 6, label: 'ECFP12 (r=6)' },
 ];
 
 /** Convert bit-string fingerprint → Float32Array for UMAP */
@@ -282,6 +289,7 @@ function ChemSpaceView({
 
   const [colorBy, setColorBy] = useState<ColorBy>('pareto');
   const [projection, setProjection] = useState<ProjectionMethod>('umap');
+  const [fpRadius, setFpRadius] = useState(2);
   const [embedding, setEmbedding] = useState<number[][] | null>(null);
   const [isComputing, setIsComputing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -311,7 +319,7 @@ function ChemSpaceView({
     // Defer to next tick so the spinner renders first
     const timer = setTimeout(async () => {
       try {
-        const fps = molecules.map(m => fpToVector(m.fingerprint));
+        const fps = morganFpStrings(molecules, fpRadius).map(fpToVector);
 
         // Check for degenerate case: all identical fingerprints
         const first = fps[0];
@@ -356,7 +364,7 @@ function ChemSpaceView({
     }, 0);
 
     return () => clearTimeout(timer);
-  }, [molecules, projection]);
+  }, [molecules, projection, fpRadius]);
 
   // ── Get point color ─────────────────────────────────────────────────────────
   const getColor = useCallback(
@@ -602,12 +610,26 @@ function ChemSpaceView({
         <div>
           <h3 className="text-[14px] font-medium text-[var(--text-heading)]">Chemical Space Explorer</h3>
           <p className="text-[12px] text-[var(--text2)] mt-0.5">
-            2D {projectionLabel} projection of Morgan fingerprints (radius 2, 2048 bits) — points closer together = more structurally similar
+            2D {projectionLabel} projection of Morgan fingerprints (radius {fpRadius}, 2048 bits) — points closer together = more structurally similar
           </p>
         </div>
 
         {/* Dropdowns */}
         <div className="flex items-center gap-4 shrink-0">
+          {/* Fingerprint selector */}
+          <div className="flex items-center gap-2 text-[12px] text-[var(--text2)]">
+            <label htmlFor="fp-radius" className="whitespace-nowrap">Fingerprint</label>
+            <select
+              id="fp-radius"
+              value={fpRadius}
+              onChange={e => setFpRadius(Number(e.target.value))}
+              className="bg-[var(--bg)] border border-[var(--border-10)] text-[var(--text)] text-[12px] rounded px-2 py-1 focus:outline-none focus:border-[var(--accent)]"
+            >
+              {FP_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
           {/* Projection selector */}
           <div className="flex items-center gap-2 text-[12px] text-[var(--text2)]">
             <label htmlFor="projection-method" className="whitespace-nowrap">Projection</label>

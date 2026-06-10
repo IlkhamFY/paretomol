@@ -252,6 +252,74 @@ CC(=O)Oc1ccccc1C(=O)O,aspirin,45.2,12.1`}</pre>
     ],
   },
   {
+    id: 'makeability',
+    title: 'Make-ability & cost',
+    questions: [
+      {
+        id: 'make-overview',
+        q: 'Make-ability — what does this tab show?',
+        a: (
+          <>
+            <p>The Make-ability tab answers one question for each compound: <em>can I make or buy this, and how easily?</em> Every molecule is ranked by synthetic difficulty (1 easy – 10 hard) and given a make-vs-buy call once commercial availability is known:</p>
+            <ul className="list-disc pl-5 mt-2 space-y-1">
+              <li><strong>buy</strong> — commercial vendors found; purchase rather than synthesize</li>
+              <li><strong>make</strong> — no vendors found, but tractable to synthesize</li>
+              <li><strong>hard to source</strong> — no vendors and high predicted synthetic difficulty</li>
+            </ul>
+            <p className="mt-2">By default the tab shows the instant client-side estimate (labelled <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">est.</code>). Use <strong>Compute SA / RA / SC</strong> in the tab header to replace it with exact, literature-validated synthesizability scores, and <strong>Check buyability</strong> / <strong>Check availability</strong> in the sidebar to add commercial sourcing.</p>
+          </>
+        ),
+      },
+      {
+        id: 'make-scores',
+        q: 'What are the SA score, RAScore, and SCScore?',
+        a: (
+          <>
+            <p>Three complementary, literature-validated synthesizability scores, computed on demand by a free micro-service (no API key). Click <strong>Compute SA / RA / SC</strong> in the Make-ability tab header — each is added as a Pareto objective:</p>
+            <ul className="list-disc pl-5 mt-2 space-y-1">
+              <li><strong>SA score</strong> — Ertl &amp; Schuffenhauer synthetic accessibility (J. Cheminform. 2009). 1 = readily synthesizable, 10 = difficult. The exact RDKit reference implementation; it replaces the instant estimate in place.</li>
+              <li><strong>RAScore</strong> — retrosynthetic accessibility (Thakkar et al., Chem. Sci. 2021). The probability (0 hard – 1 easy) that AiZynthFinder can find a synthesis route.</li>
+              <li><strong>SCScore</strong> — synthetic complexity (Coley et al., J. Chem. Inf. Model. 2018). 1 simple – 5 complex, learned from a large reaction corpus.</li>
+            </ul>
+            <p className="mt-2">All three run server-side because they need unfolded fragment counts (SA) or pretrained models (RA, SC) that exceed what the in-browser fingerprint API exposes. Only SMILES are sent to the endpoint; nothing is stored.</p>
+          </>
+        ),
+      },
+      {
+        id: 'make-estimate',
+        q: 'How is the instant make-ability estimate computed?',
+        a: (
+          <>
+            <p>A transparent, descriptor-based proxy computed instantly client-side from structural drivers chemists recognize — no network needed. A linear penalty is accumulated and mapped onto a saturating 1–10 scale:</p>
+            <pre className="mt-2 bg-[var(--surface2)] p-3 rounded text-[11px] font-mono overflow-x-auto whitespace-pre-wrap">{`raw = 1
+    + 0.90 · stereocentres
+    + 1.30 · (spiro + bridgehead atoms)
+    + 0.40 · non-aromatic rings
+    + 0.10 · max(0, heavy atoms − 28)
+    + 1.20 · fraction sp³ carbons
+
+score = 1 + 9 · (1 − exp(−(raw − 1) / 6.6))   → clamped to 1–10`}</pre>
+            <p className="mt-2">Lower is easier to make. It is a triage estimate, not a retrosynthetic route — run <strong>Compute SA / RA / SC</strong> for the exact Ertl SA score. The dominant contributing factors are listed beneath each molecule (e.g. <em>“3 stereocentres · large size”</em>).</p>
+          </>
+        ),
+      },
+      {
+        id: 'make-buyability',
+        q: 'How do I check whether a compound is purchasable?',
+        a: (
+          <>
+            <p>Two free sources, both triggered from the <strong>Make-ability &amp; cost</strong> section of the sidebar:</p>
+            <ul className="list-disc pl-5 mt-2 space-y-1">
+              <li><strong>Check buyability (PubChem)</strong> — commercial vendor count per molecule; adds <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">Vendors</code> as a Pareto axis. Vendor links open the PubChem supplier list, where per-quantity prices are shown.</li>
+              <li><strong>Check availability (ZINC)</strong> — ZINC-22 catalogue availability (in-stock + make-on-demand, e.g. Enamine REAL), catching compounds PubChem misses. ZINC list prices are nominal placeholders — request a vendor quote for real pricing.</li>
+            </ul>
+            <p className="mt-2">Both are free and require no API key; results feed the make-vs-buy call in the ranked list.</p>
+          </>
+        ),
+      },
+    ],
+  },
+  {
     id: 'export',
     title: 'Exporting results',
     questions: [
@@ -349,9 +417,10 @@ CC(=O)Oc1ccccc1C(=O)O,aspirin,45.2,12.1`}</pre>
         q: 'How do I cite ParetoMol?',
         a: (
           <>
-            <p>A manuscript is in preparation. In the meantime, please cite the tool as:</p>
-            <pre className="mt-2 bg-[var(--surface2)] p-3 rounded text-[11px] font-mono overflow-x-auto whitespace-pre-wrap">{`Yabbarov, I. ParetoMol: Multi-Objective Pareto Analysis of Drug-Like Molecules.
-https://paretomol.com (2026).`}</pre>
+            <p>ParetoMol is described in a preprint on ChemRxiv. Please cite:</p>
+            <pre className="mt-2 bg-[var(--surface2)] p-3 rounded text-[11px] font-mono overflow-x-auto whitespace-pre-wrap">{`Yabbarov, I.; Vargas-Hernández, R. A. ParetoMol: A Free Web Application for
+Multi-Objective Pareto Analysis of Molecular Safety and Pharmacokinetics.
+ChemRxiv 2026. DOI: 10.26434/chemrxiv.15002217/v1`}</pre>
             <p className="mt-2">Use the <strong>Cite</strong> button in the header to copy a BibTeX entry.</p>
           </>
         ),
@@ -430,13 +499,6 @@ export default function DocsPage({ onClose }: DocsPageProps) {
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <a
-            href="https://paretomol.com"
-            onClick={onClose}
-            className="text-[12px] text-[var(--accent)] hover:underline"
-          >
-            ← Back to app
-          </a>
           <button
             onClick={toggleTheme}
             className="flex items-center justify-center w-8 h-8 text-[var(--text2)] bg-[var(--surface2)] border border-[var(--border-5)] rounded-md hover:border-[var(--border-20)] transition-colors"

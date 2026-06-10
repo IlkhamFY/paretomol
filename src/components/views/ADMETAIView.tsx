@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import type { Molecule } from '../../utils/types';
-import { getMolSvg } from '../../utils/chem';
+import { getMolSvg, getMolSvgHighlighted, detectStructuralAlerts, type AlertHit } from '../../utils/chem';
+import ApplicabilityDomain from './ApplicabilityDomain';
 import {
   checkAdmetAIHealth,
   predictWithAdmetAI,
@@ -223,11 +224,6 @@ const RISK_THRESHOLD = 0.5;
 /** Structural alert flag keys returned by the ADMET-AI API (boolean 0/1) */
 const ALERT_KEYS = ['PAINS_alert', 'BRENK_alert', 'NIH_alert'] as const;
 type AlertKey = typeof ALERT_KEYS[number];
-const ALERT_LABELS: Record<AlertKey, string> = {
-  PAINS_alert: 'PAINS',
-  BRENK_alert: 'Brenk',
-  NIH_alert: 'NIH',
-};
 
 const CATEGORIES: { id: Category; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -388,11 +384,44 @@ function AtomHeatmapPanel({ smiles, pred }: { smiles: string; pred: Record<strin
   );
 }
 
+const RULESET_COLORS: Record<string, string> = {
+  PAINS: 'bg-[#f97316]/15 text-[#f97316] border-[#f97316]/30',
+  Brenk: 'bg-[#a855f7]/15 text-[#a855f7] border-[#a855f7]/30',
+  NIH: 'bg-[#0ea5e9]/15 text-[#0ea5e9] border-[#0ea5e9]/30',
+};
+
+// Highlight RGBA (0–1) per rule set — colours the isolated fragment in the zoom view.
+const RULESET_RGB: Record<string, [number, number, number, number]> = {
+  PAINS: [0.98, 0.45, 0.09, 0.62],
+  Brenk: [0.66, 0.33, 0.97, 0.58],
+  NIH: [0.05, 0.65, 0.91, 0.58],
+};
+
+/** Collapse a molecule's hits into distinct alerts (by rule set + name), unioning matched atoms/bonds. */
+function distinctAlerts(hits: AlertHit[]): { ruleSet: string; name: string; atoms: number[]; bonds: number[] }[] {
+  const map = new Map<string, { ruleSet: string; name: string; atoms: Set<number>; bonds: Set<number> }>();
+  for (const h of hits) {
+    const key = `${h.ruleSet}:${h.name}`;
+    let e = map.get(key);
+    if (!e) { e = { ruleSet: h.ruleSet, name: h.name, atoms: new Set(), bonds: new Set() }; map.set(key, e); }
+    h.atoms.forEach(a => e!.atoms.add(a));
+    h.bonds.forEach(b => e!.bonds.add(b));
+  }
+  return Array.from(map.values()).map(e => ({ ruleSet: e.ruleSet, name: e.name, atoms: [...e.atoms], bonds: [...e.bonds] }));
+}
+
 function StructuralAlertsPanel({ molecules, structuralAlerts }: {
   molecules: Molecule[];
   structuralAlerts: Map<string, Record<AlertKey, boolean>>;
 }) {
+  useTheme(); // re-render depictions on theme change
   const [expanded, setExpanded] = useState(false); // collapsed by default
+  const [hits, setHits] = useState<Map<string, AlertHit[]>>(new Map());
+  const [detecting, setDetecting] = useState(false);
+  const [zoom, setZoom] = useState<{ mol: Molecule; hits: AlertHit[] } | null>(null);
+  const [zoomAlert, setZoomAlert] = useState<number | null>(null); // index into distinct alerts; null = all
+  const closeZoom = useCallback(() => { setZoom(null); setZoomAlert(null); }, []);
+
   const flagged = useMemo(() =>
     molecules.filter(mol => {
       const a = structuralAlerts.get(mol.smiles);
@@ -400,6 +429,32 @@ function StructuralAlertsPanel({ molecules, structuralAlerts }: {
     }),
     [molecules, structuralAlerts]
   );
+
+  // Localize the offending fragments client-side (RDKit SMARTS) when expanded.
+  useEffect(() => {
+    if (!expanded || flagged.length === 0) return;
+    let cancelled = false;
+    setDetecting(true);
+    (async () => {
+      const map = new Map<string, AlertHit[]>();
+      for (const mol of flagged) {
+        if (cancelled) return;
+        try { map.set(mol.smiles, await detectStructuralAlerts(mol.smiles)); }
+        catch { map.set(mol.smiles, []); }
+        if (!cancelled) setHits(new Map(map)); // progressive reveal
+      }
+      if (!cancelled) setDetecting(false);
+    })();
+    return () => { cancelled = true; };
+  }, [expanded, flagged]);
+
+  // Close the zoom overlay on Escape.
+  useEffect(() => {
+    if (!zoom) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeZoom(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [zoom, closeZoom]);
 
   if (flagged.length === 0) {
     return (
@@ -409,45 +464,139 @@ function StructuralAlertsPanel({ molecules, structuralAlerts }: {
     );
   }
 
+  // ── Zoom overlay state (large depiction + per-alert isolation) ──
+  const zoomDistinct = zoom ? distinctAlerts(zoom.hits) : [];
+  const zoomSel = zoom && zoomAlert != null ? zoomDistinct[zoomAlert] : null;
+  const zoomAtoms = zoom ? (zoomSel ? zoomSel.atoms : Array.from(new Set(zoom.hits.flatMap(x => x.atoms)))) : [];
+  const zoomBonds = zoom ? (zoomSel ? zoomSel.bonds : Array.from(new Set(zoom.hits.flatMap(x => x.bonds)))) : [];
+  const zoomSvg = zoom ? getMolSvgHighlighted(zoom.mol.smiles, zoomAtoms, zoomBonds, { width: 560, height: 440, color: zoomSel ? RULESET_RGB[zoomSel.ruleSet] : undefined }) : '';
+
   return (
-    <div className="border border-[var(--border-5)] rounded-lg overflow-hidden">
-      <button
-        onClick={() => setExpanded(v => !v)}
-        className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-[var(--surface)] transition-colors text-left"
-      >
-        <span className="text-[11px] font-medium text-[var(--text2)]">
-          Structural alerts · {flagged.length} molecule{flagged.length !== 1 ? 's' : ''} flagged
-        </span>
-        <svg
-          width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-          className={`text-[var(--text2)]/40 transition-transform ${expanded ? 'rotate-180' : ''}`}
+    <>
+      <div className="border border-[var(--border-5)] rounded-lg overflow-hidden">
+        <button
+          onClick={() => setExpanded(v => !v)}
+          className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-[var(--surface)] transition-colors text-left"
         >
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      </button>
-      {expanded && (
-        <div className="px-3 py-2.5 border-t border-[var(--border-5)] space-y-2">
-          <div className="flex flex-wrap gap-2">
-            {flagged.map(mol => {
-              const a = structuralAlerts.get(mol.smiles)!;
-              return (
-                <div key={mol.smiles} className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--surface)] border border-[var(--border-5)] rounded text-[11px]">
-                  <span className="text-[var(--text)] font-medium truncate max-w-[100px]" title={mol.name}>{mol.name}</span>
-                  {ALERT_KEYS.filter(ak => a[ak]).map(ak => (
-                    <span key={ak} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--border-10)] text-[var(--text2)]">
-                      {ALERT_LABELS[ak]}
-                    </span>
-                  ))}
-                </div>
-              );
-            })}
+          <span className="text-[11px] font-medium text-[var(--text2)]">
+            Structural alerts · {flagged.length} molecule{flagged.length !== 1 ? 's' : ''} flagged
+            {expanded && detecting && <span className="text-[var(--text2)]/50"> · localizing fragments…</span>}
+          </span>
+          <svg
+            width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+            className={`text-[var(--text2)]/40 transition-transform ${expanded ? 'rotate-180' : ''}`}
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+        {expanded && (
+          <div className="px-3 py-2.5 border-t border-[var(--border-5)] space-y-3">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-2.5">
+              {flagged.map(mol => {
+                const h = hits.get(mol.smiles);
+                const atoms = h ? Array.from(new Set(h.flatMap(x => x.atoms))) : [];
+                const bonds = h ? Array.from(new Set(h.flatMap(x => x.bonds))) : [];
+                const svg = h && atoms.length ? getMolSvgHighlighted(mol.smiles, atoms, bonds, { width: 320, height: 240 }) : getMolSvg(mol.smiles);
+                const canZoom = !!(h && atoms.length);
+                // Distinct matched alert names grouped by rule set.
+                const byRule = new Map<string, string[]>();
+                for (const x of h ?? []) {
+                  const arr = byRule.get(x.ruleSet) ?? [];
+                  if (!arr.includes(x.name)) arr.push(x.name);
+                  byRule.set(x.ruleSet, arr);
+                }
+                return (
+                  <div key={mol.smiles} className="rounded-md bg-[var(--surface)] border border-[var(--border-5)] p-2 text-center">
+                    <div
+                      onClick={() => { if (canZoom) { setZoom({ mol, hits: h! }); setZoomAlert(null); } }}
+                      title={canZoom ? 'Click to enlarge and isolate each fragment' : undefined}
+                      className={`relative group flex justify-center items-center h-[150px] mb-1 rounded transition-colors ${canZoom ? 'cursor-zoom-in hover:bg-[var(--bg)]' : ''}`}
+                    >
+                      <div className="flex items-center justify-center [&>svg]:max-h-[150px] [&>svg]:max-w-full" dangerouslySetInnerHTML={{ __html: svg }} />
+                      {canZoom && (
+                        <span className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity text-[var(--text2)] bg-[var(--surface)]/80 rounded p-0.5">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="11" y1="8" x2="11" y2="14" /><line x1="8" y1="11" x2="14" y2="11" /></svg>
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] font-medium text-[var(--text)] truncate" title={mol.name}>{mol.name}</div>
+                    <div className="mt-1 flex flex-wrap justify-center gap-1">
+                      {byRule.size === 0 && (h ? (
+                        <span className="text-[10px] text-[var(--text2)]/50">fragment not localized</span>
+                      ) : (
+                        <span className="text-[10px] text-[var(--text2)]/50">…</span>
+                      ))}
+                      {Array.from(byRule.entries()).map(([rs, names]) => (
+                        <span
+                          key={rs}
+                          title={`${rs}: ${names.join(', ')}`}
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-medium border ${RULESET_COLORS[rs] ?? 'bg-[var(--border-10)] text-[var(--text2)] border-transparent'}`}
+                        >
+                          {rs}: {names.slice(0, 2).join(', ')}{names.length > 2 ? ` +${names.length - 2}` : ''}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-[10px] text-[var(--text2)]/50 leading-relaxed">
+              Highlighted atoms mark the matched substructure — click a molecule to enlarge it and isolate each alert. PAINS: pan-assay interference; Brenk: reactive/undesirable groups; NIH: assay-interference / reactivity. Alert SMARTS from RDKit's FilterCatalog, matched client-side.
+            </p>
           </div>
-          <p className="text-[10px] text-[var(--text2)]/50 leading-relaxed">
-            PAINS: pan-assay interference. Brenk: reactive substructures. NIH: assay interference.
-          </p>
+        )}
+      </div>
+
+      {/* Zoom / inspect overlay */}
+      {zoom && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={closeZoom}
+        >
+          <div
+            className="bg-[var(--surface)] border border-[var(--border-10)] rounded-xl shadow-2xl p-4 w-full max-w-[640px]"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-[14px] font-semibold text-[var(--text-heading)] truncate">{zoom.mol.name}</div>
+              <button
+                type="button"
+                onClick={closeZoom}
+                title="Close (Esc)"
+                className="text-[var(--text2)] hover:text-[var(--text)] p-1 rounded hover:bg-[var(--bg)]"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              </button>
+            </div>
+            <div
+              className="flex justify-center bg-[var(--bg)] rounded-lg p-3 [&>svg]:w-full [&>svg]:h-auto"
+              dangerouslySetInnerHTML={{ __html: zoomSvg }}
+            />
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] text-[var(--text2)] mr-0.5">Show:</span>
+              <button
+                type="button"
+                onClick={() => setZoomAlert(null)}
+                className={`px-2 py-1 rounded text-[11px] font-medium border transition-colors ${zoomAlert === null ? 'bg-[#f97316]/20 text-[#f97316] border-[#f97316]/40' : 'bg-[var(--bg)] text-[var(--text2)] border-[var(--border-10)] hover:text-[var(--text)]'}`}
+              >
+                All fragments
+              </button>
+              {zoomDistinct.map((d, i) => (
+                <button
+                  key={`${d.ruleSet}:${d.name}`}
+                  type="button"
+                  onClick={() => setZoomAlert(i)}
+                  className={`px-2 py-1 rounded text-[11px] font-medium border transition-colors ${zoomAlert === i ? `${RULESET_COLORS[d.ruleSet] ?? ''} ring-1 ring-current` : 'bg-[var(--bg)] text-[var(--text2)] border-[var(--border-10)] hover:text-[var(--text)]'}`}
+                >
+                  {d.ruleSet}: {d.name}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[10px] text-[var(--text2)]/60">Click an alert to isolate its fragment (coloured by rule set). Esc or click outside to close.</p>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -687,7 +836,7 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
             className="px-2 py-1 text-[10px] text-[#5F7367] border border-[#5F7367]/40 rounded hover:bg-[#5F7367]/10 transition-colors"
             title="Deploy your own ADMET-AI Space for unlimited predictions"
           >
-            Get Unlimited ↗
+            Get Unlimited
           </button>
         )}
         <div className="flex-1" />
@@ -812,6 +961,9 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
           </button>
         ))}
       </div>
+
+      {/* Applicability domain — reliability cue for the predictions */}
+      {predictions.size > 0 && <ApplicabilityDomain molecules={molecules} />}
 
       {/* Risk summary — static badges (not clickable, purely informational) */}
       {predictions.size > 0 && (

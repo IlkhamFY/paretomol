@@ -155,12 +155,14 @@ function MatrixTable({ molecules, matrix, onComparePair }: { molecules: Molecule
 const METRIC_LABELS: Record<SimilarityMetric, string> = {
   'tanimoto-r2': 'Tanimoto (ECFP4, r=2)',
   'tanimoto-r3': 'Tanimoto (ECFP6, r=3)',
+  'tanimoto-r6': 'Tanimoto (ECFP12, r=6)',
   'selfies-ted': 'SELFIES-TED (IBM)',
 };
 
 const METRIC_DESCRIPTIONS: Record<SimilarityMetric, string> = {
   'tanimoto-r2': 'Morgan fingerprints (radius 2, 2048 bits) with Tanimoto coefficient',
   'tanimoto-r3': 'Morgan fingerprints (radius 3, 2048 bits) with Tanimoto coefficient',
+  'tanimoto-r6': 'Morgan fingerprints (radius 6, 2048 bits) with Tanimoto coefficient',
   'selfies-ted': 'SELFIES Transformer Encoder (IBM Research, arXiv:2410.12348)',
 };
 

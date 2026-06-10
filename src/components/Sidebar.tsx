@@ -67,8 +67,12 @@ export default function Sidebar({
   const [chemblOpen, setChemblOpen] = useState(false);
   const [targetInput, setTargetInput] = useState('');
   const [targetOpen, setTargetOpen] = useState(false);
+  // Which tool panel is open in the single-row tool strip (null = none); the cards lead.
+  const [openTool, setOpenTool] = useState<'props' | 'substr' | 'range' | null>(null);
+  // ChEMBL assay-format filter: avoid mixing biochemical binding/functional with
+  // cellular readouts (BAO_LABEL). Defaults to binding (single-protein) assays.
+  const [assayFormat, setAssayFormat] = useState<'B' | 'F' | 'all'>('B');
   const [inputCollapsed, setInputCollapsed] = useState(false);
-  const [objectivesExpanded, setObjectivesExpanded] = useState(false);
   const [substructureInput, setSubstructureInput] = useState(substructureFilter);
   const [substructureMatchCount, setSubstructureMatchCount] = useState<number | null>(null);
   const [substructureError, setSubstructureError] = useState(false);
@@ -372,16 +376,30 @@ export default function Sidebar({
 
     try {
       const targetId = targetInput.trim().toUpperCase();
-      const url = `https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=${targetId}&pChEMBL_value__gte=5&limit=500`;
+      // assay_type filter keeps the pulled bioactivities to a single assay format
+      // (binding/functional) so heterogeneous BAO_LABEL readouts are not pooled.
+      const assayParam = assayFormat === 'all' ? '' : `&assay_type=${assayFormat}`;
+      const url = `https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=${targetId}&pchembl_value__gte=5${assayParam}&limit=500`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`ChEMBL API error: ${res.status}`);
       const data = await res.json();
 
       if (!data.activities || data.activities.length === 0) {
-        setStatus({ msg: 'No active compounds found for this target', type: 'error' });
+        setStatus({ msg: 'No active compounds found for this target / assay format', type: 'error' });
         setIsLoading(false);
         return;
       }
+
+      // Summarize BAO_LABEL composition for transparency (reviewer concern: mixing assay formats).
+      const baoCounts = new Map<string, number>();
+      for (const act of data.activities) {
+        const label = act.bao_label || act.assay_type || 'unspecified';
+        baoCounts.set(label, (baoCounts.get(label) ?? 0) + 1);
+      }
+      const baoSummary = Array.from(baoCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(' · ');
 
       // Deduplicate by SMILES, keep best pChEMBL
       const molMap = new Map<string, { smiles: string; name: string; pchembl: number; ic50: number }>();
@@ -429,8 +447,9 @@ export default function Sidebar({
       setCompareIndices([]);
       setSelectedMolIdx(null);
       setInput(lines);
-      setStatus({ msg: `Loaded ${result.molecules.length} compounds from ${targetId} (${data.activities.length} activities)`, type: 'success' });
-      onToast?.(`${result.molecules.length} compounds from ${targetId}`);
+      const fmtLabel = assayFormat === 'B' ? 'binding' : assayFormat === 'F' ? 'functional' : 'all formats';
+      setStatus({ msg: `Loaded ${result.molecules.length} compounds from ${targetId} (${data.activities.length} ${fmtLabel} activities) — assays: ${baoSummary}`, type: 'success' });
+      onToast?.(`${result.molecules.length} compounds from ${targetId} (${fmtLabel})`);
     } catch (e: unknown) {
       setStatus({ msg: `ChEMBL error: ${e instanceof Error ? e.message : String(e)}`, type: 'error' });
     } finally {
@@ -439,7 +458,11 @@ export default function Sidebar({
   };
 
   return (
-    <aside className="border-r border-[var(--border-5)] p-4 sm:p-5 overflow-y-auto h-full max-h-[100vh] md:max-h-[calc(100vh-73px)] custom-scrollbar">
+    <aside className="border-r border-[var(--border-5)] p-4 sm:p-5 flex flex-col h-full max-h-[100vh] md:max-h-[calc(100vh-73px)] overflow-hidden">
+      {/* Controls (input, sections, filters) — recede above the cards; this region
+          scrolls internally only when it is taller than the pane, so the card list
+          below is the single, calm scroll area in the common case. */}
+      <div className="min-h-0 overflow-y-auto custom-scrollbar">
       {/* Collapsed input bar when molecules loaded */}
       {molecules.length > 0 && inputCollapsed ? (
         <button
@@ -448,28 +471,27 @@ export default function Sidebar({
           onDragOver={onDragOver}
           onDragEnter={onDragEnter}
           onDragLeave={onDragLeave}
-          className={`w-full flex items-center justify-between text-[11px] uppercase tracking-[1.2px] font-semibold cursor-pointer select-none hover:text-[var(--text)] transition-colors ${
-            isDragging ? 'p-2.5 border border-dashed border-[#5F7367] bg-[#5F7367]/10 rounded-md text-[var(--text)]' : 'text-[var(--text2)]'
+          className={`w-full flex items-center justify-between text-[11px] uppercase tracking-[1.2px] font-medium cursor-pointer select-none hover:text-[var(--text)] transition-colors ${
+            isDragging ? 'p-2.5 border border-dashed border-[#5F7367] bg-[#5F7367]/10 rounded-md text-[var(--text)]' : 'text-[var(--text2)]/70'
           }`}
         >
           <span>{isDragging ? 'Drop file to import' : `${molecules.length} molecules loaded`}</span>
-          <span className="text-[10px] text-[var(--text2)] font-normal normal-case tracking-normal opacity-50">{isDragging ? '↓' : 'edit'}</span>
         </button>
       ) : (
         <>
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-[11px] uppercase tracking-[1.2px] text-[var(--text2)] font-semibold">
+          {molecules.length > 0 ? (
+            <button
+              onClick={() => setInputCollapsed(true)}
+              title="Collapse"
+              className="w-full flex items-center mb-2 text-[11px] uppercase tracking-[1.2px] text-[var(--text2)]/70 font-medium hover:text-[var(--text)] transition-colors"
+            >
+              Input SMILES
+            </button>
+          ) : (
+            <div className="mb-2 text-[11px] uppercase tracking-[1.2px] text-[var(--text2)]/70 font-medium">
               Input SMILES
             </div>
-            {molecules.length > 0 && (
-              <button
-                onClick={() => setInputCollapsed(true)}
-                className="text-[10px] text-[var(--text2)] hover:text-[var(--text)] transition-colors"
-              >
-                collapse
-              </button>
-            )}
-          </div>
+          )}
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -480,7 +502,7 @@ export default function Sidebar({
             className={`w-full h-[140px] bg-[var(--surface)] border rounded-md text-[var(--text)] font-mono text-[13px] p-3 resize-y outline-none transition-colors focus:border-[var(--accent)] ${
               isDragging ? 'border-[#5F7367] border-dashed bg-[#5F7367]/10' : 'border-[var(--border-5)]'
             }`}
-            placeholder={"SMILES name (one per line):\nCC(=O)Oc1ccccc1C(=O)O aspirin\nCC(C)Cc1ccc(cc1)C(C)C(=O)O ibuprofen\n\nor drop a CSV with SMILES + any numeric columns:\nSMILES,Name,IC50_nM,pIC50,selectivity\nCC(=O)Oc1ccccc1C(=O)O,aspirin,45.2,7.3,12.1\n\nDrag & drop: .sdf .csv .tsv .txt\nAlready loaded? Use 'Add IC50 / assay data' below."}
+            placeholder={"SMILES name (one per line)\nCC(=O)Oc1ccccc1C(=O)O aspirin\nCC(C)Cc1ccc(cc1)C(C)C(=O)O ibuprofen\n\nor drop a CSV, SDF, or TSV file"}
           />
           <div className="flex gap-2 mt-3">
             <button
@@ -581,8 +603,8 @@ export default function Sidebar({
       {/* Quick Load + ChEMBL: show when no molecules, hide behind toggle when loaded */}
       {molecules.length === 0 ? (
         <>
-          <div className="mt-4">
-            <div className="text-[11px] uppercase tracking-[1.2px] text-[var(--text2)] mb-2 font-semibold">
+          <div className="mt-3">
+            <div className="text-[11px] uppercase tracking-[1.2px] text-[var(--text2)]/70 mb-2 font-medium">
               Quick Load
             </div>
             {Object.entries({
@@ -602,7 +624,7 @@ export default function Sidebar({
             ))}
           </div>
 
-          <div className="mt-4">
+          <div className="mt-3">
             <button
               type="button"
               onClick={() => setChemblOpen(!chemblOpen)}
@@ -653,6 +675,18 @@ export default function Sidebar({
                 <p className="mt-1.5 text-[10px] text-[var(--text2)] leading-snug">
                   CHEMBL203 = EGFR · CHEMBL279 = VEGFR2 · CHEMBL301 = BRAF
                 </p>
+                <label className="mt-2 flex items-center gap-2 text-[11px] text-[var(--text2)]" title="Restrict to one assay format so heterogeneous BAO_LABEL readouts (binding vs functional vs cellular) are not pooled into one pChEMBL objective.">
+                  <span>Assay format</span>
+                  <select
+                    value={assayFormat}
+                    onChange={(e) => setAssayFormat(e.target.value as 'B' | 'F' | 'all')}
+                    className="flex-1 bg-[var(--surface)] border border-[var(--border-5)] rounded px-2 py-1 text-[11px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
+                  >
+                    <option value="B">Binding (biochemical)</option>
+                    <option value="F">Functional</option>
+                    <option value="all">All formats (mixed)</option>
+                  </select>
+                </label>
                 <button
                   type="button"
                   onClick={handleFetchTarget}
@@ -669,24 +703,28 @@ export default function Sidebar({
 
       {/* Assay Data Merge — hidden in expanded input view instead */}
 
-      {/* Pareto Objectives Selector */}
+      {/* Tools — one quiet row of triggers; single-open, so the molecule cards lead */}
       {molecules.length > 0 && (
-        <div className="mt-4">
-          <button
-            onClick={() => setObjectivesExpanded(!objectivesExpanded)}
-            className="w-full flex items-center justify-between"
-          >
-            <span className="text-[11px] uppercase tracking-[1.2px] text-[var(--text2)] font-semibold hover:text-[var(--text)] transition-colors">
-              Molecular Properties
-            </span>
-            <span className="text-[10px] text-[var(--text2)] font-normal normal-case tracking-normal opacity-50">
-              {objectivesExpanded ? 'collapse' : 'expand'}
-            </span>
-          </button>
-          {!objectivesExpanded ? null : (
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px]">
+          {([['props', 'Properties'], ['substr', 'Substructure'], ['range', 'Ranges']] as const).map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setOpenTool(o => (o === id ? null : id))}
+              className={openTool === id
+                ? 'text-[var(--accent)] font-medium transition-colors'
+                : 'text-[var(--text2)] hover:text-[var(--text)] transition-colors'}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Molecular Properties panel */}
+      {molecules.length > 0 && openTool === 'props' && (
           <div className="mt-2 p-2 bg-[var(--bg)] border border-[var(--border-5)] rounded-md space-y-1">
-            {/* Built-in properties */}
-            {(['MW', 'LogP', 'HBD', 'HBA', 'TPSA', 'RotBonds'] as const).map(key => {
+            {/* Built-in properties — synthetic complexity (make-ability) leads */}
+            {(['SC', 'MW', 'LogP', 'HBD', 'HBA', 'TPSA', 'RotBonds'] as const).map(key => {
               const obj = paretoObjectives.find(o => o.key === key);
               const isActive = !!obj;
               return (
@@ -703,7 +741,7 @@ export default function Sidebar({
                     }}
                     className="accent-[#5F7367] w-3 h-3"
                   />
-                  <span className="text-[var(--text)] flex-1">{key}</span>
+                  <span className="text-[var(--text)] flex-1" title={key === 'SC' ? 'Fast synthetic-complexity ESTIMATE (1 easy – 10 hard) from structure. Not the Ertl SA score — run ADMET/Predict for the validated SA Score. Lower = easier to make.' : undefined}>{key === 'SC' ? 'Synth. (est.)' : key}</span>
                   {isActive && (
                     <button
                       onClick={() => setParetoObjectives(paretoObjectives.map(o => o.key === key ? { ...o, direction: o.direction === 'min' ? 'max' : 'min' } : o))}
@@ -878,19 +916,12 @@ export default function Sidebar({
               Recompute Pareto
             </button>
           </div>
-          )}
-        </div>
       )}
 
-      {/* Substructure filter — collapsed by default, expands on click */}
-      {molecules.length > 0 && (
-        <details className="mt-4 group">
-          <summary className="text-[11px] uppercase tracking-[1.2px] text-[var(--text2)] font-semibold cursor-pointer select-none hover:text-[var(--text)] transition-colors list-none flex items-center justify-between">
-            <span>Substructure Filter</span>
-            <span className="text-[10px] text-[var(--text2)] font-normal normal-case tracking-normal opacity-50 group-open:hidden">expand</span>
-            <span className="text-[10px] text-[var(--text2)] font-normal normal-case tracking-normal opacity-50 hidden group-open:inline">collapse</span>
-          </summary>
-          <div className="flex gap-1.5 mt-2">
+      {/* Substructure panel */}
+      {molecules.length > 0 && openTool === 'substr' && (
+        <div className="mt-2">
+          <div className="flex gap-1.5">
             <div className="relative flex-1">
               <input
                 ref={substructureInputRef}
@@ -947,18 +978,21 @@ export default function Sidebar({
               <span className="text-[var(--text2)]/60">Press Enter to filter</span>
             )}
           </div>
-        </details>
+        </div>
       )}
 
-      {/* Range Filters */}
-      {molecules.length > 0 && onPropertyFiltersChange && (
+      {/* Range Filters panel */}
+      {molecules.length > 0 && onPropertyFiltersChange && openTool === 'range' && (
         <PropertyFilters
+          headerless
           molecules={molecules}
           paretoObjectives={paretoObjectives}
           propertyFilters={propertyFilters}
           onFiltersChange={onPropertyFiltersChange}
         />
       )}
+
+      </div>
 
       <MoleculeList
         molecules={molecules}
@@ -1026,8 +1060,7 @@ function MoleculeList({ molecules, selectedMolIdx, setSelectedMolIdx, compareInd
   return (
     <div
       ref={containerRef}
-      className="mt-6 flex-1 overflow-y-auto custom-scrollbar pb-20"
-      style={{ maxHeight: 'calc(100vh - 200px)' }}
+      className="mt-3 flex-1 min-h-0 overflow-y-auto custom-scrollbar pb-20"
       onScroll={handleScroll}
     >
       <div style={{ paddingTop: topPad, paddingBottom: bottomPad }}>
@@ -1117,6 +1150,13 @@ function MoleculeCard({ molecule: m, isSelected, isCompared, isShortlisted, onSe
           </div>
           <div className="text-[11px] text-[var(--text2)] mt-1 space-y-0.5">
             <div className="flex justify-between">
+              <span title="Fast synthetic-complexity ESTIMATE (1 easy – 10 hard) computed in-browser from structure (stereocenters, ring systems, size, 3-D character). Not the Ertl SA score — run ADMET/Predict for the validated 'SA Score'. Lower = easier to make.">Synth. est:</span>
+              <span
+                title={m.scFactors && m.scFactors.length ? `Driven by: ${m.scFactors.join(', ')}` : 'no notable complexity drivers'}
+                className={`font-mono cursor-help ${m.props.SC <= 3 ? 'text-[#22c55e]' : m.props.SC <= 6 ? 'text-[#f59e0b]' : 'text-[#ef4444]'}`}
+              >{m.props.SC.toFixed(1)}</span>
+            </div>
+            <div className="flex justify-between">
               <span>MW:</span>
               <span className="font-mono text-[var(--text-heading)]">{m.props.MW.toFixed(1)}</span>
             </div>
@@ -1137,6 +1177,23 @@ function MoleculeCard({ molecule: m, isSelected, isCompared, isShortlisted, onSe
           <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#22c55e]/15 text-[#22c55e]">
             pareto
           </span>
+        )}
+        {typeof m.customProps.Vendors === 'number' && (
+          m.customProps.Vendors > 0 ? (
+            <a
+              href={`https://pubchem.ncbi.nlm.nih.gov/compound/${m.customProps.PubChemCID ?? ''}#section=Chemical-Vendors`}
+              target="_blank" rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              title={`${m.customProps.Vendors} commercial vendors on PubChem — click to view suppliers & prices`}
+              className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#3b82f6]/15 text-[#3b82f6] hover:bg-[#3b82f6]/25 transition-colors"
+            >
+              {m.customProps.Vendors} vendors
+            </a>
+          ) : (
+            <span title="No commercial vendors found on PubChem — likely must be synthesized" className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[var(--surface2)] text-[var(--text2)]">
+              not buyable
+            </span>
+          )
         )}
         {Object.entries(m.filters).map(([fname, res]) => {
           const shortNames: Record<string, string> = { lipinski: 'Ro5', veber: 'veb', ghose: 'gho', leadlike: 'lead' };
@@ -1248,7 +1305,7 @@ function MoleculeCard({ molecule: m, isSelected, isCompared, isShortlisted, onSe
               onClick={e => e.stopPropagation()}
               className="flex-1 text-center px-2 py-1 text-[10px] bg-[var(--surface2)] border border-[var(--border-5)] rounded text-[var(--text2)] hover:text-[var(--text)] hover:border-[var(--accent)] transition-colors"
             >
-              PubChem ↗
+              PubChem
             </a>
           </div>
         </div>

@@ -17,6 +17,7 @@ interface HeaderProps {
   onExportSDFPareto?: () => void;
   onExportFigure?: () => void;
   onExportSummaryReport?: () => void;
+  onExportManifest?: () => void;
   onShareURL?: () => void;
   onCite?: () => void;
   onDocs?: () => void;
@@ -24,7 +25,7 @@ interface HeaderProps {
   onToggleSidebar?: () => void;
 }
 
-export default function Header({ moleculeCount, onReset, onExportCSV, onExportJSON, onExportSDF, onExportSDFPareto, onExportFigure, onExportSummaryReport, onCite, onDocs, sidebarOpen, onToggleSidebar }: HeaderProps) {
+export default function Header({ moleculeCount, onReset, onExportCSV, onExportJSON, onExportSDF, onExportSDFPareto, onExportFigure, onExportSummaryReport, onExportManifest, onCite, onDocs, sidebarOpen, onToggleSidebar }: HeaderProps) {
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -50,6 +51,7 @@ export default function Header({ moleculeCount, onReset, onExportCSV, onExportJS
     { label: 'SDF (Pareto only)', onClick: onExportSDFPareto },
     { label: 'SDF (all)', onClick: onExportSDF },
     { label: 'JSON', onClick: onExportJSON },
+    { label: 'Reproducibility manifest', onClick: onExportManifest },
     { label: 'Summary Report (MD)', onClick: onExportSummaryReport },
   ];
 
@@ -63,7 +65,7 @@ export default function Header({ moleculeCount, onReset, onExportCSV, onExportJS
   ];
 
   return (
-    <header className="flex items-center justify-between px-5 md:px-8 py-4 md:py-6 border-b border-[var(--border-5)] relative">
+    <header className="flex items-center justify-between px-5 md:px-8 py-2 md:py-2.5 border-b border-[var(--border-5)] relative">
       <div className="flex items-center gap-3">
         <button
           onClick={onToggleSidebar}
@@ -74,15 +76,16 @@ export default function Header({ moleculeCount, onReset, onExportCSV, onExportJS
         </button>
         <button
           onClick={onReset}
-          className="text-left hover:opacity-80 transition-opacity"
+          className="flex items-center gap-2.5 text-left hover:opacity-80 transition-opacity"
           title="Reset to start"
         >
-          <h1 className="text-lg md:text-xl font-semibold tracking-tight text-[var(--text-heading)]">
+          <h1 className="text-lg md:text-xl font-semibold tracking-tight leading-none text-[var(--text-heading)]">
             <span className="bg-gradient-to-r from-[#5F7367] to-[#7E9A89] bg-clip-text text-transparent">Pareto</span><span className="text-[var(--logo-mol)]">Mol</span>
           </h1>
-          <div className="text-[11px] md:text-[13px] text-[var(--text2)] mt-0.5">
+          <span className="hidden sm:block h-3.5 w-px bg-[var(--border-10)]" />
+          <span className="hidden sm:inline text-[11px] md:text-[12px] text-[var(--text2)] leading-none">
             multi-objective molecule analysis
-          </div>
+          </span>
         </button>
 
       </div>

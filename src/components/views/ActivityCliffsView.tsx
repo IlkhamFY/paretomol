@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import type { Molecule } from '../../utils/types';
-import { computeSimilarityMatrix, computeActivityCliffs, getMolSvg, type SimilarityMetric } from '../../utils/chem';
+import { computeSimilarityMatrix, computeActivityCliffs, getMolSvg, readMolProp, DEFAULT_CLIFF_KEYS, type SimilarityMetric } from '../../utils/chem';
 import { computeSelfiesTEDMatrix } from '../../utils/selfies';
 
 interface ActivityCliffsViewProps {
@@ -243,6 +243,7 @@ function NetworkCanvas({ molecules, edges, nodeProp, onSelectMol, selectedIdx }:
 const CLIFF_METRIC_LABELS: Record<SimilarityMetric, string> = {
   'tanimoto-r2': 'Tanimoto (r=2)',
   'tanimoto-r3': 'Tanimoto (r=3)',
+  'tanimoto-r6': 'Tanimoto (r=6)',
   'selfies-ted': 'SELFIES-TED (IBM)',
 };
 
@@ -251,6 +252,9 @@ function ActivityCliffsView({ molecules, onComparePair }: ActivityCliffsViewProp
   const [minTanimoto, setMinTanimoto] = useState(0.3);
   const [viewMode, setViewMode] = useState<'list' | 'network'>('list');
   const [nodeProp, setNodeProp] = useState('MW');
+  // '' = physicochemical profile (default 6 descriptors); otherwise a single
+  // property key (e.g. imported activity pChEMBL) for classic SAR activity cliffs.
+  const [cliffProp, setCliffProp] = useState('');
   const [networkSelectedIdx, setNetworkSelectedIdx] = useState<number | null>(null);
   const [simMetric, setSimMetric] = useState<SimilarityMetric>('tanimoto-r2');
   const [tedMatrix, setTedMatrix] = useState<number[][] | null>(null);
@@ -272,10 +276,24 @@ function ActivityCliffsView({ molecules, onComparePair }: ActivityCliffsViewProp
     return computeSimilarityMatrix(molecules, simMetric);
   }, [molecules, simMetric, tedMatrix]);
 
+  // Numeric custom/ADMET/activity columns available as a cliff property.
+  const customProps = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const m of molecules) {
+      for (const [k, v] of Object.entries(m.customProps ?? {})) {
+        if (typeof v === 'number' && isFinite(v) && !seen.has(k)) { seen.add(k); out.push(k); }
+      }
+    }
+    return out;
+  }, [molecules]);
+
+  const cliffPropKeys = cliffProp ? [cliffProp] : DEFAULT_CLIFF_KEYS;
+
   const cliffs = useMemo(() => {
     if (!activeMatrix) return [];
-    return computeActivityCliffs(molecules, activeMatrix, minTanimoto, 15);
-  }, [molecules, minTanimoto, activeMatrix]);
+    return computeActivityCliffs(molecules, activeMatrix, minTanimoto, 15, cliffPropKeys);
+  }, [molecules, minTanimoto, activeMatrix, cliffProp]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Network edges: all pairs with similarity > threshold
   const networkEdges = useMemo<Edge[]>(() => {
@@ -327,7 +345,12 @@ function ActivityCliffsView({ molecules, onComparePair }: ActivityCliffsViewProp
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-[14px] font-medium text-[var(--text-heading)]">Activity cliffs (structurally similar, property-different)</h3>
-          <p className="text-[12px] text-[var(--text2)] mt-1">Top pairs by cliff score = Tanimoto × normalized property distance</p>
+          <p
+            className="text-[12px] text-[var(--text2)] mt-1 cursor-help"
+            title={'Cliff score (SAS) = similarity × ‖Δproperty‖₂\nEach property is min–max normalized to [0,1] across the loaded set, then the Euclidean distance is scaled by the pairwise similarity. Select a single property (e.g. pChEMBL / IC50 / an ADMET endpoint) for a classic SAR activity cliff.'}
+          >
+            Top pairs by cliff score = similarity × {cliffProp ? `normalized Δ${cliffProp}` : 'normalized property distance'}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {/* List / Network toggle */}
@@ -358,6 +381,26 @@ function ActivityCliffsView({ molecules, onComparePair }: ActivityCliffsViewProp
             ))}
           </select>
 
+          {/* Cliff property: physicochemical profile (default) or a single property (e.g. activity for SAR) */}
+          <div className="flex items-center gap-1.5 text-[11px] text-[var(--text2)]" title="Property used for the cliff distance. Choose a single activity/ADMET column (e.g. pChEMBL) for SAR activity cliffs.">
+            <span>Cliff on</span>
+            <select
+              value={cliffProp}
+              onChange={e => setCliffProp(e.target.value)}
+              className="text-[11px] px-2 py-1.5 rounded border border-[var(--border-10)] bg-[var(--bg)] text-[var(--text)] cursor-pointer"
+            >
+              <option value="">Physicochemical profile</option>
+              {customProps.length > 0 && (
+                <optgroup label="Activity / ADMET / custom">
+                  {customProps.map(p => <option key={p} value={p}>{p}</option>)}
+                </optgroup>
+              )}
+              <optgroup label="Single descriptor">
+                {['MW', 'LogP', 'TPSA', 'HBD', 'HBA', 'RotBonds', 'QED'].map(p => <option key={p} value={p}>{p}</option>)}
+              </optgroup>
+            </select>
+          </div>
+
           {/* Min similarity slider */}
           <div className="flex items-center gap-2 text-[11px] text-[var(--text2)]">
             <span>Min similarity</span>
@@ -380,6 +423,11 @@ function ActivityCliffsView({ molecules, onComparePair }: ActivityCliffsViewProp
                 className="bg-[var(--bg)] border border-[var(--border-10)] rounded px-2 py-1 text-[11px] text-[var(--text)] focus:outline-none focus:border-[var(--accent)]"
               >
                 {PROP_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                {customProps.length > 0 && (
+                  <optgroup label="Activity / ADMET / custom">
+                    {customProps.map(p => <option key={p} value={p}>{p}</option>)}
+                  </optgroup>
+                )}
               </select>
             </div>
           )}
@@ -495,6 +543,14 @@ function ActivityCliffsView({ molecules, onComparePair }: ActivityCliffsViewProp
                       <div className="text-[10px] text-[var(--text2)] mt-0.5 font-mono">
                         MW {mol.props.MW.toFixed(0)} · LogP {mol.props.LogP.toFixed(1)} · TPSA {mol.props.TPSA.toFixed(0)}
                       </div>
+                      {cliffProp && !['MW', 'LogP', 'TPSA'].includes(cliffProp) && (() => {
+                        const v = readMolProp(mol, cliffProp);
+                        return (
+                          <div className="text-[10px] mt-0.5 font-mono text-[#f97316]">
+                            {cliffProp}: {v === undefined ? '—' : Number.isInteger(v) ? String(v) : v.toFixed(2)}
+                          </div>
+                        );
+                      })()}
                     </div>
                   ))}
                 </div>

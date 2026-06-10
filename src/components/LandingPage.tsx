@@ -7,7 +7,7 @@ interface LandingPageProps {
 
 export default function LandingPage({ onLoadExample, onOpenSidebar }: LandingPageProps) {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-73px)] px-5 py-8">
+    <div className="flex flex-col items-center justify-center h-full overflow-y-auto px-5 py-8">
       <div className="max-w-[420px] w-full text-center">
         <h2 className="text-[22px] sm:text-[26px] font-semibold tracking-tight text-[var(--text)] mb-3">
           Multi-objective molecule analysis
@@ -15,7 +15,7 @@ export default function LandingPage({ onLoadExample, onOpenSidebar }: LandingPag
         <p className="text-[13px] text-[var(--text2)] leading-relaxed mb-8">
           Paste SMILES, drop an SDF, or fetch by ChEMBL target.
           Pareto ranking, drug-likeness filters, ADMET predictions,
-          and 14 interactive views -- entirely in your browser.
+          and 15 interactive views -- entirely in your browser.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-10">

@@ -99,6 +99,9 @@ export const ADMET_AI_PROPERTY_META: Record<string, {
   hydrogen_bond_acceptors: { label: 'HBA', category: 'physicochemical', type: 'regression', unit: '', description: 'H-bond acceptors', safeDir: null },
   hydrogen_bond_donors: { label: 'HBD', category: 'physicochemical', type: 'regression', unit: '', description: 'H-bond donors', safeDir: null },
   tpsa:                { label: 'TPSA', category: 'physicochemical', type: 'regression', unit: 'Å²', description: 'Topological polar surface area', safeDir: null },
+  SA_Score:            { label: 'SA Score', category: 'physicochemical', type: 'regression', unit: '', description: 'Synthetic accessibility (Ertl & Schuffenhauer 2009): 1 = easy to make, 10 = hard. RDKit reference implementation, computed server-side.', safeDir: 'low' },
+  RAScore:             { label: 'RAScore', category: 'physicochemical', type: 'regression', unit: '', description: 'Retrosynthetic accessibility (Thakkar 2021): 0 = no route found (hard), 1 = readily synthesizable. Learned from AiZynthFinder; computed by an isolated micro-service.', safeDir: 'high' },
+  SCScore:             { label: 'SCScore', category: 'physicochemical', type: 'regression', unit: '', description: 'Synthetic complexity (Coley 2018): 1 = simple, 5 = complex. Learned from reaction corpora; computed by the make-ability micro-service.', safeDir: 'low' },
 };
 
 /** The 41 TDC endpoints returned by ADMET-AI (excludes physicochemical and percentile columns).
@@ -115,6 +118,9 @@ export const PRIMARY_ADMET_KEYS = [
   'NR-AR', 'NR-AR-LBD', 'NR-AhR', 'NR-Aromatase', 'NR-ER', 'NR-ER-LBD', 'NR-PPAR-gamma',
   'SR-ARE', 'SR-ATAD5', 'SR-HSE', 'SR-MMP', 'SR-p53',
   'HydrationFreeEnergy_FreeSolv',
+  'SA_Score', // real Ertl SA score (synthetic accessibility), computed server-side
+  'RAScore',  // retrosynthetic accessibility (0 hard – 1 easy), isolated micro-service
+  'SCScore',  // synthetic complexity (Coley 2018, 1 simple – 5 complex), make-ability micro-service
 ] as const;
 
 export interface AdmetAIResult {

@@ -12,6 +12,7 @@ export interface MolProps {
   MR: number;
   NumAtoms: number;
   QED: number;
+  SC: number; // synthetic complexity (1 easy – 10 hard); make-ability triage proxy
 }
 
 export interface FilterResult {
@@ -29,14 +30,21 @@ export interface FormulaColumn {
   expr: string;
 }
 
+// Default Pareto objectives lead with synthetic complexity (make-ability) — the
+// decision driver chemists actually weigh — rather than opening on a wall of MW.
 export const DEFAULT_PARETO_OBJECTIVES: ParetoObjective[] = [
+  { key: 'SC', direction: 'min' },
   { key: 'MW', direction: 'min' },
   { key: 'LogP', direction: 'min' },
-  { key: 'HBD', direction: 'min' },
-  { key: 'HBA', direction: 'min' },
-  { key: 'TPSA', direction: 'min' },
-  { key: 'RotBonds', direction: 'min' },
 ];
+
+export interface MolCost {
+  zincId: string | null;          // representative ZINC id (for the catalog link)
+  catalogs: number;               // number of priced catalog entries across vendors
+  pricePerMg: number | null;      // cheapest USD/mg across catalogs (cost objective)
+  cheapest: { price: number; quantity: number; unit: string; shipping?: string; catalog: string } | null;
+  purchasable: boolean;           // present in a ZINC catalog at all
+}
 
 export interface Molecule {
   name: string;
@@ -50,12 +58,15 @@ export interface Molecule {
   customProps: Record<string, number>;
   filters: Record<string, FilterResult>;
   lipinski?: FilterResult;
+  scFactors?: string[]; // dominant drivers of the synthetic-complexity estimate (for the "why")
+  cost?: MolCost;       // building-block availability & price (ZINC-22 catalogs)
   paretoRank: number | null;
   dominates: number[];
   dominatedBy: number[];
 }
 
 export const PROPERTIES = [
+  { key: 'SC', label: 'Synth. (est.)', unit: '' },
   { key: 'MW', label: 'Molecular Weight', unit: 'Da', lipinski: { max: 500 } },
   { key: 'LogP', label: 'Calc. LogP', unit: '', lipinski: { max: 5 } },
   { key: 'HBD', label: 'H-Bond Donors', unit: '', lipinski: { max: 5 } },

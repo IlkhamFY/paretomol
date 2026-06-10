@@ -6,6 +6,8 @@ interface PropertyFiltersProps {
   paretoObjectives: ParetoObjective[];
   propertyFilters: Record<string, { min: number; max: number }>;
   onFiltersChange: (filters: Record<string, { min: number; max: number }>) => void;
+  /** When true, render only the filter content (the host provides the disclosure header) */
+  headerless?: boolean;
 }
 
 interface PropertyRange {
@@ -210,6 +212,7 @@ export default function PropertyFilters({
   paretoObjectives,
   propertyFilters,
   onFiltersChange,
+  headerless = false,
 }: PropertyFiltersProps) {
 
   // Build per-property ranges from molecules + current filter state
@@ -263,9 +266,34 @@ export default function PropertyFilters({
 
   if (propertyRanges.length === 0) return null;
 
+  const content = (
+    <div className="p-3 mt-2 bg-[var(--bg)] border border-[var(--border-5)] rounded-md space-y-4">
+      {propertyRanges.map((prop) => (
+        <PropertyFilterRow key={prop.key} prop={prop} onChange={handleChange} />
+      ))}
+      <div className="flex items-center justify-between pt-1 border-t border-[var(--border-5)]">
+        <span className="text-[10px] text-[var(--text2)]/60">
+          {activeCount > 0
+            ? `${activeCount} filter${activeCount > 1 ? 's' : ''} active`
+            : 'No filters active'}
+        </span>
+        {activeCount > 0 && (
+          <button
+            onClick={handleReset}
+            className="text-[10px] text-[var(--text2)] hover:text-[var(--red)] transition-colors px-2 py-0.5 rounded border border-[var(--border-5)] hover:border-[var(--red)]/50"
+          >
+            Reset all
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  if (headerless) return content;
+
   return (
-    <details className="mt-4 group">
-      <summary className="text-[11px] uppercase tracking-[1.2px] text-[var(--text2)] font-semibold cursor-pointer select-none hover:text-[var(--text)] transition-colors list-none flex items-center justify-between">
+    <details className="mt-2 group">
+      <summary className="text-[11px] uppercase tracking-[1.2px] text-[var(--text2)]/70 font-medium cursor-pointer select-none hover:text-[var(--text)] transition-colors list-none flex items-center justify-between">
         <span className="flex items-center gap-1.5">
           Range Filters
           {activeCount > 0 && (
@@ -274,30 +302,8 @@ export default function PropertyFilters({
             </span>
           )}
         </span>
-        <span className="text-[10px] text-[var(--text2)] font-normal normal-case tracking-normal opacity-50 group-open:hidden">expand</span>
-        <span className="text-[10px] text-[var(--text2)] font-normal normal-case tracking-normal opacity-50 hidden group-open:inline">collapse</span>
       </summary>
-
-      <div className="p-3 mt-2 bg-[var(--bg)] border border-[var(--border-5)] rounded-md space-y-4">
-        {propertyRanges.map((prop) => (
-          <PropertyFilterRow key={prop.key} prop={prop} onChange={handleChange} />
-          ))}
-          <div className="flex items-center justify-between pt-1 border-t border-[var(--border-5)]">
-            <span className="text-[10px] text-[var(--text2)]/60">
-              {activeCount > 0
-                ? `${activeCount} filter${activeCount > 1 ? 's' : ''} active`
-                : 'No filters active'}
-            </span>
-            {activeCount > 0 && (
-              <button
-                onClick={handleReset}
-                className="text-[10px] text-[var(--text2)] hover:text-[var(--red)] transition-colors px-2 py-0.5 rounded border border-[var(--border-5)] hover:border-[var(--red)]/50"
-              >
-                Reset all
-              </button>
-            )}
-          </div>
-        </div>
+      {content}
     </details>
   );
 }

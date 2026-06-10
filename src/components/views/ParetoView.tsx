@@ -14,8 +14,11 @@ import {
   ScatterController,
   Title
 } from 'chart.js';
-import type { Molecule } from '../../utils/types';
+import type { Molecule, ParetoObjective } from '../../utils/types';
 import { DRUG_FILTERS } from '../../utils/types';
+import { findBestCompromise } from '../../utils/paretoKnee';
+import { readFront } from '../../utils/paretoNarrative';
+import { nearestBetterAnalog } from '../../utils/designHint';
 import type { FDADrug } from '../../utils/fda_reference';
 import { PROP_TO_FDA } from '../../utils/fda_reference';
 import { getMolSvg } from '../../utils/chem';
@@ -49,13 +52,23 @@ interface ScatterAxes {
 }
 
 const DEFAULT_AXES: ScatterAxes[] = [
+  { x: 'SC', y: 'LogP' },
+  { x: 'SC', y: 'MW' },
   { x: 'MW', y: 'LogP' },
-  { x: 'MW', y: 'TPSA' },
   { x: 'LogP', y: 'TPSA' },
   { x: 'HBD', y: 'HBA' },
-  { x: 'MW', y: 'RotBonds' },
   { x: 'LogP', y: 'FrCSP3' },
 ];
+
+// Plottable axes, labelled like the rest of the app. The make-ability / cost
+// metrics (synth.-complexity estimate, Ertl SA score, vendor count) are grouped
+// first so they read as first-class objectives, not raw keys buried in a list.
+const PHYS_KEYS = ['MW', 'LogP', 'TPSA', 'HBD', 'HBA', 'RotBonds', 'FrCSP3', 'QED'];
+const AXIS_LABELS: Record<string, string> = {
+  SC: 'Synth. (est.)', SA_Score: 'SA score', RAScore: 'RAScore', SCScore: 'SCScore', Vendors: 'Vendors', ZincCatalogs: 'ZINC catalogs', Price: 'Price ($/g)',
+  MW: 'MW', LogP: 'LogP', TPSA: 'TPSA', HBD: 'HBD', HBA: 'HBA', RotBonds: 'RotB', FrCSP3: 'Fsp³', QED: 'QED',
+};
+const labelFor = (k: string) => AXIS_LABELS[k] ?? k;
 
 const FILTER_COLORS: Record<string, string> = {
   lipinski: '#22c55e',
@@ -64,12 +77,39 @@ const FILTER_COLORS: Record<string, string> = {
   leadlike: '#22c55e',
 };
 
-function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, customPropNames = [] }: { molecules: Molecule[]; onSelectMolecule?: (idx: number) => void; selectedMolIdx?: number | null; fdaData?: FDADrug[]; customPropNames?: string[] }) {
+function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, customPropNames = [], paretoObjectives = [] }: { molecules: Molecule[]; onSelectMolecule?: (idx: number) => void; selectedMolIdx?: number | null; fdaData?: FDADrug[]; customPropNames?: string[]; paretoObjectives?: ParetoObjective[] }) {
+  // Best-compromise ("knee") molecule across the active objectives — the one to pick.
+  const knee = useMemo(() => findBestCompromise(molecules, paretoObjectives), [molecules, paretoObjectives]);
+  // Deterministic "reading" of the front: size, objectives, sharpest trade-off.
+  const reading = useMemo(() => readFront(molecules, paretoObjectives), [molecules, paretoObjectives]);
+  // Analysis -> design: nearest structural analog that dominates the selected molecule.
+  const designHint = useMemo(
+    () => (selectedMolIdx != null ? nearestBetterAnalog(molecules, selectedMolIdx, paretoObjectives) : null),
+    [molecules, selectedMolIdx, paretoObjectives],
+  );
   const [axes, setAxes] = useState<ScatterAxes[]>(DEFAULT_AXES);
   const [showAll, setShowAll] = useState(true);
   const [activeFilter, setActiveFilter] = useState<string | null>('lipinski');
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const visibleAxes = showAll ? axes : axes.slice(0, 2);
+
+  // Grouped, human-labelled axis options — make-ability & cost surfaced first,
+  // then physicochemical, then any ADMET / imported columns that are present.
+  const axisGroups = useMemo(() => {
+    const has = (k: string) => customPropNames.includes(k);
+    const makeCost = ['SC', ...(has('SA_Score') ? ['SA_Score'] : []), ...(has('RAScore') ? ['RAScore'] : []), ...(has('SCScore') ? ['SCScore'] : []), ...(has('Price') ? ['Price'] : []), ...(has('Vendors') ? ['Vendors'] : []), ...(has('ZincCatalogs') ? ['ZincCatalogs'] : [])];
+    const other = customPropNames.filter(k => k !== 'SA_Score' && k !== 'RAScore' && k !== 'SCScore' && k !== 'Vendors' && k !== 'ZincCatalogs' && k !== 'Price');
+    return [
+      { label: 'Make-ability & cost', keys: makeCost },
+      { label: 'Physicochemical', keys: PHYS_KEYS },
+      ...(other.length ? [{ label: 'ADMET & data', keys: other }] : []),
+    ];
+  }, [customPropNames]);
+  const renderAxisOptions = () => axisGroups.map(g => (
+    <optgroup key={g.label} label={g.label}>
+      {g.keys.map(k => <option key={k} value={k}>{labelFor(k)}</option>)}
+    </optgroup>
+  ));
 
   const handleAxisChange = (idx: number, xy: 'x' | 'y', val: string) => {
     setAxes(prev => {
@@ -150,24 +190,65 @@ function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, cust
         )}
       </div>
 
+      {/* Reading — a deterministic narration of the front */}
+      {reading && (
+        <p className="text-[12px] text-[var(--text2)] leading-relaxed">
+          <span className="text-[var(--text-heading)] font-medium">{reading.paretoCount}</span> of {reading.total} compounds are Pareto-optimal across {reading.objectiveKeys.length} objective{reading.objectiveKeys.length === 1 ? '' : 's'} ({reading.objectiveKeys.map(labelFor).join(', ')}).
+          {reading.tradeoff && <> Sharpest trade-off: <span className="text-[var(--text)]">{labelFor(reading.tradeoff.a)}</span> vs <span className="text-[var(--text)]">{labelFor(reading.tradeoff.b)}</span> <span className="text-[var(--text2)]/60">(r&nbsp;=&nbsp;{reading.tradeoff.r.toFixed(2)})</span>.</>}
+        </p>
+      )}
+
+      {/* Best compromise (knee) — the Pareto-optimal molecule nearest the ideal */}
+      {knee && molecules[knee.index] && (
+        <button
+          onClick={() => onSelectMolecule?.(knee.index)}
+          title="The Pareto-optimal molecule closest to the ideal across all active objectives — click to select and locate it on the plots"
+          className={`w-full flex items-center justify-between gap-3 text-left px-3 py-2 rounded-md border transition-colors ${
+            selectedMolIdx === knee.index
+              ? 'bg-[#5F7367]/10 border-[#5F7367]/40'
+              : 'bg-[var(--surface)] border-[var(--border-5)] hover:border-[var(--accent)]'
+          }`}
+        >
+          <span className="text-[12px] min-w-0 truncate">
+            <span className="uppercase tracking-[1px] text-[10px] text-[var(--text2)]/70 mr-2">Best compromise</span>
+            <span className="text-[var(--text-heading)] font-medium">{molecules[knee.index].name.replace(/_/g, ' ')}</span>
+            <span className="text-[var(--text2)]"> — nearest the ideal across {knee.nObjectives} objective{knee.nObjectives === 1 ? '' : 's'}</span>
+          </span>
+          <span className="text-[11px] text-[var(--accent)] shrink-0">{selectedMolIdx === knee.index ? 'selected' : 'select'}</span>
+        </button>
+      )}
+
+      {/* Analysis -> design: nearest better analog for a dominated selection */}
+      {selectedMolIdx != null && molecules[selectedMolIdx] && designHint && molecules[designHint.index] && (
+        <p className="text-[12px] text-[var(--text2)] leading-relaxed">
+          To improve <span className="text-[var(--text-heading)] font-medium">{molecules[selectedMolIdx].name.replace(/_/g, ' ')}</span>: its nearest better analog is{' '}
+          <button
+            onClick={() => onSelectMolecule?.(designHint.index)}
+            className="text-[var(--accent)] hover:underline font-medium"
+          >
+            {molecules[designHint.index].name.replace(/_/g, ' ')}
+          </button>{' '}
+          <span className="text-[var(--text2)]/70">(Tanimoto {designHint.tanimoto.toFixed(2)})</span> — it dominates the selection{designHint.betterOn.length > 0 && <>, better on <span className="text-[var(--text)]">{designHint.betterOn.map(labelFor).join(', ')}</span></>}.
+        </p>
+      )}
+
       {/* Grid */}
       <div className={`grid gap-4 ${expandedIdx !== null ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-2'}`}>
         {visibleAxes.map((axis, i) => {
           if (expandedIdx !== null && expandedIdx !== i) return null;
           return (
-          <div key={`${axis.x}-${axis.y}-${i}`} className={`bg-[var(--surface)] border border-[var(--border-5)] rounded-lg p-4 flex flex-col ${expandedIdx === i ? 'h-[560px]' : 'h-[380px]'}`}>
-            <div className="flex justify-between items-center mb-4">
-              <div className="text-[13px] font-medium">{axis.x} vs {axis.y}</div>
-              <div className="flex gap-2 items-center text-[11px]">
+          <div key={`${axis.x}-${axis.y}-${i}`} className={`bg-[var(--surface)] border border-[var(--border-5)] rounded-lg p-4 flex flex-col min-w-0 ${expandedIdx === i ? 'h-[560px]' : 'h-[380px]'}`}>
+            <div className="flex justify-between items-center gap-2 mb-4 min-w-0">
+              <div className="text-[13px] font-medium min-w-0 truncate shrink" title={`${labelFor(axis.x)} vs ${labelFor(axis.y)}`}>{labelFor(axis.x)} vs {labelFor(axis.y)}</div>
+              <div className="flex gap-2 items-center text-[11px] shrink-0">
                 <label className="flex items-center gap-1 text-[var(--text2)]">
                   X:
                   <select
                     value={axis.x as string}
                     onChange={e => handleAxisChange(i, 'x', e.target.value as any)}
-                    className="bg-[var(--bg)] border border-[var(--border-10)] rounded px-1.5 py-0.5 outline-none text-[var(--text)]"
+                    className="bg-[var(--bg)] border border-[var(--border-10)] rounded px-1.5 py-0.5 outline-none text-[var(--text)] max-w-[120px] truncate"
                   >
-                    {['MW','LogP','HBD','HBA','TPSA','RotBonds','FrCSP3'].map(k => <option key={k} value={k}>{k}</option>)}
-                    {customPropNames.map(k => <option key={k} value={k}>{k}</option>)}
+                    {renderAxisOptions()}
                   </select>
                 </label>
                 <label className="flex items-center gap-1 text-[var(--text2)]">
@@ -175,10 +256,9 @@ function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, cust
                   <select
                     value={axis.y as string}
                     onChange={e => handleAxisChange(i, 'y', e.target.value as any)}
-                    className="bg-[var(--bg)] border border-[var(--border-10)] rounded px-1.5 py-0.5 outline-none text-[var(--text)]"
+                    className="bg-[var(--bg)] border border-[var(--border-10)] rounded px-1.5 py-0.5 outline-none text-[var(--text)] max-w-[120px] truncate"
                   >
-                    {['MW','LogP','HBD','HBA','TPSA','RotBonds','FrCSP3'].map(k => <option key={k} value={k}>{k}</option>)}
-                    {customPropNames.map(k => <option key={k} value={k}>{k}</option>)}
+                    {renderAxisOptions()}
                   </select>
                 </label>
                 <button
@@ -190,7 +270,7 @@ function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, cust
                 </button>
               </div>
             </div>
-            <div className="flex-1 relative">
+            <div className="flex-1 relative min-w-0 min-h-0">
                <ScatterChart key={`scatter-${axis.x}-${axis.y}-${i}-${expandedIdx}`} molecules={molecules} xKey={axis.x as string} yKey={axis.y as string} activeFilter={activeFilter} onSelectMolecule={onSelectMolecule} selectedMolIdx={selectedMolIdx} fdaData={fdaData} />
             </div>
           </div>
@@ -523,7 +603,7 @@ function ScatterChart({ molecules, xKey, yKey, activeFilter, onSelectMolecule, s
           },
           scales: {
             x: {
-              title: { display: true, text: xKey as string, color: getComputedStyle(document.documentElement).getPropertyValue('--canvas-sublabel').trim() },
+              title: { display: true, text: labelFor(xKey), color: getComputedStyle(document.documentElement).getPropertyValue('--canvas-sublabel').trim() },
               grid: { color: getComputedStyle(document.documentElement).getPropertyValue('--border-10').trim() },
               ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--canvas-sublabel').trim() },
               ...((() => {
@@ -540,7 +620,7 @@ function ScatterChart({ molecules, xKey, yKey, activeFilter, onSelectMolecule, s
               })()),
             },
             y: {
-              title: { display: true, text: yKey as string, color: getComputedStyle(document.documentElement).getPropertyValue('--canvas-sublabel').trim() },
+              title: { display: true, text: labelFor(yKey), color: getComputedStyle(document.documentElement).getPropertyValue('--canvas-sublabel').trim() },
               grid: { color: getComputedStyle(document.documentElement).getPropertyValue('--border-10').trim() },
               ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--canvas-sublabel').trim() },
               ...((() => {

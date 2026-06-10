@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useDeferredValue, startTransition, lazy, Suspense } from 'react';
-import type { Molecule, FormulaColumn } from '../utils/types';
+import type { Molecule, FormulaColumn, ParetoObjective } from '../utils/types';
 import { getInitialTabFromUrl } from '../utils/share';
+import { exportViewAsSVG } from '../utils/export';
 import { useTheme } from '../contexts/ThemeContext';
 import { useFDAReference } from '../hooks/useFDAReference';
 import { ChartSkeleton, TableSkeleton, CanvasSkeleton, CardSkeleton, DeferredOverlay } from './Skeleton';
@@ -22,10 +23,11 @@ const ScaffoldView = lazy(() => import('./views/ScaffoldView'));
 const ChemSpaceView = lazy(() => import('./views/ChemSpaceView'));
 const ADMETAIView = lazy(() => import('./views/ADMETAIView'));
 const StatisticsView = lazy(() => import('./views/StatisticsView'));
+const MakeabilityView = lazy(() => import('./views/MakeabilityView'));
 
-export default function Content({ molecules, compareIndices, selectedMolIdx, setSelectedMolIdx, exportContainerRef, setCompareIndices, isInitialLoading, customPropNames = [], onADMETPredictions, onLoadExample, onOpenSidebar, activeTab: activeTabProp, setActiveTab: setActiveTabProp, showFDARef: showFDARefProp, setShowFDARef: setShowFDARefProp, onToast, shortlist, toggleShortlist, formulaColumns, setFormulaColumns }: { molecules: Molecule[]; compareIndices: number[]; selectedMolIdx: number | null; setSelectedMolIdx?: (idx: number | null) => void; exportContainerRef?: React.RefObject<HTMLDivElement | null>; setCompareIndices?: React.Dispatch<React.SetStateAction<number[]>>; isInitialLoading?: boolean; customPropNames?: string[]; onADMETPredictions?: (predictions: Map<string, Record<string, number>>) => void; onLoadExample?: (key: string) => void; onOpenSidebar?: () => void; activeTab?: string; setActiveTab?: (tab: string) => void; showFDARef?: boolean; setShowFDARef?: (v: boolean | ((prev: boolean) => boolean)) => void; onToast?: (msg: string) => void; shortlist?: Set<number>; toggleShortlist?: (idx: number) => void; formulaColumns?: FormulaColumn[]; setFormulaColumns?: (cols: FormulaColumn[]) => void }) {
+export default function Content({ molecules, compareIndices, selectedMolIdx, setSelectedMolIdx, exportContainerRef, setCompareIndices, isInitialLoading, customPropNames = [], paretoObjectives = [], onADMETPredictions, onComputeMakeability, onCheckBuyability, onCheckAvailability, onExportScores, onLoadExample, onOpenSidebar, activeTab: activeTabProp, setActiveTab: setActiveTabProp, showFDARef: showFDARefProp, setShowFDARef: setShowFDARefProp, onToast, shortlist, toggleShortlist, formulaColumns, setFormulaColumns }: { molecules: Molecule[]; compareIndices: number[]; selectedMolIdx: number | null; setSelectedMolIdx?: (idx: number | null) => void; exportContainerRef?: React.RefObject<HTMLDivElement | null>; setCompareIndices?: React.Dispatch<React.SetStateAction<number[]>>; isInitialLoading?: boolean; customPropNames?: string[]; paretoObjectives?: ParetoObjective[]; onADMETPredictions?: (predictions: Map<string, Record<string, number>>) => void; onComputeMakeability?: () => Promise<{ sa: number; ra: number; sc: number; total: number }>; onCheckBuyability?: () => Promise<{ resolved: number; buyable: number; total: number }>; onCheckAvailability?: () => Promise<{ inZinc: number; total: number }>; onExportScores?: () => void; onLoadExample?: (key: string) => void; onOpenSidebar?: () => void; activeTab?: string; setActiveTab?: (tab: string) => void; showFDARef?: boolean; setShowFDARef?: (v: boolean | ((prev: boolean) => boolean)) => void; onToast?: (msg: string) => void; shortlist?: Set<number>; toggleShortlist?: (idx: number) => void; formulaColumns?: FormulaColumn[]; setFormulaColumns?: (cols: FormulaColumn[]) => void }) {
   // Use lifted state from App if provided, otherwise fallback to local state
-  const validTabs = ['pareto','admet-ai','egg','table','radar','scaffolds','chemspace','scoring','mpo','cliffs','compare','parallel','similarity','statistics'];
+  const validTabs = ['pareto','admet-ai','egg','table','makeability','radar','scaffolds','chemspace','scoring','mpo','cliffs','compare','parallel','similarity','statistics'];
   // Legacy tab IDs → new tab IDs (for old shared URLs)
   const legacyTabMap: Record<string, string> = { histograms: 'statistics', boxplots: 'statistics', correlations: 'statistics', 'scaffold-intel': 'scaffolds' };
   const urlTab = getInitialTabFromUrl();
@@ -76,17 +78,17 @@ export default function Content({ molecules, compareIndices, selectedMolIdx, set
   if (molecules.length === 0) {
     if (isInitialLoading) {
       return (
-        <div className="flex flex-col items-center justify-center h-[calc(100vh-73px)] text-[var(--text2)] text-center gap-3">
+        <div className="flex flex-col items-center justify-center h-full text-[var(--text2)] text-center gap-3">
           <div className="w-5 h-5 border-2 border-[#5F7367]/30 border-t-[#5F7367] rounded-full animate-spin" />
           <p className="text-[13px]">Loading molecules...</p>
         </div>
       );
     }
-    return <Suspense fallback={<div className="flex items-center justify-center h-[calc(100vh-73px)]"><div className="w-5 h-5 border-2 border-[#5F7367]/30 border-t-[#5F7367] rounded-full animate-spin" /></div>}><LandingPage onLoadExample={onLoadExample} onOpenSidebar={onOpenSidebar} /></Suspense>;
+    return <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="w-5 h-5 border-2 border-[#5F7367]/30 border-t-[#5F7367] rounded-full animate-spin" /></div>}><LandingPage onLoadExample={onLoadExample} onOpenSidebar={onOpenSidebar} /></Suspense>;
   }
 
   return (
-    <div className="p-3 sm:p-4 md:p-6 overflow-y-auto max-h-[calc(100vh-73px)] custom-scrollbar">
+    <div className="p-3 sm:p-4 md:p-6 overflow-y-auto h-full custom-scrollbar">
       {/* Toolbar row — shortlist chip + selected molecule + FDA toggle */}
       <Shortlist
         molecules={molecules}
@@ -127,6 +129,20 @@ export default function Content({ molecules, compareIndices, selectedMolIdx, set
               </button>
               {fdaData && showFDARef && <span className="text-[10px] text-[var(--text2)]/50">({fdaData.length})</span>}
             </label>
+            <button
+              onClick={() => {
+                const container = exportContainerRef?.current;
+                if (!container || !exportViewAsSVG(container, `paretomol-${activeTab}.svg`)) {
+                  onToast?.('Nothing to export as SVG on this tab');
+                  return;
+                }
+                onToast?.('SVG exported');
+              }}
+              title="Download view as editable SVG (vector structures; charts embedded)"
+              className="px-2 py-1 text-[11px] text-[var(--text2)] hover:text-[var(--text)] border border-[var(--border-5)] rounded hover:border-[var(--accent)] transition-colors"
+            >
+              SVG ↓
+            </button>
             <button
               onClick={() => {
                 const container = exportContainerRef?.current;
@@ -207,6 +223,7 @@ export default function Content({ molecules, compareIndices, selectedMolIdx, set
             { id: 'admet-ai', label: 'ADMET' },
             { id: 'egg', label: 'BOILED-Egg' },
             { id: 'table', label: 'Table' },
+            { id: 'makeability', label: 'Make-ability' },
           ].map(tab => (
             <button
               key={tab.id}
@@ -271,10 +288,11 @@ export default function Content({ molecules, compareIndices, selectedMolIdx, set
       <div className="view-container relative" ref={exportContainerRef}>
         <DeferredOverlay isStale={deferredMolecules !== molecules} />
         <Suspense key={themeVersion} fallback={<SuspenseFallback tab={activeTab} />}>
-          {activeTab === 'pareto' && <ParetoView molecules={deferredMolecules} onSelectMolecule={setSelectedMolIdx ? (idx) => setSelectedMolIdx(idx) : undefined} selectedMolIdx={selectedMolIdx} fdaData={fdaData ?? undefined} customPropNames={customPropNames} />}
+          {activeTab === 'pareto' && <ParetoView molecules={deferredMolecules} onSelectMolecule={setSelectedMolIdx ? (idx) => setSelectedMolIdx(idx) : undefined} selectedMolIdx={selectedMolIdx} fdaData={fdaData ?? undefined} customPropNames={customPropNames} paretoObjectives={paretoObjectives} />}
           {activeTab === 'admet-ai' && <ADMETAIView molecules={deferredMolecules} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} onPredictionsReady={onADMETPredictions} />}
           {activeTab === 'egg' && <EggView molecules={deferredMolecules} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} fdaData={fdaData ?? undefined} />}
           {activeTab === 'table' && <TableView molecules={deferredMolecules} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} customPropNames={customPropNames} formulaColumns={formulaColumns} setFormulaColumns={setFormulaColumns} />}
+          {activeTab === 'makeability' && <MakeabilityView molecules={deferredMolecules} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} onComputeScores={onComputeMakeability} onCheckBuyability={onCheckBuyability} onCheckAvailability={onCheckAvailability} onExportScores={onExportScores} />}
           {activeTab === 'radar' && <RadarView molecules={deferredMolecules} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} shortlist={shortlist} />}
           {activeTab === 'scaffolds' && <ScaffoldView molecules={deferredMolecules} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} />}
           {activeTab === 'chemspace' && <ChemSpaceView molecules={deferredMolecules} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} />}
@@ -304,6 +322,7 @@ function SuspenseFallback({ tab }: { tab: string }) {
     case 'compare':
     case 'cliffs':
     case 'statistics':
+    case 'makeability':
       return <CardSkeleton />;
     default:
       return <ChartSkeleton />;

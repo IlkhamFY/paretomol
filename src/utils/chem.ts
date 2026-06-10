@@ -66,6 +66,177 @@ export function clearSvgCache(): void {
   svgCache.clear();
 }
 
+/** Re-color RDKit SVG output to be theme-aware (atoms/bonds + heteroatom hues). */
+function themeRecolorSvg(svgRaw: string, isDark: boolean): string {
+  const molStroke = getComputedStyle(document.documentElement).getPropertyValue('--mol-stroke').trim() || '#E8E6E3';
+  let svg = svgRaw.replace(/#000000/gi, molStroke).replace(/#FFFFFF/gi, 'transparent');
+  if (isDark) {
+    svg = svg.replace(/#0000FF/gi, '#809FFF').replace(/#FF0000/gi, '#FF8A80')
+             .replace(/#00CC00/gi, '#69DB7C').replace(/#33CCCC/gi, '#66E0E0')
+             .replace(/#B2B200/gi, '#E0D64A').replace(/#FF8000/gi, '#FFB366')
+             .replace(/#7F7F7F/gi, '#B0B0B0');
+  }
+  return svg;
+}
+
+/** Render a 2D depiction with the given atoms/bonds highlighted (e.g. a matched
+ *  structural-alert fragment). Amber highlight by default; size and colour are
+ *  configurable so the alerts panel can render large, prominent depictions. */
+export function getMolSvgHighlighted(
+  smiles: string,
+  atoms: number[],
+  bonds: number[] = [],
+  opts: { width?: number; height?: number; color?: [number, number, number, number] } = {},
+): string {
+  const RDKit = (globalThis as { RDKitModule?: RDKitMinimal }).RDKitModule;
+  if (!RDKit) return '';
+  const isDark = document.documentElement.classList.contains('dark');
+  try {
+    const mol = RDKit.get_mol(smiles);
+    if (!mol || !mol.is_valid()) { mol?.delete(); return ''; }
+    const details = {
+      width: opts.width ?? 280,
+      height: opts.height ?? 210,
+      bondLineWidth: isDark ? 1.8 : 1.5,
+      backgroundColour: [0, 0, 0, 0],
+      atoms,
+      bonds,
+      highlightColour: opts.color ?? [1.0, 0.62, 0.10, 0.62], // brighter, more-opaque amber (#FF9E1A)
+      highlightRadius: 0.42,            // larger highlight circles so flagged atoms stand out
+      highlightBondWidthMultiplier: 18, // thicker highlighted bonds outline the fragment
+    };
+    const raw = mol.get_svg_with_highlights(JSON.stringify(details));
+    mol.delete();
+    return themeRecolorSvg(raw, isDark);
+  } catch {
+    return '';
+  }
+}
+
+// ─── Make-ability map: where the synthetic difficulty lives ──────────────────
+// Highlights the features that drive synthetic complexity — stereocentres (exact
+// CIP atoms) and saturated / non-aromatic (fused) ring systems — so "SA 4.6" stops
+// being an opaque number and becomes "the difficulty is concentrated here".
+export interface DifficultyHighlight { atoms: number[]; bonds: number[]; nStereo: number; nRingAtoms: number; }
+
+export function getDifficultyHighlight(smiles: string): DifficultyHighlight {
+  const empty: DifficultyHighlight = { atoms: [], bonds: [], nStereo: 0, nRingAtoms: 0 };
+  const RDKit = (globalThis as { RDKitModule?: RDKitMinimal }).RDKitModule;
+  if (!RDKit) return empty;
+  let mol: RDKitMol | null = null;
+  try {
+    mol = RDKit.get_mol(smiles);
+    if (!mol || !mol.is_valid()) { mol?.delete(); return empty; }
+    const atomSet = new Set<number>();
+    const bondSet = new Set<number>();
+
+    // Stereocentres — the single biggest make-ability driver, taken exactly from CIP tags.
+    let nStereo = 0;
+    try {
+      const tags = JSON.parse(mol.get_stereo_tags() || '{}') as { CIP_atoms?: [number, string][] };
+      for (const [a] of tags.CIP_atoms ?? []) { atomSet.add(a); nStereo++; }
+    } catch { /* no stereo info */ }
+
+    // Saturated / fused (non-aromatic) ring systems — the other dominant driver.
+    let nRingAtoms = 0;
+    try {
+      const q = RDKit.get_qmol('[R;!a]~[R;!a]'); // adjacent non-aromatic ring atoms → atoms + ring bonds
+      if (q && q.is_valid()) {
+        const matches = JSON.parse(mol.get_substruct_matches(q) || '[]') as { atoms: number[]; bonds: number[] }[];
+        const ringAtoms = new Set<number>();
+        for (const m of matches) {
+          for (const a of m.atoms) { atomSet.add(a); ringAtoms.add(a); }
+          for (const bd of m.bonds) bondSet.add(bd);
+        }
+        nRingAtoms = ringAtoms.size;
+      }
+      q?.delete();
+    } catch { /* no ring info */ }
+
+    mol.delete();
+    return { atoms: [...atomSet], bonds: [...bondSet], nStereo, nRingAtoms };
+  } catch {
+    mol?.delete();
+    return empty;
+  }
+}
+
+// ─── Structural-alert detection (client-side, RDKit FilterCatalog SMARTS) ─────
+// Catalog (PAINS / Brenk / NIH) is bundled from RDKit's canonical FilterCatalog
+// data and lazy-loaded on first use. See paper/scripts/build_structural_alerts.py.
+
+export interface AlertHit {
+  ruleSet: string;          // 'PAINS' | 'Brenk' | 'NIH'
+  name: string;             // RDKit alert name, e.g. 'quinone_A'
+  atoms: number[];          // matched atom indices (for highlighting)
+  bonds: number[];          // matched bond indices
+}
+
+interface RDKitMinimal {
+  get_mol: (s: string) => RDKitMol | null;
+  get_qmol: (s: string) => RDKitMol | null;
+}
+interface RDKitMol {
+  is_valid: () => boolean;
+  delete: () => void;
+  get_substruct_match: (q: RDKitMol) => string;
+  get_substruct_matches: (q: RDKitMol) => string;
+  get_stereo_tags: () => string;
+  get_svg_with_highlights: (details: string) => string;
+}
+
+type AlertCatalog = Record<string, { name: string; smarts: string }[]>;
+let alertCatalogPromise: Promise<AlertCatalog> | null = null;
+const qmolCache = new Map<string, RDKitMol | null>();
+
+function loadAlertCatalog(): Promise<AlertCatalog> {
+  if (!alertCatalogPromise) {
+    alertCatalogPromise = import('../data/structural_alerts.json')
+      .then((m) => (m.default ?? m) as unknown as AlertCatalog)
+      .catch((e) => { alertCatalogPromise = null; throw e; }); // allow retry after a transient chunk-load failure
+  }
+  return alertCatalogPromise;
+}
+
+/** Detect PAINS/Brenk/NIH structural alerts in a molecule and return the matched
+ *  fragment atom/bond indices so the offending substructure can be highlighted. */
+export async function detectStructuralAlerts(smiles: string): Promise<AlertHit[]> {
+  const RDKit = (globalThis as { RDKitModule?: RDKitMinimal }).RDKitModule;
+  if (!RDKit) return [];
+  const catalog = await loadAlertCatalog();
+  const mol = RDKit.get_mol(smiles);
+  if (!mol || !mol.is_valid()) { mol?.delete(); return []; }
+  const hits: AlertHit[] = [];
+  try {
+    for (const ruleSet of Object.keys(catalog)) {
+      for (const { name, smarts } of catalog[ruleSet]) {
+        let q = qmolCache.get(smarts);
+        if (q === undefined) {
+          try {
+            q = RDKit.get_qmol(smarts);
+            if (!q || !q.is_valid()) { q?.delete(); q = null; }
+          } catch { q = null; }
+          qmolCache.set(smarts, q);
+        }
+        if (!q) continue;
+        let matchStr = '';
+        try { matchStr = mol.get_substruct_match(q); } catch { matchStr = ''; }
+        if (matchStr && matchStr !== '{}') {
+          try {
+            const parsed = JSON.parse(matchStr) as { atoms?: number[]; bonds?: number[] };
+            if (parsed.atoms && parsed.atoms.length) {
+              hits.push({ ruleSet, name, atoms: parsed.atoms, bonds: parsed.bonds ?? [] });
+            }
+          } catch { /* ignore malformed match */ }
+        }
+      }
+    }
+  } finally {
+    mol.delete();
+  }
+  return hits;
+}
+
 // ─── Packed fingerprint utilities ────────────────────────────────────────────
 const EMPTY_FP_PACKED = new Uint32Array(64); // 2048 bits / 32
 
@@ -99,7 +270,7 @@ export function tanimotoPacked(a: Uint32Array, b: Uint32Array): number {
   return union === 0 ? 0 : inter / union;
 }
 
-export type SimilarityMetric = 'tanimoto-r2' | 'tanimoto-r3' | 'selfies-ted';
+export type SimilarityMetric = 'tanimoto-r2' | 'tanimoto-r3' | 'tanimoto-r6' | 'selfies-ted';
 
 /**
  * Compute n×n Tanimoto matrix with Morgan fingerprints at arbitrary radius.
@@ -143,11 +314,31 @@ function computeTanimotoMatrixRadius(molecules: Molecule[], radius: number): num
 
 /** Compute similarity matrix using specified metric (sync metrics only — selfies-ted is async, handled in views). */
 export function computeSimilarityMatrix(molecules: Molecule[], metric: SimilarityMetric = 'tanimoto-r2'): number[][] {
-  if (metric === 'tanimoto-r3') {
-    return computeTanimotoMatrixRadius(molecules, 3);
-  }
+  if (metric === 'tanimoto-r3') return computeTanimotoMatrixRadius(molecules, 3);
+  if (metric === 'tanimoto-r6') return computeTanimotoMatrixRadius(molecules, 6);
   // tanimoto-r2: use pre-packed fingerprints (fast path)
   return computeTanimotoMatrix(molecules);
+}
+
+/** Morgan fingerprint bit strings at a given radius, for the chemical-space projection.
+ *  radius 2 reuses each molecule's pre-packed fingerprint (fast path); higher radii
+ *  recompute via RDKit.js (falls back to the stored r=2 string if RDKit is unavailable). */
+export function morganFpStrings(molecules: Molecule[], radius: number): string[] {
+  if (radius === 2) return molecules.map(m => m.fingerprint);
+  const RDKit = (globalThis as { RDKitModule?: { get_mol: (s: string) => { is_valid: () => boolean; delete: () => void; get_morgan_fp: (o: string) => string } | null } }).RDKitModule;
+  if (!RDKit) return molecules.map(m => m.fingerprint);
+  return molecules.map(m => {
+    try {
+      const mol = RDKit.get_mol(m.smiles);
+      if (mol && mol.is_valid()) {
+        const fp = mol.get_morgan_fp(JSON.stringify({ radius, nBits: 2048 }));
+        mol.delete();
+        return fp;
+      }
+      mol?.delete();
+    } catch { /* fall through to stored r=2 */ }
+    return m.fingerprint;
+  });
 }
 
 export function looksLikeName(line: string): boolean {
@@ -572,6 +763,60 @@ async function resolveNamesInBatch(
 }
 
 /** Parse a single resolved SMILES line into a Molecule (no SVG — deferred). */
+// ─── Synthetic complexity (transparent client-side make-ability heuristic) ────
+// A fast, interpretable estimate of synthetic difficulty (1 = trivial, 10 = very
+// hard) from structural drivers chemists recognize: stereocenters, spiro/
+// bridged/non-aromatic ring systems, molecular size, and 3-D (sp3) character.
+// A triage proxy — NOT a retrosynthetic route or building-block price (those are
+// the planned opt-in cost tier). Lower = easier / cheaper to make.
+
+export interface SynthComplexity { score: number; factors: string[]; }
+
+/** Synthetic-complexity score (1–10) + dominant contributing factors, from an
+ *  RDKit get_descriptors() object. */
+export function syntheticComplexityFromDescriptors(desc: Record<string, number>): SynthComplexity {
+  const stereo = desc.NumAtomStereoCenters || 0;          // total potential stereocenters
+  const spiro = desc.NumSpiroAtoms || 0;
+  const bridge = desc.NumBridgeheadAtoms || 0;
+  const nonAromRings = (desc.NumAliphaticRings || 0) + (desc.NumSaturatedRings || 0);
+  const heavy = desc.NumHeavyAtoms || desc.HeavyAtomCount || 0;
+  const fsp3 = desc.FractionCSP3 || 0;
+
+  const raw = 1.0
+    + 0.90 * stereo
+    + 1.30 * spiro
+    + 1.30 * bridge
+    + 0.40 * nonAromRings
+    + 0.10 * Math.max(0, heavy - 28)
+    + 1.20 * fsp3;
+  // Saturating map to 1–10 (T tuned so stereocenter-rich natural products ≈ 10).
+  const score = 1 + 9 * (1 - Math.exp(-(raw - 1) / 6.6));
+
+  const contrib = [
+    { label: `${stereo} stereocentre${stereo === 1 ? '' : 's'}`, w: 0.90 * stereo },
+    { label: `${bridge} bridgehead atom${bridge === 1 ? '' : 's'}`, w: 1.30 * bridge },
+    { label: `${spiro} spiro atom${spiro === 1 ? '' : 's'}`, w: 1.30 * spiro },
+    { label: `${nonAromRings} non-aromatic ring${nonAromRings === 1 ? '' : 's'}`, w: 0.40 * nonAromRings },
+    { label: 'large size', w: 0.10 * Math.max(0, heavy - 28) },
+    { label: 'high 3-D (sp³) character', w: 1.20 * fsp3 },
+  ];
+  const factors = contrib.filter(c => c.w >= 0.45).sort((a, b) => b.w - a.w).slice(0, 3).map(c => c.label);
+  return { score: Math.min(10, Math.max(1, score)), factors };
+}
+
+/** Recompute synthetic complexity for a SMILES on demand (e.g. for a tooltip). */
+export function getSyntheticComplexity(smiles: string): SynthComplexity | null {
+  const RDKit = (globalThis as { RDKitModule?: { get_mol: (s: string) => { is_valid: () => boolean; delete: () => void; get_descriptors: () => string } | null } }).RDKitModule;
+  if (!RDKit) return null;
+  try {
+    const mol = RDKit.get_mol(smiles);
+    if (!mol || !mol.is_valid()) { mol?.delete(); return null; }
+    const desc = JSON.parse(mol.get_descriptors()) as Record<string, number>;
+    mol.delete();
+    return syntheticComplexityFromDescriptors(desc);
+  } catch { return null; }
+}
+
 function parseMolecule(
   line: string,
   index: number,
@@ -602,6 +847,7 @@ function parseMolecule(
     const rotBonds = desc.NumRotatableBonds || 0;
     const arom = desc.NumAromaticRings || 0;
     const { qedWeighted } = computeQED({ MW: mw, ALOGP: logp, HBA: hba, HBD: hbd, PSA: tpsa, ROTB: rotBonds, AROM: arom, ALERTS: 0 });
+    const sc = syntheticComplexityFromDescriptors(desc);
 
     const props: MolProps = {
       MW: mw,
@@ -617,6 +863,7 @@ function parseMolecule(
       MR: desc.CrippenMR || 0,
       NumAtoms: numAtoms > 0 ? numAtoms : (desc.NumHeavyAtoms || 0),
       QED: Math.round(qedWeighted * 1000) / 1000,
+      SC: Math.round(sc.score * 10) / 10,
     };
 
     const filters: Record<string, FilterResult> = {};
@@ -635,6 +882,7 @@ function parseMolecule(
       customProps: customPropValues[index] || {},
       filters,
       lipinski: filters.lipinski,
+      scFactors: sc.factors,
       paretoRank: null,
       dominates: [],
       dominatedBy: [],
@@ -828,8 +1076,16 @@ export function getDiversityScore(matrix: number[][]): number {
   return count === 0 ? 0 : sum / count;
 }
 
-const PARETO_KEYS: (keyof MolProps)[] = ['MW', 'LogP', 'HBD', 'HBA', 'TPSA', 'RotBonds'];
-const LIPINSKI_MAX: Record<string, number> = { MW: 500, LogP: 5, HBD: 5, HBA: 10, TPSA: 140, RotBonds: 10 };
+/** Default cliff-score property set (physicochemical profile). */
+export const DEFAULT_CLIFF_KEYS: string[] = ['MW', 'LogP', 'HBD', 'HBA', 'TPSA', 'RotBonds'];
+
+/** Read a numeric property (built-in descriptor or custom/ADMET/activity column) for a molecule. */
+export function readMolProp(m: Molecule, key: string): number | undefined {
+  const v = (m.props as unknown as Record<string, number | undefined>)[key];
+  if (typeof v === 'number' && isFinite(v)) return v;
+  const cv = m.customProps?.[key];
+  return typeof cv === 'number' && isFinite(cv) ? cv : undefined;
+}
 
 export interface ActivityCliff {
   i: number;
@@ -840,33 +1096,60 @@ export interface ActivityCliff {
   topDifferingProps: string[];
 }
 
-/** Activity cliffs: high similarity but large property difference. */
+/**
+ * Activity cliffs: structurally similar pairs with divergent properties.
+ *
+ * Cliff score (Structure–Activity Similarity, SAS):
+ *   SAS_ij = T_ij · ||x̂_i − x̂_j||₂
+ * where T_ij is the pairwise structural (or semantic) similarity supplied in
+ * `tanimotoMatrix`, and x̂ is the per-property vector min–max normalized to [0,1]
+ * across the loaded set. Min–max (rather than fixed) normalization lets any
+ * property — including imported activity (pChEMBL/IC50) or predicted ADMET
+ * endpoints — contribute on a comparable scale, enabling classic SAR activity
+ * cliffs when a single activity property is selected (`propKeys = ['pChEMBL']`).
+ */
 export function computeActivityCliffs(
   molecules: Molecule[],
   tanimotoMatrix: number[][],
   threshold = 0.5,
-  topN = 10
+  topN = 10,
+  propKeys: string[] = DEFAULT_CLIFF_KEYS,
 ): ActivityCliff[] {
   const n = molecules.length;
   const cliffs: ActivityCliff[] = [];
+  const keys = propKeys.length ? propKeys : DEFAULT_CLIFF_KEYS;
+
+  // Per-property min/max over the loaded set for data-range normalization.
+  const ranges: Record<string, { min: number; max: number }> = {};
+  for (const k of keys) {
+    let mn = Infinity, mx = -Infinity;
+    for (const m of molecules) {
+      const v = readMolProp(m, k);
+      if (v === undefined) continue;
+      if (v < mn) mn = v;
+      if (v > mx) mx = v;
+    }
+    ranges[k] = { min: mn, max: mx };
+  }
 
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
       const t = tanimotoMatrix[i][j];
       if (t <= threshold) continue;
 
-      const norm = (k: string, v: number) => v / (LIPINSKI_MAX[k] || 1);
       let sumSq = 0;
       const diffs: { key: string; diff: number }[] = [];
-      for (const k of PARETO_KEYS) {
-        const v1 = molecules[i].props[k];
-        const v2 = molecules[j].props[k];
-        const n1 = norm(k, v1);
-        const n2 = norm(k, v2);
-        const d = n1 - n2;
+      for (const k of keys) {
+        const v1 = readMolProp(molecules[i], k);
+        const v2 = readMolProp(molecules[j], k);
+        if (v1 === undefined || v2 === undefined) continue;
+        const r = ranges[k];
+        const span = r.max - r.min;
+        const d = span > 1e-9 ? (v1 - v2) / span : 0;
         sumSq += d * d;
         diffs.push({ key: k, diff: Math.abs(d) });
       }
+      if (diffs.length === 0) continue; // no comparable properties for this pair
       const propDist = Math.sqrt(sumSq);
       diffs.sort((a, b) => b.diff - a.diff);
       cliffs.push({
