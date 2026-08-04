@@ -1,0 +1,30 @@
+{
+  "n_compounds": 1949,
+  "n_rows": 1949,
+  "source": "paper/fda_approved_1949.csv",
+  "rdkit_version": "2026.03.4",
+  "alerts_per_molecule_mean": 0.9389430477167778,
+  "alerts_per_molecule_median": 1.0,
+  "alerts_per_molecule_max": 6,
+  "molecules_with_alert": 1133,
+  "fraction_with_alert": 0.5813237557721909,
+  "deviations": {
+    "alert_correction_old_minus_new": {
+      "mean": 0.05790063840221868,
+      "rmse": 0.10336354859170876,
+      "max_abs": 0.5725223540647987
+    },
+    "residual_new_minus_canonical": {
+      "mean": 0.0009988206635418797,
+      "rmse": 0.008692580736212027,
+      "max_abs": 0.1354816033088186
+    },
+    "previous_error_old_minus_canonical": {
+      "mean": 0.058899459065760565,
+      "rmse": 0.10398360617856763,
+      "max_abs": 0.5725223540647987
+    }
+  },
+  "spearman_app_new_vs_canonical": 0.999030342398569,
+  "spearman_app_old_vs_canonical": 0.9008626846849777
+}

@@ -1,0 +1,37 @@
+{
+  "dataset": "ChEMBL 34 approved small molecules (max_phase=4, 100-900 Da, no salts)",
+  "n_compounds": 1949,
+  "p6_objectives": [
+    "MW",
+    "LogP",
+    "HBD",
+    "HBA",
+    "TPSA",
+    "RotBonds"
+  ],
+  "p9_objectives": [
+    "MW",
+    "LogP",
+    "HBD",
+    "HBA",
+    "TPSA",
+    "RotBonds",
+    "hERG",
+    "DILI",
+    "ClinTox"
+  ],
+  "direction": "all minimize",
+  "p6_pareto_count": 50,
+  "p9_pareto_count": 181,
+  "retained": 50,
+  "lost": 0,
+  "gained": 131,
+  "p6_optimal_mean_MW": 234.2,
+  "p6_optimal_mean_LogP": -2.57,
+  "rescued_mean_hERG": 0.144,
+  "dominated_mean_hERG": 0.485,
+  "rescued_mean_DILI": 0.261,
+  "dominated_mean_DILI": 0.535,
+  "rescued_lipinski_pass_pct": 90,
+  "all_lipinski_pass_pct": 75
+}

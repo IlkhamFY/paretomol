@@ -8,9 +8,9 @@ import KeyboardShortcuts from './components/KeyboardShortcuts';
 import type { Molecule, ParetoObjective, FormulaColumn } from './utils/types';
 import { DEFAULT_PARETO_OBJECTIVES, EXAMPLES } from './utils/types';
 import { parseFormula } from './utils/formula';
-import { autoSave, loadAutoSession, clearAutoSession, formatSessionTime } from './utils/session';
+import { autoSave, loadAutoSession, clearAutoSession, formatSessionTime, CURRENT_SCHEMA_VERSION } from './utils/session';
 import type { SerializedMolecule } from './utils/session';
-import { packFingerprint, parseAndAnalyze, filterBySubstructure } from './utils/chem';
+import { packFingerprint, parseAndAnalyze, filterBySubstructure, computeParetoAndDominance } from './utils/chem';
 import { useTheme } from './contexts/ThemeContext';
 import { detectLocalServer } from './utils/admetTiers';
 import { fetchRAScore, getRascoreUrl } from './utils/rascore';
@@ -160,12 +160,34 @@ export default function App() {
   const restoreSession = useCallback(async () => {
     const session = await loadAutoSession();
     if (!session) return;
-    const restored: Molecule[] = session.molecules.map(sm => ({
-      ...sm,
-      svg: '',
-      props: sm.props as unknown as import('./utils/types').MolProps,
-      fpPacked: packFingerprint(sm.fingerprint),
-    }));
+
+    let restored: Molecule[];
+    if ((session.schemaVersion ?? 0) < CURRENT_SCHEMA_VERSION) {
+      // The stored properties were computed under superseded conventions —
+      // monoisotopic mass in place of average molecular weight, and QED with
+      // the structural-alert term pinned to zero — so replaying them would
+      // quietly resurrect corrected numbers. Descriptors are recomputed from
+      // structure; imported and predicted columns are data rather than derived
+      // quantities and are carried across unchanged.
+      const text = session.molecules.map(sm => `${sm.smiles} ${sm.name}`).join('\n');
+      const { molecules: fresh } = await parseAndAnalyze(text);
+      const previous = new Map(session.molecules.map(sm => [sm.smiles, sm]));
+      restored = fresh.map(m => ({
+        ...m,
+        customProps: { ...(previous.get(m.smiles)?.customProps ?? {}) },
+      }));
+    } else {
+      restored = session.molecules.map(sm => ({
+        ...sm,
+        svg: '',
+        props: sm.props as unknown as import('./utils/types').MolProps,
+        fpPacked: packFingerprint(sm.fingerprint),
+      }));
+    }
+
+    // Ranks are always recomputed: front indices are derived from the active
+    // objectives, and a stored rank can only be stale.
+    computeParetoAndDominance(restored, session.objectives ?? DEFAULT_PARETO_OBJECTIVES);
     setMolecules(restored);
     if (session.objectives) setParetoObjectives(session.objectives);
     if (session.formulaColumns) setFormulaColumns(session.formulaColumns);
@@ -323,14 +345,22 @@ export default function App() {
     // Keys already present in MolProps (computed client-side) should not be overridden
     // by ADMET API results — e.g. the server also returns 'QED' but we compute it locally.
     const BUILTIN_PROP_KEYS = new Set(['MW','LogP','HBD','HBA','TPSA','RotBonds','FrCSP3','Rings','AromaticRings','HeavyAtoms','MR','NumAtoms','QED']);
+    // Columns the user imported are experimental measurements. A prediction of
+    // the same name must not overwrite them: that silently replaces a
+    // measurement with an estimate and leaves the two indistinguishable
+    // downstream, in the exports and in the Pareto analysis alike. Such
+    // predictions are given a distinct "(pred)" column so both are kept and
+    // can be told apart.
+    const userSupplied = new Set(customPropNames.filter(k => !admetPropNames.includes(k)));
     const updated = molecules.map(m => {
       const pred = predictions.get(m.smiles) || predictions.get(m.name);
       if (!pred) return m;
       const newCustom = { ...m.customProps };
       for (const [k, v] of Object.entries(pred)) {
         if (BUILTIN_PROP_KEYS.has(k)) continue; // don't shadow built-in computed properties
-        newCustom[k] = v;
-        admetKeys.add(k);
+        const key = userSupplied.has(k) ? `${k} (pred)` : k;
+        newCustom[key] = v;
+        admetKeys.add(key);
       }
       return { ...m, customProps: newCustom };
     });

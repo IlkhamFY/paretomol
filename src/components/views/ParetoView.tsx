@@ -52,11 +52,11 @@ interface ScatterAxes {
 }
 
 const DEFAULT_AXES: ScatterAxes[] = [
-  { x: 'SC', y: 'LogP' },
-  { x: 'SC', y: 'MW' },
   { x: 'MW', y: 'LogP' },
+  { x: 'MW', y: 'TPSA' },
   { x: 'LogP', y: 'TPSA' },
   { x: 'HBD', y: 'HBA' },
+  { x: 'MW', y: 'RotBonds' },
   { x: 'LogP', y: 'FrCSP3' },
 ];
 
@@ -65,7 +65,7 @@ const DEFAULT_AXES: ScatterAxes[] = [
 // first so they read as first-class objectives, not raw keys buried in a list.
 const PHYS_KEYS = ['MW', 'LogP', 'TPSA', 'HBD', 'HBA', 'RotBonds', 'FrCSP3', 'QED'];
 const AXIS_LABELS: Record<string, string> = {
-  SC: 'Synth. (est.)', SA_Score: 'SA score', RAScore: 'RAScore', SCScore: 'SCScore', Vendors: 'Vendors', ZincCatalogs: 'ZINC catalogs', Price: 'Price ($/g)',
+  SC: 'Synth. (est., untrained)', SA_Score: 'SA score', RAScore: 'RAScore', SCScore: 'SCScore', Vendors: 'Vendors', ZincCatalogs: 'ZINC catalogs', Price: 'Price ($/g)',
   MW: 'MW', LogP: 'LogP', TPSA: 'TPSA', HBD: 'HBD', HBA: 'HBA', RotBonds: 'RotB', FrCSP3: 'Fsp³', QED: 'QED',
 };
 const labelFor = (k: string) => AXIS_LABELS[k] ?? k;
@@ -88,7 +88,7 @@ function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, cust
     [molecules, selectedMolIdx, paretoObjectives],
   );
   const [axes, setAxes] = useState<ScatterAxes[]>(DEFAULT_AXES);
-  const [showAll, setShowAll] = useState(true);
+  const [showAll, setShowAll] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>('lipinski');
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const visibleAxes = showAll ? axes : axes.slice(0, 2);

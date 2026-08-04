@@ -16,3 +16,10 @@ dist-ssr
 .idea
 .DS_Store
 *.sw?
+
+# Playwright fetches the RDKit WebAssembly bundle on demand (7 MB build input)
+e2e/fixtures/
+
+# Bytecode left by the analysis scripts
+__pycache__/
+*.pyc

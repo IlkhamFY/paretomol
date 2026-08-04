@@ -145,7 +145,7 @@ export function downloadScoredCSV(molecules: Molecule[], propNames: string[], fi
 /** Build SDF export with properties as SD tags.
  *  Uses RDKit.js molblock if available, otherwise a stub molblock. */
 export function buildExportSDF(molecules: Molecule[]): string {
-  const RDKit = (window as unknown as { RDKitModule?: { get_mol: (s: string) => { is_valid: () => boolean; get_molblock: () => string; delete: () => void } | null } }).RDKitModule;
+  const RDKit = (globalThis as unknown as { RDKitModule?: { get_mol: (s: string) => { is_valid: () => boolean; get_molblock: () => string; delete: () => void } | null } }).RDKitModule;
   return molecules.map(m => {
     // Try to get a proper molblock from RDKit.js
     let molblock = `${m.name}\n     RDKit          \n\n  0  0  0  0  0  0  0  0  0  0999 V2000\nM  END`;

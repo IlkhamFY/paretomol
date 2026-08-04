@@ -82,7 +82,7 @@ const ADMETRadarChart = React.memo(function ADMETRadarChart({ pred }: RadarChart
         const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
         const x = cx + rr * Math.cos(angle);
         const y = cy + rr * Math.sin(angle);
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
       ctx.closePath();
       ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)';

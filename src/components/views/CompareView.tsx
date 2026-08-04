@@ -136,18 +136,16 @@ const PropertyDeltaChart = React.memo(function PropertyDeltaChart({ rows, nameA,
       const barAW = pctA * (BAR_AREA - 4);
       ctx.fillStyle = colorA + (winnerA ? '' : '99');
       ctx.beginPath();
-      ctx.roundRect
-        ? ctx.roundRect(divX - barAW - 2, midY - barH / 2, barAW, barH, 2)
-        : ctx.rect(divX - barAW - 2, midY - barH / 2, barAW, barH);
+      if (ctx.roundRect) ctx.roundRect(divX - barAW - 2, midY - barH / 2, barAW, barH, 2);
+      else ctx.rect(divX - barAW - 2, midY - barH / 2, barAW, barH);
       ctx.fill();
 
       // Bar B: draws left-to-right from divX
       const barBW = pctB * (BAR_AREA - 4);
       ctx.fillStyle = colorB + (winnerB ? '' : '99');
       ctx.beginPath();
-      ctx.roundRect
-        ? ctx.roundRect(divX + 2, midY - barH / 2, barBW, barH, 2)
-        : ctx.rect(divX + 2, midY - barH / 2, barBW, barH);
+      if (ctx.roundRect) ctx.roundRect(divX + 2, midY - barH / 2, barBW, barH, 2);
+      else ctx.rect(divX + 2, midY - barH / 2, barBW, barH);
       ctx.fill();
 
       // Value labels

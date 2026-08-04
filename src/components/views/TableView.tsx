@@ -60,6 +60,15 @@ function TableView({ molecules, selectedMolIdx, setSelectedMolIdx, customPropNam
     const { key, dir } = sort;
     const isCustom = customPropNames.includes(key);
     return list.sort((a, b) => {
+      if (key === 'paretoRank') {
+        // paretoRank lives on the molecule, not in props — resolving it the
+        // generic way yielded NaN and left this column effectively unsorted.
+        // Unranked molecules sort last; MAX_SAFE_INTEGER rather than Infinity,
+        // since Infinity - Infinity is NaN and would reintroduce the bug.
+        const rA = a.paretoRank ?? Number.MAX_SAFE_INTEGER;
+        const rB = b.paretoRank ?? Number.MAX_SAFE_INTEGER;
+        return (rA - rB) * dir;
+      }
       const vA = isCustom ? (a.customProps[key] ?? 0) : (a.props[key as keyof Molecule['props']] as number);
       const vB = isCustom ? (b.customProps[key] ?? 0) : (b.props[key as keyof Molecule['props']] as number);
       return (vA - vB) * dir;
@@ -293,8 +302,11 @@ function TableView({ molecules, selectedMolIdx, setSelectedMolIdx, customPropNam
                       );
                     })}
 
-                    <td className={`p-3 font-medium ${m.paretoRank === 1 ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
-                      {m.paretoRank === 1 ? 'yes' : 'no'}
+                    <td
+                      className={`p-3 font-medium ${m.paretoRank === 1 ? 'text-[#22c55e]' : m.paretoRank === null ? 'text-[var(--text2)]' : 'text-[#ef4444]'}`}
+                      title={m.paretoRank === null ? `Not ranked — no value for ${m.missingObjectives?.join(', ')}` : undefined}
+                    >
+                      {m.paretoRank === 1 ? 'yes' : m.paretoRank === null ? 'unranked' : 'no'}
                     </td>
                   </tr>
                 );
@@ -440,8 +452,8 @@ function DominanceMatrix({ molecules }: { molecules: Molecule[] }) {
               <span className="text-[var(--text2)] flex-1 text-center">
                 dominates {m.dominates?.length || 0}, dominated by {m.dominatedBy?.length || 0}
               </span>
-              <span className={`shrink-0 text-right font-medium ${m.paretoRank === 1 ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
-                {m.paretoRank === 1 ? 'pareto-optimal' : 'dominated'}
+              <span className={`shrink-0 text-right font-medium ${m.paretoRank === 1 ? 'text-[#22c55e]' : m.paretoRank === null ? 'text-[var(--text2)]' : 'text-[#ef4444]'}`}>
+                {m.paretoRank === 1 ? 'pareto-optimal' : m.paretoRank === null ? 'unranked' : 'dominated'}
               </span>
             </div>
           ))}

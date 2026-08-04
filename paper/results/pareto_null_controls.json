@@ -1,0 +1,187 @@
+{
+  "n_compounds": 1949,
+  "replicates": 200,
+  "seed": 20260727,
+  "objective_order": [
+    "MW",
+    "LogP",
+    "HBD",
+    "HBA",
+    "TPSA",
+    "RotBonds",
+    "admet_hERG",
+    "admet_DILI",
+    "admet_ClinTox"
+  ],
+  "by_k": [
+    {
+      "k": 2,
+      "observed": 17,
+      "nulls": null
+    },
+    {
+      "k": 3,
+      "observed": 33,
+      "nulls": null
+    },
+    {
+      "k": 4,
+      "observed": 36,
+      "nulls": null
+    },
+    {
+      "k": 5,
+      "observed": 44,
+      "nulls": null
+    },
+    {
+      "k": 6,
+      "observed": 50,
+      "nulls": null
+    },
+    {
+      "k": 7,
+      "observed": 82,
+      "nulls": {
+        "independent": {
+          "mean": 110.21,
+          "sd": 17.64974411533163,
+          "ci95": [
+            74.975,
+            143.025
+          ],
+          "min": 72,
+          "max": 155,
+          "frac_null_le_observed": 0.06,
+          "p_permutation": 0.06467661691542288,
+          "p_resolution_floor": 0.004975124378109453,
+          "inside_ci": true
+        },
+        "block": {
+          "mean": 110.965,
+          "sd": 16.36621642900414,
+          "ci95": [
+            75.975,
+            143.0
+          ],
+          "min": 63,
+          "max": 159,
+          "frac_null_le_observed": 0.03,
+          "p_permutation": 0.03482587064676617,
+          "p_resolution_floor": 0.004975124378109453,
+          "inside_ci": true
+        },
+        "uniform": {
+          "mean": 107.71,
+          "sd": 17.891799306164273,
+          "ci95": [
+            76.0,
+            145.025
+          ],
+          "min": 65,
+          "max": 155,
+          "frac_null_le_observed": 0.08,
+          "p_permutation": 0.0845771144278607,
+          "p_resolution_floor": 0.004975124378109453,
+          "inside_ci": true
+        }
+      }
+    },
+    {
+      "k": 8,
+      "observed": 151,
+      "nulls": {
+        "independent": {
+          "mean": 237.8,
+          "sd": 35.174939685940444,
+          "ci95": [
+            167.82500000000002,
+            302.025
+          ],
+          "min": 129,
+          "max": 334,
+          "frac_null_le_observed": 0.01,
+          "p_permutation": 0.014925373134328358,
+          "p_resolution_floor": 0.004975124378109453,
+          "inside_ci": false
+        },
+        "block": {
+          "mean": 235.59,
+          "sd": 33.87446378147427,
+          "ci95": [
+            173.0,
+            307.025
+          ],
+          "min": 136,
+          "max": 318,
+          "frac_null_le_observed": 0.01,
+          "p_permutation": 0.014925373134328358,
+          "p_resolution_floor": 0.004975124378109453,
+          "inside_ci": false
+        },
+        "uniform": {
+          "mean": 235.045,
+          "sd": 38.579331240898604,
+          "ci95": [
+            157.875,
+            305.025
+          ],
+          "min": 126,
+          "max": 333,
+          "frac_null_le_observed": 0.02,
+          "p_permutation": 0.024875621890547265,
+          "p_resolution_floor": 0.004975124378109453,
+          "inside_ci": false
+        }
+      }
+    },
+    {
+      "k": 9,
+      "observed": 181,
+      "nulls": {
+        "independent": {
+          "mean": 420.895,
+          "sd": 43.286633481837725,
+          "ci95": [
+            333.725,
+            496.07500000000005
+          ],
+          "min": 285,
+          "max": 549,
+          "frac_null_le_observed": 0.0,
+          "p_permutation": 0.004975124378109453,
+          "p_resolution_floor": 0.004975124378109453,
+          "inside_ci": false
+        },
+        "block": {
+          "mean": 305.545,
+          "sd": 42.567215249183874,
+          "ci95": [
+            228.975,
+            389.1
+          ],
+          "min": 135,
+          "max": 396,
+          "frac_null_le_observed": 0.005,
+          "p_permutation": 0.009950248756218905,
+          "p_resolution_floor": 0.004975124378109453,
+          "inside_ci": false
+        },
+        "uniform": {
+          "mean": 429.28,
+          "sd": 46.6483864651179,
+          "ci95": [
+            337.725,
+            515.1
+          ],
+          "min": 305,
+          "max": 530,
+          "frac_null_le_observed": 0.0,
+          "p_permutation": 0.004975124378109453,
+          "p_resolution_floor": 0.004975124378109453,
+          "inside_ci": false
+        }
+      }
+    }
+  ]
+}

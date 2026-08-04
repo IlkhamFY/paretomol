@@ -474,7 +474,9 @@ function ActivityCliffsView({ molecules, onComparePair }: ActivityCliffsViewProp
                 <div className="text-[11px] text-[var(--text2)] mt-0.5">
                   {selectedMol.paretoRank === 1
                     ? <span className="text-[#5F7367] font-medium">Pareto-optimal</span>
-                    : <span>Rank {selectedMol.paretoRank}</span>}
+                    : selectedMol.paretoRank === null
+                      ? <span title={`No value for ${selectedMol.missingObjectives?.join(', ')}`}>Unranked</span>
+                      : <span>Front {selectedMol.paretoRank}</span>}
                   {' '}· Index {networkSelectedIdx}
                 </div>
               </div>

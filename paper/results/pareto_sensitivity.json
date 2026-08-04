@@ -1,0 +1,130 @@
+{
+  "n_compounds": 1949,
+  "seed": 20260727,
+  "replicates": 50,
+  "p6": 50,
+  "p9": 181,
+  "gained": 131,
+  "stability": [
+    {
+      "noise_fraction_of_sd": 0.01,
+      "retention_mean": 0.9646408839779006,
+      "jaccard_mean": 0.5909305067194478,
+      "front_size_mean": 289.68
+    },
+    {
+      "noise_fraction_of_sd": 0.05,
+      "retention_mean": 0.9141436464088397,
+      "jaccard_mean": 0.5271211722968545,
+      "front_size_mean": 299.02
+    },
+    {
+      "noise_fraction_of_sd": 0.1,
+      "retention_mean": 0.8697237569060775,
+      "jaccard_mean": 0.47643642511185874,
+      "front_size_mean": 307.44
+    }
+  ],
+  "epsilon": [
+    {
+      "epsilon": 0.0,
+      "strict_front_size": 181,
+      "strict_mutual_pairs": 0,
+      "relaxed_front_size": 181,
+      "relaxed_mutual_pairs": 0
+    },
+    {
+      "epsilon": 0.01,
+      "strict_front_size": 117,
+      "strict_mutual_pairs": 0,
+      "relaxed_front_size": 109,
+      "relaxed_mutual_pairs": 16
+    },
+    {
+      "epsilon": 0.02,
+      "strict_front_size": 78,
+      "strict_mutual_pairs": 0,
+      "relaxed_front_size": 68,
+      "relaxed_mutual_pairs": 38
+    },
+    {
+      "epsilon": 0.05,
+      "strict_front_size": 24,
+      "strict_mutual_pairs": 0,
+      "relaxed_front_size": 18,
+      "relaxed_mutual_pairs": 277
+    },
+    {
+      "epsilon": 0.1,
+      "strict_front_size": 3,
+      "strict_mutual_pairs": 0,
+      "relaxed_front_size": 0,
+      "relaxed_mutual_pairs": 6483
+    }
+  ],
+  "composition": [
+    {
+      "endpoint": "admet_hERG",
+      "observed": 0.1440440458015267,
+      "null_mean": 0.20447182198873398,
+      "null_sd": 0.028249019480309084,
+      "n_null_draws": 200,
+      "frac_null_le_observed": 0.015,
+      "p_permutation": 0.01990049751243781,
+      "p_resolution_floor": 0.004975124378109453
+    },
+    {
+      "endpoint": "admet_DILI",
+      "observed": 0.26103554198473283,
+      "null_mean": 0.3520544249822612,
+      "null_sd": 0.031516233576175744,
+      "n_null_draws": 200,
+      "frac_null_le_observed": 0.005,
+      "p_permutation": 0.009950248756218905,
+      "p_resolution_floor": 0.004975124378109453
+    },
+    {
+      "endpoint": "admet_ClinTox",
+      "observed": 0.04411416030534351,
+      "null_mean": 0.07076647203112472,
+      "null_sd": 0.010053960832611501,
+      "n_null_draws": 200,
+      "frac_null_le_observed": 0.0,
+      "p_permutation": 0.004975124378109453,
+      "p_resolution_floor": 0.004975124378109453
+    }
+  ],
+  "lipinski": {
+    "definition": "MW <= 500, LogP <= 5, HBD <= 5, HBA <= 10; compliant = no violation",
+    "observed": 0.9007633587786259,
+    "population": 0.7521806054386865,
+    "seed": 20260727,
+    "null_mean": 0.8876982838083504,
+    "null_sd": 0.022235278663755572,
+    "null_ci95": [
+      0.8439204081632653,
+      0.926619174919497
+    ],
+    "n_null_draws": 200,
+    "frac_null_ge_observed": 0.3,
+    "p_permutation": 0.3034825870646766,
+    "p_resolution_floor": 0.004975124378109453,
+    "inside_ci95": true,
+    "enrichment_reproduced_by_null": 0.912068697903422,
+    "seed_robustness": {
+      "seed": 20260728,
+      "null_mean": 0.8844973711079156,
+      "null_sd": 0.025522833863129625,
+      "null_ci95": [
+        0.8367235585720465,
+        0.927313657906075
+      ],
+      "n_null_draws": 200,
+      "frac_null_ge_observed": 0.26,
+      "p_permutation": 0.263681592039801,
+      "p_resolution_floor": 0.004975124378109453,
+      "inside_ci95": true,
+      "enrichment_reproduced_by_null": 0.8905257352884309
+    }
+  }
+}

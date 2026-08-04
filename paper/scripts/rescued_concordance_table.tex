@@ -1,0 +1,18 @@
+\begin{table}[h]
+\centering
+\caption{Predicted (ADMET-AI) vs.\ published experimental/clinical reference data for the six rescued drugs. Predicted values are positive-class probabilities; $F$ is the predicted high-bioavailability probability. Reference values from FDA labels, DrugBank, and the primary literature.}
+\label{tbl:rescued_concordance}
+\small
+\begin{tabular}{lcccccc}
+\toprule
+Drug & hERG & cardiac (clinical) & DILI & hepatic (clinical) & $F_\mathrm{pred}$ & oral $F$ (lit.) \\
+\midrule
+Metformin & 0.04 & No QT/hERG liability & 0.00 & No significant hepatotoxicity & 0.37 & 50-60% \\
+Allopurinol & 0.01 & No QT liability & 0.89 & Rare severe (DRESS/hypersensitivity hepatitis) & 0.90 & 80-90% \\
+Captopril & 0.01 & No QT liability & 0.40 & Rare cholestatic injury & 0.86 & 60-75% \\
+Amantadine & 0.17 & No significant QT & 0.02 & Very low & 0.81 & 86-94% \\
+Fosfomycin & 0.03 & No QT liability & 0.14 & Very low & 0.42 & 30-40% \\
+Fluorouracil & 0.01 & Vasospastic angina (non-hERG) & 0.81 & Reported hepatotoxicity & 0.87 & erratic (IV-dosed) \\
+\bottomrule
+\end{tabular}
+\end{table}

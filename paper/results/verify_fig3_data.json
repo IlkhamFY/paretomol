@@ -1,0 +1,152 @@
+{
+  "sources": {
+    "egfr": "paper/egfr_top50.csv",
+    "controls": "paper/scripts/control_kinase_inhibitors.json",
+    "population": "paper/scripts/population_baseline.json"
+  },
+  "conventions": {
+    "sd_ddof": 0,
+    "mannwhitney_alternative": "two-sided",
+    "threshold": 0.5
+  },
+  "groups": {
+    "egfr_top50": {
+      "n": 50,
+      "mean": 0.8899560000000001,
+      "sd": 0.12717445837903144,
+      "pct_above_threshold": 100.0
+    },
+    "matched_kinase_controls": {
+      "n": 50,
+      "mean": 0.533116,
+      "sd": 0.3173067457965557,
+      "pct_above_threshold": 50.0
+    },
+    "population_baseline": {
+      "n": 500,
+      "mean": 0.134913056,
+      "sd": 0.20297479420840622,
+      "pct_above_threshold": 6.6000000000000005
+    }
+  },
+  "tests": {
+    "egfr_vs_controls": {
+      "U": 2150.0,
+      "p": 5.610873066589603e-10,
+      "glass_delta": 1.1245900212559348
+    },
+    "egfr_vs_population": {
+      "U": 24648.0,
+      "p": 8.518611807160729e-30
+    }
+  },
+  "manuscript": {
+    "egfr_n": 50,
+    "egfr_mean": 0.89,
+    "egfr_sd": 0.127,
+    "egfr_pct_above": 100.0,
+    "control_n": 50,
+    "control_mean": 0.533,
+    "control_sd": 0.317,
+    "control_pct_above": 50.0,
+    "population_n": 500,
+    "population_mean": 0.135,
+    "population_pct_above": 6.6,
+    "u_egfr_vs_control": 2150,
+    "p_egfr_vs_control": 5.61e-10,
+    "glass_delta": 1.12,
+    "p_egfr_vs_population": 8.52e-30
+  },
+  "checks": [
+    {
+      "value": "EGFR top-50 n",
+      "derived": "50",
+      "manuscript": "50",
+      "agrees": true
+    },
+    {
+      "value": "EGFR mean AhR",
+      "derived": "0.890",
+      "manuscript": "0.890",
+      "agrees": true
+    },
+    {
+      "value": "EGFR SD",
+      "derived": "0.127",
+      "manuscript": "0.127",
+      "agrees": true
+    },
+    {
+      "value": "EGFR % above 0.5",
+      "derived": "100.0",
+      "manuscript": "100.0",
+      "agrees": true
+    },
+    {
+      "value": "controls n",
+      "derived": "50",
+      "manuscript": "50",
+      "agrees": true
+    },
+    {
+      "value": "controls mean AhR",
+      "derived": "0.533",
+      "manuscript": "0.533",
+      "agrees": true
+    },
+    {
+      "value": "controls SD",
+      "derived": "0.317",
+      "manuscript": "0.317",
+      "agrees": true
+    },
+    {
+      "value": "controls % above 0.5",
+      "derived": "50.0",
+      "manuscript": "50.0",
+      "agrees": true
+    },
+    {
+      "value": "population n",
+      "derived": "500",
+      "manuscript": "500",
+      "agrees": true
+    },
+    {
+      "value": "population mean AhR",
+      "derived": "0.135",
+      "manuscript": "0.135",
+      "agrees": true
+    },
+    {
+      "value": "population % above 0.5",
+      "derived": "6.6",
+      "manuscript": "6.6",
+      "agrees": true
+    },
+    {
+      "value": "EGFR vs controls U",
+      "derived": "2150",
+      "manuscript": "2150",
+      "agrees": true
+    },
+    {
+      "value": "EGFR vs controls p",
+      "derived": "5.61e-10",
+      "manuscript": "5.61e-10",
+      "agrees": true
+    },
+    {
+      "value": "Glass's delta",
+      "derived": "1.12",
+      "manuscript": "1.12",
+      "agrees": true
+    },
+    {
+      "value": "EGFR vs population p",
+      "derived": "8.52e-30",
+      "manuscript": "8.52e-30",
+      "agrees": true
+    }
+  ]
+}

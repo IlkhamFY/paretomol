@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { Molecule, ParetoObjective } from '../utils/types';
 import { EXAMPLES, DEFAULT_PARETO_OBJECTIVES, DRUG_FILTERS } from '../utils/types';
 import { initRDKitCache, parseAndAnalyze, parseAndAnalyzeChunked, parseSDFFile, fetchChEMBLBatch, computeParetoAndDominance, getMolSvg, filterBySubstructure, mergeAssayData, enrichMoleculeNames } from '../utils/chem';
 import { useTheme } from '../contexts/ThemeContext';
+import { inferObjectives, inferObjectiveDirection } from '../utils/objectives';
 import { loadFDAReference, getFDAPercentile, PROP_TO_FDA } from '../utils/fda_reference';
 import type { FDADrug } from '../utils/fda_reference';
 import Mol3DViewer from './Mol3DViewer';
@@ -163,14 +164,11 @@ export default function Sidebar({
       const { molecules: newMols, errors, failedLookups, customPropNames: newCustomProps } = result;
       setCustomPropNames(newCustomProps);
       // Reset objectives: keep defaults + add new custom props as maximize
-      if (newCustomProps.length > 0) {
-        setParetoObjectives([
-          ...DEFAULT_PARETO_OBJECTIVES,
-          ...newCustomProps.map(k => ({ key: k, direction: 'max' as const })),
-        ]);
-      } else {
-        setParetoObjectives(DEFAULT_PARETO_OBJECTIVES);
-      }
+      // Loaded columns are made available, not silently optimised. Only those
+      // whose direction can be established from the name become active
+      // objectives; registering every column as 'max' meant an imported IC50
+      // column was maximised, so the front selected the least potent compounds.
+      setParetoObjectives([...DEFAULT_PARETO_OBJECTIVES, ...inferObjectives(newCustomProps)]);
       setMolecules(newMols);
       setCompareIndices([]);
       setSelectedMolIdx(null);
@@ -220,17 +218,63 @@ export default function Sidebar({
       if (!merged.includes(n)) merged.push(n);
     }
     setCustomPropNames(merged);
-    // Add new objectives (default direction: min for IC50/Ki, max otherwise)
-    const IC50_KEYS = /ic50|ki|kd|ec50|inhibit|potency/i;
-    const newObjs = result.newPropNames
-      .filter(n => !paretoObjectives.find(o => o.key === n))
-      .map(n => ({ key: n, direction: (IC50_KEYS.test(n) ? 'min' : 'max') as 'min' | 'max' }));
+    // Activate only the columns whose direction can be established by name.
+    const newObjs = inferObjectives(
+      result.newPropNames.filter(n => !paretoObjectives.find(o => o.key === n)),
+    );
     if (newObjs.length > 0) setParetoObjectives([...paretoObjectives, ...newObjs]);
     // Update molecules + recompute Pareto
     computeParetoAndDominance(result.molecules, [...paretoObjectives, ...newObjs]);
     setMolecules([...result.molecules]);
-    setAssayStatus(`Merged ${result.newPropNames.join(', ')} — ${result.matchCount}/${molecules.length} molecules matched`);
+    // Report what actually happened per record rather than a bare count: which
+    // key each match was made on, what was aggregated, what disagreed, what was
+    // censored, and what failed to match at all.
+    const rep = result.report;
+    const parts = [`Merged ${result.newPropNames.join(', ')} — ${rep.matched}/${molecules.length} matched`];
+    const via = [
+      rep.matchedBy.canonicalSmiles ? `${rep.matchedBy.canonicalSmiles} by structure` : '',
+      rep.matchedBy.inchi ? `${rep.matchedBy.inchi} by InChI` : '',
+      rep.matchedBy.name ? `${rep.matchedBy.name} by name` : '',
+    ].filter(Boolean);
+    if (via.length) parts.push(`(${via.join(', ')})`);
+    if (rep.aggregated) parts.push(`${rep.aggregated} aggregated from replicates (median)`);
+    if (rep.conflicts.length) parts.push(`${rep.conflicts.length} with disagreeing replicates`);
+    if (rep.censored.length) parts.push(`${rep.censored.length} censored value(s) excluded`);
+    if (rep.unmatchedRows.length) parts.push(`${rep.unmatchedRows.length} row(s) unmatched`);
+    const mixedUnits = Object.entries(rep.unitsByColumn).filter(([, u]) => u.length > 1);
+    if (mixedUnits.length) parts.push(`mixed units in ${mixedUnits.map(([c]) => c).join(', ')}`);
+    setAssayStatus(parts.join(' · '));
     onToast?.(`Assay data merged: ${result.matchCount} matches`);
+  };
+
+  // Per-column coverage: how many molecules carry a usable value. A molecule
+  // missing a value for an active objective is excluded from the dominance
+  // comparison entirely, so a sparse column has to be visible *before* it is
+  // switched on — otherwise the front shrinking looks like a bug.
+  const coverage = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const name of customPropNames) map.set(name, 0);
+    for (const m of molecules) {
+      for (const name of customPropNames) {
+        const v = m.customProps[name];
+        if (typeof v === 'number' && Number.isFinite(v)) map.set(name, (map.get(name) ?? 0) + 1);
+      }
+    }
+    return map;
+  }, [molecules, customPropNames]);
+
+  /** Quiet "n/N" note, shown only when a column is incomplete. */
+  const CoverageNote = ({ objKey }: { objKey: string }) => {
+    const n = coverage.get(objKey) ?? 0;
+    if (molecules.length === 0 || n === molecules.length) return null;
+    return (
+      <span
+        className="text-[10px] text-[var(--text2)] tabular-nums"
+        title={`${molecules.length - n} of ${molecules.length} molecules have no value for ${objKey}; while this objective is active they are left unranked rather than scored`}
+      >
+        {n}/{molecules.length}
+      </span>
+    );
   };
 
   const handleFileUpload = async (file: File) => {
@@ -276,14 +320,8 @@ export default function Sidebar({
         const result = await parseAndAnalyze(text);
         const { molecules: newMols, errors, failedLookups, customPropNames: newCustomProps } = result;
         setCustomPropNames(newCustomProps);
-        if (newCustomProps.length > 0) {
-          setParetoObjectives([
-            ...DEFAULT_PARETO_OBJECTIVES,
-            ...newCustomProps.map(k => ({ key: k, direction: 'max' as const })),
-          ]);
-        } else {
-          setParetoObjectives(DEFAULT_PARETO_OBJECTIVES);
-        }
+        // See the note above: columns are offered, not silently optimised.
+        setParetoObjectives([...DEFAULT_PARETO_OBJECTIVES, ...inferObjectives(newCustomProps)]);
         setMolecules(newMols);
         setCompareIndices([]);
         setSelectedMolIdx(null);
@@ -741,7 +779,7 @@ export default function Sidebar({
                     }}
                     className="accent-[#5F7367] w-3 h-3"
                   />
-                  <span className="text-[var(--text)] flex-1" title={key === 'SC' ? 'Fast synthetic-complexity ESTIMATE (1 easy – 10 hard) from structure. Not the Ertl SA score — run ADMET/Predict for the validated SA Score. Lower = easier to make.' : undefined}>{key === 'SC' ? 'Synth. (est.)' : key}</span>
+                  <span className="text-[var(--text)] flex-1" title={key === 'SC' ? 'Untrained synthetic-complexity estimate (1 easy – 10 hard) computed from structure. Its coefficients were chosen by hand, not fitted to reaction or synthesis data, so it is a fast triage proxy rather than a validated score. Run ADMET/Predict for the Ertl SA score, RAScore and SCScore. Lower = easier to make.' : undefined}>{key === 'SC' ? 'Synth. (est., untrained)' : key}</span>
                   {isActive && (
                     <button
                       onClick={() => setParetoObjectives(paretoObjectives.map(o => o.key === key ? { ...o, direction: o.direction === 'min' ? 'max' : 'min' } : o))}
@@ -806,12 +844,13 @@ export default function Sidebar({
                           if (isActive) {
                             setParetoObjectives(paretoObjectives.filter(o => o.key !== key));
                           } else {
-                            setParetoObjectives([...paretoObjectives, { key, direction: 'max' }]);
+                            setParetoObjectives([...paretoObjectives, { key, direction: inferObjectiveDirection(key) ?? 'min' }]);
                           }
                         }}
                         className="accent-[#14b8a6] w-3 h-3"
                       />
                       <span className="text-[#14b8a6] flex-1">{key}</span>
+                      <CoverageNote objKey={key} />
                       {isActive && (
                         <button
                           onClick={() => setParetoObjectives(paretoObjectives.map(o => o.key === key ? { ...o, direction: o.direction === 'min' ? 'max' : 'min' } : o))}
@@ -843,7 +882,18 @@ export default function Sidebar({
                   </div>
                   <div className="flex flex-wrap gap-1 mt-1 mb-1">
                     {ADMET_PRESETS.map(preset => {
-                      const availableKeys = preset.keys.filter(k => admetPropNames.includes(k.key));
+                      // When the user has imported an experimental column of the
+                      // same name, the prediction is stored as "<key> (pred)".
+                      // Resolve to whichever column is actually present so the
+                      // preset does not silently shrink to fewer objectives.
+                      const availableKeys = preset.keys
+                        .map(k => {
+                          const actual = admetPropNames.includes(k.key) ? k.key
+                            : admetPropNames.includes(`${k.key} (pred)`) ? `${k.key} (pred)`
+                            : null;
+                          return actual === null ? null : { key: actual, dir: k.dir };
+                        })
+                        .filter((k): k is { key: string; dir: 'min' | 'max' } => k !== null);
                       if (availableKeys.length === 0) return null;
                       const allActive = availableKeys.every(k => paretoObjectives.some(o => o.key === k.key));
                       return (
@@ -886,6 +936,7 @@ export default function Sidebar({
                           className="accent-[#f59e0b] w-3 h-3"
                         />
                         <span className="text-[#f59e0b] flex-1">{key}</span>
+                        <CoverageNote objKey={key} />
                         {isActive && (
                           <button
                             onClick={() => setParetoObjectives(paretoObjectives.map(o => o.key === key ? { ...o, direction: o.direction === 'min' ? 'max' : 'min' } : o))}
@@ -1150,7 +1201,7 @@ function MoleculeCard({ molecule: m, isSelected, isCompared, isShortlisted, onSe
           </div>
           <div className="text-[11px] text-[var(--text2)] mt-1 space-y-0.5">
             <div className="flex justify-between">
-              <span title="Fast synthetic-complexity ESTIMATE (1 easy – 10 hard) computed in-browser from structure (stereocenters, ring systems, size, 3-D character). Not the Ertl SA score — run ADMET/Predict for the validated 'SA Score'. Lower = easier to make.">Synth. est:</span>
+              <span title="Untrained synthetic-complexity estimate (1 easy – 10 hard) computed in-browser from structure (stereocentres, ring systems, size, 3-D character). Its coefficients were chosen by hand rather than fitted to synthesis data, so it is a fast triage proxy, not a validated score. Run ADMET/Predict for the Ertl SA score. Lower = easier to make.">Synth. est:</span>
               <span
                 title={m.scFactors && m.scFactors.length ? `Driven by: ${m.scFactors.join(', ')}` : 'no notable complexity drivers'}
                 className={`font-mono cursor-help ${m.props.SC <= 3 ? 'text-[#22c55e]' : m.props.SC <= 6 ? 'text-[#f59e0b]' : 'text-[#ef4444]'}`}

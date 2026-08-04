@@ -157,7 +157,7 @@ export default function Mol3DViewer({ smiles, height = 120, className = '' }: Mo
         if (cancelled) return;
         setIs3D(true);
         render(sdf);
-      } catch (e: any) {
+      } catch {
         if (cancelled) return;
         setStatus('error');
         setErrorMsg('Network error');
@@ -169,7 +169,7 @@ export default function Mol3DViewer({ smiles, height = 120, className = '' }: Mo
 
       // Clear previous viewer
       if (viewerRef.current) {
-        try { viewerRef.current.clear(); } catch (_) {}
+        try { viewerRef.current.clear(); } catch { /* viewer already disposed */ }
       }
       containerRef.current.innerHTML = '';
 
@@ -190,7 +190,7 @@ export default function Mol3DViewer({ smiles, height = 120, className = '' }: Mo
 
         viewerRef.current = viewer;
         setStatus('ready');
-      } catch (e: any) {
+      } catch {
         setStatus('error');
         setErrorMsg('Render failed');
       }
@@ -201,7 +201,7 @@ export default function Mol3DViewer({ smiles, height = 120, className = '' }: Mo
     return () => {
       cancelled = true;
       if (viewerRef.current) {
-        try { viewerRef.current.clear(); } catch (_) {}
+        try { viewerRef.current.clear(); } catch { /* viewer already disposed */ }
         viewerRef.current = null;
       }
     };
@@ -211,14 +211,14 @@ export default function Mol3DViewer({ smiles, height = 120, className = '' }: Mo
   useEffect(() => {
     if (!viewerRef.current) return;
     const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
-    try { viewerRef.current.setBackgroundColor(bg); viewerRef.current.render(); } catch (_) {}
+    try { viewerRef.current.setBackgroundColor(bg); viewerRef.current.render(); } catch { /* viewer already disposed */ }
   }, [theme]);
 
   // Handle resize
   useEffect(() => {
     if (!viewerRef.current) return;
     const obs = new ResizeObserver(() => {
-      try { viewerRef.current?.resize(); viewerRef.current?.render(); } catch (_) {}
+      try { viewerRef.current?.resize(); viewerRef.current?.render(); } catch { /* viewer already disposed */ }
     });
     if (containerRef.current) obs.observe(containerRef.current);
     return () => obs.disconnect();

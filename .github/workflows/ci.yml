@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: typecheck, build, unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # `npm run build` is `tsc -b && vite build`, so this gates on typechecking
+      # as well as on the bundle actually building.
+      - name: Typecheck and build
+        run: npm run build
+      - name: Unit tests
+        run: npm test
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+  reproduce:
+    name: reproduce reported values
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r paper/requirements.txt
+      # Re-derives the front sizes and the QED alert catalogue from the
+      # deposited data and fails if any reported number has moved. Writes
+      # nothing, so it cannot mutate the artefacts it verifies.
+      - name: Verify the reported analysis
+        run: python3 paper/scripts/run_all.py --check
+
+  e2e:
+    name: end-to-end
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # All three engines: a browser-based tool tested in one engine is only
+      # known to work in one.
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm run build
+      # Fetches the RDKit bundle once and serves it to the browser by request
+      # interception, so the run does not depend on a third-party host during
+      # the test itself.
+      - run: npm run test:e2e
+      # The browser counts QED's structural alerts with a build of RDKit a year
+      # older than the Python one the analysis uses, so the two are compared per
+      # molecule here: this is the only job with the WebAssembly bundle on disk,
+      # and only after the step above has fetched it. requirements.txt pins the
+      # RDKit the alert patterns were generated from, which the check enforces.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r paper/requirements.txt
+      - name: RDKit.js against RDKit Python
+        run: python3 paper/scripts/rdkitjs_alert_parity.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            paper/results/performance.json
+          retention-days: 14

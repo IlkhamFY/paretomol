@@ -1,0 +1,15 @@
+{
+  "n_compounds": 500,
+  "n_agree": 500,
+  "n_disagree": 0,
+  "seed": 20260727,
+  "source": "paper/fda_approved_1949.csv",
+  "rdkit_python_version": "2026.03.4",
+  "rdkit_js_version": "2025.03.4",
+  "n_alert_smarts": 116,
+  "n_alert_smarts_compiled_by_rdkit_js": 116,
+  "smarts_identical": true,
+  "alerts_total": 465,
+  "molecules_with_alert": 286,
+  "disagreements": []
+}

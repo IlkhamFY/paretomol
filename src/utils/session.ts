@@ -2,9 +2,19 @@
 import { openDB } from 'idb';
 import type { DBSchema } from 'idb';
 
+/** Bumped whenever stored `props` stop being trustworthy — that is, whenever a
+ *  descriptor convention or a derived quantity changes. Sessions carrying an
+ *  older version have their properties recomputed from structure on restore
+ *  rather than replayed. Version 2 covers the switch to average molecular
+ *  weight, the QED structural-alert term, and true non-dominated front indices
+ *  in place of the previous binary flag. */
+export const CURRENT_SCHEMA_VERSION = 2;
+
 export interface SessionData {
   id: string;
   name: string;
+  /** Absent on sessions written before versioning; treated as stale. */
+  schemaVersion?: number;
   timestamp: number;
   molecules: SerializedMolecule[];
   objectives: Array<{ key: string; direction: 'min' | 'max' }>;
@@ -39,13 +49,21 @@ interface MolParetoLabDB extends DBSchema {
 }
 
 const DB_NAME = 'molparetolab';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 async function getDB() {
   return openDB<MolParetoLabDB>(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      const store = db.createObjectStore('sessions', { keyPath: 'id' });
-      store.createIndex('by-timestamp', 'timestamp');
+    upgrade(db, oldVersion) {
+      // Guarded by oldVersion: calling createObjectStore for a store that
+      // already exists throws ConstraintError, which rejects openDB and would
+      // leave every session operation failing permanently after a bump.
+      if (oldVersion < 1) {
+        const store = db.createObjectStore('sessions', { keyPath: 'id' });
+        store.createIndex('by-timestamp', 'timestamp');
+      }
+      // v1 -> v2 needs no restructuring: stored records stay readable and the
+      // schemaVersion field on each one tells the loader to recompute
+      // properties rather than trust them.
     },
   });
 }
@@ -56,7 +74,7 @@ const AUTO_SESSION_ID = '__autosave__';
 export async function saveSession(data: SessionData): Promise<void> {
   try {
     const db = await getDB();
-    await db.put('sessions', data);
+    await db.put('sessions', { ...data, schemaVersion: CURRENT_SCHEMA_VERSION });
   } catch (e) {
     console.warn('Failed to save session:', e);
   }

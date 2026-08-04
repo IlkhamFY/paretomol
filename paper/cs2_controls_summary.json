@@ -1,0 +1,41 @@
+{
+  "egfr_top50": {
+    "n": 50,
+    "AhR_mean": 0.89,
+    "AhR_sd": 0.127,
+    "AhR_above_0.5_pct": 100
+  },
+  "egfr_broad_pchembl_8": {
+    "n": 237,
+    "AhR_mean": 0.887,
+    "AhR_sd": 0.125,
+    "AhR_above_0.5_pct": 99.6
+  },
+  "matched_kinase_controls": {
+    "n": 50,
+    "AhR_mean": 0.533,
+    "AhR_sd": 0.317,
+    "AhR_above_0.5_pct": 50,
+    "targets": [
+      "ALK",
+      "BRAF",
+      "CDK2",
+      "CDK4",
+      "JAK1",
+      "JAK2",
+      "MEK1",
+      "PI3K-alpha"
+    ],
+    "egfr_vs_control_U": 2150,
+    "egfr_vs_control_p": 5.61e-10,
+    "egfr_vs_control_glass_delta": 1.12
+  },
+  "population_baseline": {
+    "n": 500,
+    "AhR_mean": 0.135,
+    "AhR_sd": 0.203,
+    "AhR_above_0.5_pct": 6.6,
+    "egfr_vs_population_p": 8.52e-30
+  },
+  "_note": "Statistics computed using top-50 EGFR (pChEMBL >= 8.92) vs controls. Updated 2026-03-26 to match actual data files."
+}

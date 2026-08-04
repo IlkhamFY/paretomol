@@ -30,12 +30,15 @@ export interface FormulaColumn {
   expr: string;
 }
 
-// Default Pareto objectives lead with synthetic complexity (make-ability) — the
-// decision driver chemists actually weigh — rather than opening on a wall of MW.
+// Default Pareto objectives are the established physicochemical descriptors.
+// The synthetic-complexity estimate (SC) is deliberately NOT among them: it is
+// an untrained heuristic, and leading with it gave an unvalidated quantity the
+// same standing as measured descriptors. It remains one click away in the
+// objective picker, labelled as an estimate.
 export const DEFAULT_PARETO_OBJECTIVES: ParetoObjective[] = [
-  { key: 'SC', direction: 'min' },
   { key: 'MW', direction: 'min' },
   { key: 'LogP', direction: 'min' },
+  { key: 'TPSA', direction: 'min' },
 ];
 
 export interface MolCost {
@@ -60,13 +63,20 @@ export interface Molecule {
   lipinski?: FilterResult;
   scFactors?: string[]; // dominant drivers of the synthetic-complexity estimate (for the "why")
   cost?: MolCost;       // building-block availability & price (ZINC-22 catalogs)
+  /** Non-dominated front index: 1 = Pareto front, 2 = the front remaining once
+   *  front 1 is removed, and so on. `null` when the molecule is unranked
+   *  because it lacks a value for an active objective (see missingObjectives). */
   paretoRank: number | null;
+  /** Active objectives this molecule has no usable value for. Such molecules are
+   *  excluded from the dominance relation rather than imputed, so that a failed
+   *  prediction is never read as a favourable measurement. */
+  missingObjectives?: string[];
   dominates: number[];
   dominatedBy: number[];
 }
 
 export const PROPERTIES = [
-  { key: 'SC', label: 'Synth. (est.)', unit: '' },
+  { key: 'SC', label: 'Synth. (est., untrained)', unit: '' },
   { key: 'MW', label: 'Molecular Weight', unit: 'Da', lipinski: { max: 500 } },
   { key: 'LogP', label: 'Calc. LogP', unit: '', lipinski: { max: 5 } },
   { key: 'HBD', label: 'H-Bond Donors', unit: '', lipinski: { max: 5 } },

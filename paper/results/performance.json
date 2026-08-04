@@ -1,0 +1,36 @@
+{
+  "note": "Wall-clock from clicking Analyze to the loaded state, headless Chromium. heapMB is the increase in Chromium performance.memory.usedJSHeapSize across the load: the JavaScript heap only, excluding the WebAssembly heap where RDKit allocates, and subject to garbage-collection timing. Indicative, not a precise footprint.",
+  "softLimit": 2000,
+  "measurements": [
+    {
+      "molecules": 100,
+      "seconds": 1.07,
+      "heapMB": 7.3,
+      "loaded": true
+    },
+    {
+      "molecules": 500,
+      "seconds": 2.73,
+      "heapMB": 8.7,
+      "loaded": true
+    },
+    {
+      "molecules": 1000,
+      "seconds": 5.5,
+      "heapMB": 19.9,
+      "loaded": true
+    },
+    {
+      "molecules": 2000,
+      "seconds": 11.07,
+      "heapMB": 33.9,
+      "loaded": true
+    },
+    {
+      "molecules": 2500,
+      "seconds": 14.02,
+      "heapMB": 65.2,
+      "loaded": true
+    }
+  ]
+}
