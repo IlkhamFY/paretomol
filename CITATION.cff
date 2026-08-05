@@ -10,7 +10,7 @@ authors:
 url: "https://paretomol.com"
 repository-code: "https://github.com/IlkhamFY/paretomol"
 license: MIT
-version: "0.21.0"
+version: "0.22.0"
 date-released: "2026-01-01"
 abstract: "A free, browser-based web application for multi-objective Pareto analysis of drug-like molecules. Computes physicochemical properties, identifies Pareto-optimal subsets, and provides 14 interactive analysis views. All computation runs client-side via RDKit.js WebAssembly. Optionally integrates ADMET-AI predictions via Chemprop D-MPNN."
 keywords:
