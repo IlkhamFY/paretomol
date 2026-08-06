@@ -34,11 +34,20 @@ cd paretomol && npm install && npm run dev
 TypeScript strict mode. `npm run build` must pass before committing.
 
 ## Citation
-
-A manuscript describing the methodology and case studies is in preparation. In the meantime:
+If you use ParetoMol please cite the manuscript describing the methodology and case studies is in preparation. In the meantime:
 
 ```
-Yabbarov, I.; Vargas-Hernández, R. A. ParetoMol: A Free Web Application for
-Multi-Objective Pareto Analysis of Molecular Safety and Pharmacokinetics.
-https://paretomol.com (2026).
+@article{paretomol,
+author = {Ilkham Yabbarov  and Rodrigo A. Vargas-Hernández },
+title = {ParetoMol: A Free Web Application for Multi-Objective Pareto Analysis of Molecular Safety and Pharmacokinetics},
+journal = {ChemRxiv},
+volume = {2026},
+number = {0420},
+pages = {},
+year = {2026},
+doi = {10.26434/chemrxiv.15002217/v1},
+URL = {https://chemrxiv.org/doi/abs/10.26434/chemrxiv.15002217/v1},
+eprint = {https://chemrxiv.org/doi/pdf/10.26434/chemrxiv.15002217/v1},
+}
+
 ```
