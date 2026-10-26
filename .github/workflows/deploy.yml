@@ -12,11 +12,17 @@ permissions:
 
 concurrency:
   group: "pages"
-  cancel-in-progress: true
+  # A newer push must not cancel a publish that is still in progress.
+  # Cancelling is what left the 2026-08-06 deploy red: the build was fine,
+  # Pages stayed in deployment_in_progress, and deploy-pages aborted at
+  # 10 minutes and cancelled the deployment.
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      artifact_id: ${{ steps.pages-artifact.outputs.artifact_id }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,16 +31,78 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - uses: actions/upload-pages-artifact@v3
+      - id: pages-artifact
+        uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # Do not use actions/deploy-pages here. Its poll cap is hard-limited to
+      # 10 minutes, and on timeout it cancels the deployment. Run 31110775271
+      # hit that cap while status was still deployment_in_progress; the same
+      # deployment later reached succeed, and the live bundle matches main.
+      # Waiting longer, and not cancelling, lets a slow publish finish.
+      # The uploaded dist still contains public/CNAME (paretomol.com).
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/github-script@v8
+        env:
+          ARTIFACT_ID: ${{ needs.build.outputs.artifact_id }}
+        with:
+          script: |
+            const artifactId = Number(process.env.ARTIFACT_ID);
+            if (!artifactId) {
+              throw new Error('Pages artifact id is missing');
+            }
+
+            const idToken = await core.getIDToken();
+            const { owner, repo } = context.repo;
+            const sha = context.sha;
+
+            core.info(`Creating Pages deployment for ${sha} from artifact ${artifactId}`);
+            const created = await github.request('POST /repos/{owner}/{repo}/pages/deployments', {
+              owner,
+              repo,
+              artifact_id: artifactId,
+              pages_build_version: sha,
+              oidc_token: idToken,
+            });
+
+            const pageUrl = created.data.page_url || 'https://paretomol.com';
+            core.setOutput('page_url', pageUrl);
+            const deploymentId = String(created.data.id || created.data.status_url?.split('/').pop() || sha);
+            core.info(`Created deployment ${deploymentId}`);
+
+            const deadline = Date.now() + 20 * 60 * 1000;
+            const fatal = {
+              deployment_failed: 'Deployment failed, try again later.',
+              deployment_content_failed: 'Artifact could not be deployed.',
+              deployment_cancelled: 'Deployment cancelled.',
+              deployment_lost: 'Deployment failed to report final status.',
+            };
+
+            while (Date.now() < deadline) {
+              await new Promise((resolve) => setTimeout(resolve, 5000));
+              const res = await github.request('GET /repos/{owner}/{repo}/pages/deployments/{deploymentId}', {
+                owner,
+                repo,
+                deploymentId,
+              });
+              const status = res.data.status || '';
+              core.info(`Current status: ${status}`);
+              if (status === 'succeed') {
+                core.info('Reported success!');
+                return;
+              }
+              if (fatal[status]) {
+                throw new Error(fatal[status]);
+              }
+            }
+
+            throw new Error('Pages deployment still in progress after 20 minutes');
