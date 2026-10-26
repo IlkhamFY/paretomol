@@ -52,9 +52,8 @@ export function getActiveEndpoint(): string {
   return SHARED_URL;
 }
 
-/** Derives the HF Space URL from a repo ID (e.g. "username/admet-ai-api"). */
+/** Derives the HF Space URL from a repo ID. */
 export function hfSpaceUrl(repoId: string): string {
-  // "ilkham/admet-ai-api" → "https://ilkham-admet-ai-api.hf.space"
   const [user, repo] = repoId.split('/');
   return `https://${user}-${repo}.hf.space`;
 }
@@ -76,8 +75,8 @@ export async function detectLocalServer(): Promise<boolean> {
 }
 
 export interface DeployResult {
-  repoId: string;   // e.g. "username/admet-ai-api"
-  spaceUrl: string; // e.g. "https://username-admet-ai-api.hf.space"
+  repoId: string;
+  spaceUrl: string;
 }
 
 /**
