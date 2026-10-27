@@ -5,22 +5,49 @@
 
 <p align="center"><strong>Multi-objective Pareto analysis of drug-like molecules. Entirely in your browser.</strong></p>
 
-<p align="center"><a href="https://paretomol.com"><img src="https://img.shields.io/badge/Live-paretomol.com-798F81?style=flat-square" alt="Live"></a>&nbsp;&nbsp;<a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-7E9A89?style=flat-square" alt="MIT"></a></p>
+<p align="center">
+  <a href="https://paretomol.com"><img src="https://img.shields.io/badge/Live-paretomol.com-798F81?style=flat-square" alt="Live at paretomol.com"></a>&nbsp;&nbsp;<a href="https://doi.org/10.1039/d6dd00366d"><img src="https://img.shields.io/badge/DOI-10.1039%2Fd6dd00366d-5F7367?style=flat-square" alt="DOI 10.1039/d6dd00366d"></a>&nbsp;&nbsp;<a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-7E9A89?style=flat-square" alt="MIT"></a>
+</p>
+
+## How to cite
+
+If you use ParetoMol, please cite the paper:
+
+Yabbarov, I.; Vargas-Hernández, R. A. ParetoMol: a free web application for multi-objective pareto analysis of molecular safety and pharmacokinetics. *Digital Discovery* **2026**, *5* (10), 4231-4247. [https://doi.org/10.1039/d6dd00366d](https://doi.org/10.1039/d6dd00366d)
+
+```bibtex
+@article{yabbarov2026paretomol,
+  author    = {Yabbarov, Ilkham and Vargas-Hernández, Rodrigo A.},
+  title     = {ParetoMol: a free web application for multi-objective pareto analysis of molecular safety and pharmacokinetics},
+  journal   = {Digital Discovery},
+  year      = {2026},
+  volume    = {5},
+  number    = {10},
+  pages     = {4231--4247},
+  doi       = {10.1039/d6dd00366d},
+  url       = {https://doi.org/10.1039/d6dd00366d},
+  publisher = {Royal Society of Chemistry}
+}
+```
+
+The same citation is on the Cite control in the app ([paretomol.com](https://paretomol.com)), in `CITATION.cff`, and on every export. A ChemRxiv preprint is archived at [10.26434/chemrxiv.15002217/v1](https://doi.org/10.26434/chemrxiv.15002217/v1). Cite the Digital Discovery article.
+
+The main analysis CSV keeps a leading `#` comment (it already did) and the citation sits on that line. Read it in pandas with `comment='#'`. Scored, shortlist, scaffold, and ADMET tables stay header-first: a comment line would be taken as the header, so the citation is a final `citation` column instead. JSON and the reproducibility manifest carry a `citation` object. SDF records carry `Citation` and `DOI` data tags. PNG and SVG figures carry the line in the margin. The Markdown report ends with the full citation.
 
 ---
 
-Paste SMILES, upload SDF/CSV, or fetch from ChEMBL. ParetoMol computes physicochemical properties, identifies the Pareto-optimal subset across your chosen objectives, and provides 14 interactive views — Pareto fronts, BOILED-Egg, radar, MPO, scoring, chemical space, parallel coordinates, activity cliffs, scaffolds, similarity, statistics, and more. Optionally predict 41 ADMET endpoints (Chemprop D-MPNN) and fold them back into the Pareto analysis: **load → analyze → predict → re-Pareto → filter → export**.
+Paste SMILES, upload SDF/CSV, or fetch from ChEMBL. ParetoMol computes physicochemical properties, identifies the Pareto-optimal subset across your chosen objectives, and provides 14 interactive views: Pareto fronts, BOILED-Egg, radar, MPO, scoring, chemical space, parallel coordinates, activity cliffs, scaffolds, similarity, statistics, and more. Optionally predict 41 ADMET endpoints (Chemprop D-MPNN) and fold them back into the Pareto analysis: **load, analyze, predict, re-Pareto, filter, export**.
 
-All computation runs client-side via [RDKit.js](https://github.com/rdkit/rdkit-js) WebAssembly. No backend, no accounts, no tracking — your molecules never leave the browser.
+All computation runs client-side via [RDKit.js](https://github.com/rdkit/rdkit-js) WebAssembly. No backend, no accounts, no tracking. Your molecules never leave the browser.
 
 ## Features
 
-- **Pareto analysis** — non-dominated sorting over any property set; add/remove objectives, toggle min/max, instant updates
-- **ADMET** — 41 endpoints via a free Hugging Face Space (no API key), one-click personal Space deploy, or self-hosted local server; PAINS / Brenk / NIH structural alerts included
-- **Filtering** — SMARTS substructure search and property range sliders with mini histograms, applied across all views
-- **Data in** — SMILES, SDF, CSV/TSV, clipboard paste, drag-and-drop, ChEMBL target fetch, assay-data merge by SMILES or name
-- **Data out** — CSV, JSON, SDF (all or Pareto subset), per-tab PNG, LZ-compressed share URL, BibTeX
-- **AI Copilot** — bring your own key (Gemini, OpenAI, Anthropic); context-aware streaming chat, keys stored in localStorage only
+- **Pareto analysis**: non-dominated sorting over any property set; add or remove objectives, toggle min or max, instant updates
+- **ADMET**: 41 endpoints via a free Hugging Face Space (no API key), one-click personal Space deploy, or self-hosted local server; PAINS / Brenk / NIH structural alerts included
+- **Filtering**: SMARTS substructure search and property range sliders with mini histograms, applied across all views
+- **Data in**: SMILES, SDF, CSV/TSV, clipboard paste, drag-and-drop, ChEMBL target fetch, assay-data merge by SMILES or name
+- **Data out**: CSV, JSON, SDF (all or Pareto subset), per-tab PNG and SVG, Markdown report, reproducibility manifest, LZ-compressed share URL, and citation (BibTeX and RIS)
+- **AI Copilot**: bring your own key (Gemini, OpenAI, Anthropic); context-aware streaming chat, keys stored in localStorage only
 
 Tested to 2,000 molecules. ~100 KB gzipped initial bundle. Full mobile support. Press `?` in the app for keyboard shortcuts.
 
@@ -32,22 +59,3 @@ cd paretomol && npm install && npm run dev
 ```
 
 TypeScript strict mode. `npm run build` must pass before committing.
-
-## Citation
-If you use ParetoMol please cite the manuscript describing the methodology and case studies is in preparation. In the meantime:
-
-```
-@article{paretomol,
-author = {Ilkham Yabbarov  and Rodrigo A. Vargas-Hernández },
-title = {ParetoMol: A Free Web Application for Multi-Objective Pareto Analysis of Molecular Safety and Pharmacokinetics},
-journal = {ChemRxiv},
-volume = {2026},
-number = {0420},
-pages = {},
-year = {2026},
-doi = {10.26434/chemrxiv.15002217/v1},
-URL = {https://chemrxiv.org/doi/abs/10.26434/chemrxiv.15002217/v1},
-eprint = {https://chemrxiv.org/doi/pdf/10.26434/chemrxiv.15002217/v1},
-}
-
-```

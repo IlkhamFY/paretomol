@@ -18,7 +18,8 @@ import { fetchBuyabilityBatch } from './utils/cost';
 import { fetchZincPrices } from './utils/zinc';
 
 import { getInitialPayloadFromUrl, getInitialTabFromUrl, getShareableUrl } from './utils/share';
-import { downloadCSV, downloadScoredCSV, downloadJSON, downloadSDF, downloadSDFPareto, downloadManifest } from './utils/export';
+import { downloadCSV, downloadScoredCSV, downloadJSON, downloadSDF, downloadSDFPareto, downloadManifest, downloadSummaryReport, downloadCanvasPng } from './utils/export';
+import { openCitePanel } from './utils/citation';
 import { clearSvgCache } from './utils/chem';
 import { applyPropertyFilters } from './components/PropertyFilters';
 
@@ -496,13 +497,11 @@ export default function App() {
       return;
     }
     if (canvases.length === 1) {
-      const url = canvases[0].toDataURL('image/png');
-      const a = document.createElement('a');
-      a.href = url; a.download = 'paretomol_figure.png'; a.click();
+      downloadCanvasPng(canvases[0], 'paretomol_figure.png');
       setToast('Figure exported');
       return;
     }
-    // Multiple canvases (e.g. Pareto with 6 charts) — stitch into grid
+    // Multiple canvases (e.g. Pareto with 6 charts): stitch into a grid, then add the citation footer.
     const cols = 2;
     const rows = Math.ceil(canvases.length / cols);
     const w = Math.max(...canvases.map(c => c.width));
@@ -518,10 +517,7 @@ export default function App() {
       const row = Math.floor(i / cols);
       ctx.drawImage(c, col * w, row * h, w, h);
     });
-    const a = document.createElement('a');
-    a.href = out.toDataURL('image/png');
-    a.download = 'paretomol_figure.png';
-    a.click();
+    downloadCanvasPng(out, 'paretomol_figure.png');
     setToast(`Figure exported (${canvases.length} charts)`);
   };
 
@@ -536,24 +532,6 @@ export default function App() {
     result = applyPropertyFilters(result, propertyFilters);
     return result;
   }, [molecules, moleculesWithFormulas, substructureFilter, propertyFilters]);
-
-  const handleCite = () => {
-    const citation = `@article{yabbarov2026paretomol,
-  author  = {Yabbarov, Ilkham and Vargas-Hernández, Rodrigo A.},
-  title   = {ParetoMol: A Free Web Application for Multi-Objective Pareto Analysis of Molecular Safety and Pharmacokinetics},
-  journal = {ChemRxiv},
-  year    = {2026},
-  doi     = {10.26434/chemrxiv.15002217/v1},
-  url     = {https://doi.org/10.26434/chemrxiv.15002217/v1},
-  note    = {Preprint}
-}`;
-    navigator.clipboard.writeText(citation).then(
-      () => setToast('BibTeX citation copied'),
-      () => {
-        window.prompt('Copy BibTeX citation:', citation);
-      }
-    );
-  };
 
   return (
     <div className="h-screen max-w-[100vw] overflow-hidden bg-[var(--bg-deep)] flex flex-col font-sans text-[var(--text)]">
@@ -588,8 +566,8 @@ export default function App() {
         onExportSDF={() => { if (molecules.length > 0) { downloadSDF(molecules); setToast('SDF exported (all)'); } }}
         onExportSDFPareto={() => { const pareto = molecules.filter(m => m.paretoRank === 1); if (pareto.length > 0) { downloadSDFPareto(molecules); setToast(`SDF exported (${pareto.length} Pareto-optimal)`); } else { setToast('No Pareto-optimal molecules'); } }}
         onExportFigure={handleExportFigure}
+        onExportSummaryReport={() => { if (molecules.length > 0) { downloadSummaryReport(molecules, paretoObjectives, admetPropNames); setToast('Summary report exported'); } }}
         onExportManifest={() => { if (molecules.length > 0) { downloadManifest(molecules, paretoObjectives, propertyFilters, substructureFilter, formulaColumns); setToast('Reproducibility manifest exported'); } }}
-        onCite={handleCite}
         onDocs={() => setDocsOpen(true)}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen(v => !v)}
@@ -702,15 +680,24 @@ export default function App() {
         AI
       </button>
 
-      {/* Keyboard shortcuts hint — bottom left, only on desktop */}
-      <button
-        onClick={() => setShortcutsOpen(true)}
-        className="hidden md:flex fixed bottom-6 left-6 items-center gap-1.5 px-2.5 py-1.5 text-[11px] text-[var(--text2)]/40 hover:text-[var(--text2)] bg-[var(--surface2)]/50 border border-[var(--border-5)] rounded-md transition-colors z-40"
-        title="Keyboard shortcuts"
-      >
-        <kbd className="text-[10px] font-mono bg-[var(--surface2)] px-1 py-0.5 rounded border border-[var(--border-10)]">?</kbd>
-        <span>Shortcuts</span>
-      </button>
+      {/* Quiet footer controls. Shortcuts stay desktop-only; Cite is always there. */}
+      <div className="fixed bottom-6 left-6 flex items-center gap-2 z-40">
+        <button
+          onClick={() => setShortcutsOpen(true)}
+          className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] text-[var(--text2)]/40 hover:text-[var(--text2)] bg-[var(--surface2)]/50 border border-[var(--border-5)] rounded-md transition-colors"
+          title="Keyboard shortcuts"
+        >
+          <kbd className="text-[10px] font-mono bg-[var(--surface2)] px-1 py-0.5 rounded border border-[var(--border-10)]">?</kbd>
+          <span>Shortcuts</span>
+        </button>
+        <button
+          type="button"
+          onClick={openCitePanel}
+          className="hidden md:flex items-center px-2.5 py-1.5 text-[11px] text-[var(--text2)]/50 hover:text-[var(--text2)] bg-[var(--surface2)]/50 border border-[var(--border-5)] rounded-md transition-colors"
+        >
+          Cite
+        </button>
+      </div>
 
       <KeyboardShortcuts isOpen={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       {docsOpen && <DocsPage onClose={() => setDocsOpen(false)} />}

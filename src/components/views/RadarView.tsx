@@ -3,6 +3,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { Radar } from 'react-chartjs-2';
 import type { Molecule } from '../../utils/types';
 import { PROPERTIES } from '../../utils/types';
+import { downloadCanvasPng } from '../../utils/export';
 import {
   Chart as ChartJS,
   RadialLinearScale,
@@ -77,13 +78,9 @@ function RadarView({ molecules, selectedMolIdx, setSelectedMolIdx, shortlist }: 
 
   /** Download the full combined radar chart as PNG via chart.toBase64Image() */
   const downloadFullRadar = useCallback(() => {
-    const chart = chartRef.current;
-    if (!chart) return;
-    const url = chart.toBase64Image('image/png', 1);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'radar_all.png';
-    a.click();
+    const canvas = chartRef.current?.canvas as HTMLCanvasElement | undefined;
+    if (!canvas) return;
+    downloadCanvasPng(canvas, 'radar_all.png');
   }, []);
 
   /**
@@ -150,13 +147,9 @@ function RadarView({ molecules, selectedMolIdx, setSelectedMolIdx, shortlist }: 
     // Two rAF ticks to ensure Chart.js finishes rendering
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        const url = offscreen.toDataURL('image/png');
-        tempChart.destroy();
         const safeName = molName.replace(/[^a-zA-Z0-9_-]/g, '_');
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${safeName}_radar.png`;
-        a.click();
+        downloadCanvasPng(offscreen, `${safeName}_radar.png`);
+        tempChart.destroy();
       });
     });
   }, [datasets, labels, themeVersion]);

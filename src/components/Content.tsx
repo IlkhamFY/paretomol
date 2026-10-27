@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useDeferredValue, startTransition, lazy, Suspense } from 'react';
 import type { Molecule, FormulaColumn, ParetoObjective } from '../utils/types';
 import { getInitialTabFromUrl } from '../utils/share';
-import { exportViewAsSVG } from '../utils/export';
+import { exportViewAsSVG, downloadCanvasPng } from '../utils/export';
 import { useTheme } from '../contexts/ThemeContext';
 import { useFDAReference } from '../hooks/useFDAReference';
 import { ChartSkeleton, TableSkeleton, CanvasSkeleton, CardSkeleton, DeferredOverlay } from './Skeleton';
@@ -165,15 +165,7 @@ export default function Content({ molecules, compareIndices, selectedMolIdx, set
                   ctx.fillRect(0, 0, out.width, out.height);
                   canvases.forEach((c, i) => ctx.drawImage(c, (i % cols) * w, Math.floor(i / cols) * h, w, h));
                 }
-                out.toBlob(blob => {
-                  if (!blob) return;
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `paretomol-${activeTab}.png`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }, 'image/png');
+                downloadCanvasPng(out, `paretomol-${activeTab}.png`);
               }}
               title="Download chart as PNG"
               className="px-2 py-1 text-[11px] text-[var(--text2)] hover:text-[var(--text)] border border-[var(--border-5)] rounded hover:border-[var(--accent)] transition-colors"

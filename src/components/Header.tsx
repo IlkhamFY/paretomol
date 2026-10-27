@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { Download, FileText, MessageSquare, MoreHorizontal, ChevronDown, Menu, X, Sun, Moon } from 'lucide-react';
+import { Download, MessageSquare, MoreHorizontal, ChevronDown, Menu, X, Sun, Moon } from 'lucide-react';
+import CiteDetails from './CiteDetails';
+import { subscribeCitePanel } from '../utils/citation';
 
 const GitHubIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
@@ -19,17 +21,18 @@ interface HeaderProps {
   onExportSummaryReport?: () => void;
   onExportManifest?: () => void;
   onShareURL?: () => void;
-  onCite?: () => void;
   onDocs?: () => void;
   sidebarOpen?: boolean;
   onToggleSidebar?: () => void;
 }
 
-export default function Header({ moleculeCount, onReset, onExportCSV, onExportJSON, onExportSDF, onExportSDFPareto, onExportFigure, onExportSummaryReport, onExportManifest, onCite, onDocs, sidebarOpen, onToggleSidebar }: HeaderProps) {
+export default function Header({ moleculeCount, onReset, onExportCSV, onExportJSON, onExportSDF, onExportSDFPareto, onExportFigure, onExportSummaryReport, onExportManifest, onDocs, sidebarOpen, onToggleSidebar }: HeaderProps) {
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [citeOpen, setCiteOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
+  const citeRef = useRef<HTMLDivElement>(null);
   const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
@@ -40,10 +43,27 @@ export default function Header({ moleculeCount, onReset, onExportCSV, onExportJS
       if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
         setExportOpen(false);
       }
+      if (citeRef.current && !citeRef.current.contains(e.target as Node)) {
+        setCiteOpen(false);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  useEffect(() => subscribeCitePanel((open) => { if (open) setCiteOpen(true); }), []);
+
+  useEffect(() => {
+    if (!citeOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      setCiteOpen(false);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [citeOpen]);
 
   const exportActions = [
     { label: 'Figure (PNG)', onClick: onExportFigure },
@@ -61,7 +81,6 @@ export default function Header({ moleculeCount, onReset, onExportCSV, onExportJS
     { icon: <Download size={14} />, label: 'Export SDF (Pareto)', onClick: onExportSDFPareto },
     { icon: <Download size={14} />, label: 'Export SDF (all)', onClick: onExportSDF },
     { icon: <Download size={14} />, label: 'Export JSON', onClick: onExportJSON },
-    { icon: <FileText size={14} />, label: 'Cite', onClick: onCite },
   ];
 
   return (
@@ -117,14 +136,30 @@ export default function Header({ moleculeCount, onReset, onExportCSV, onExportJS
               )}
             </div>
 
-            <button
-              onClick={onCite}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-[var(--text2)] bg-[var(--surface2)] border border-[var(--border-5)] rounded-md hover:border-[var(--border-20)] hover:text-[var(--text-heading)] transition-colors whitespace-nowrap"
-            >
-              <FileText size={14} /> Cite
-            </button>
           </div>
         )}
+
+        <div className="relative" ref={citeRef}>
+          <button
+            type="button"
+            onClick={() => setCiteOpen((v) => !v)}
+            aria-expanded={citeOpen}
+            aria-controls="cite-panel"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-[var(--text2)] bg-[var(--surface2)] border border-[var(--border-5)] rounded-md hover:border-[var(--border-20)] hover:text-[var(--text-heading)] transition-colors whitespace-nowrap"
+          >
+            Cite
+          </button>
+          {citeOpen && (
+            <div
+              id="cite-panel"
+              role="dialog"
+              aria-label="Cite ParetoMol"
+              className="fixed top-16 left-3 right-3 md:left-auto md:w-[28rem] max-h-[min(32rem,calc(100vh-5rem))] overflow-y-auto custom-scrollbar bg-[var(--surface)] border border-[var(--border-10)] rounded-lg p-4 shadow-xl z-50"
+            >
+              <CiteDetails />
+            </div>
+          )}
+        </div>
 
         {/* Mobile overflow menu */}
         {moleculeCount > 0 && (

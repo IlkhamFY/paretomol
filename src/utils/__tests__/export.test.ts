@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { buildExportCSV, buildScoredCSV, buildExportJSON, buildExportSDF } from '../export';
+import { buildExportCSV, buildScoredCSV, buildExportJSON, buildExportSDF, buildSummaryReport, withCitationColumn } from '../export';
+import { DOI } from '../citation';
 import type { Molecule } from '../types';
 
 /**
@@ -34,6 +35,7 @@ describe('CSV export', () => {
     const lines = csv.trim().split('\n');
     // Leading comment line, header, then one row each.
     expect(lines[0].startsWith('#')).toBe(true);
+    expect(lines[0]).toContain(DOI);
     expect(lines).toHaveLength(4);
   });
 
@@ -68,7 +70,9 @@ describe('scored CSV export', () => {
   it('emits only the requested columns, in order', () => {
     const m = mol({ customProps: { hERG: 0.1, DILI: 0.2, extra: 9 } });
     const csv = buildScoredCSV([m], ['hERG', 'DILI']);
-    expect(csv.split('\n')[0]).toBe('smiles,name,hERG,DILI');
+    expect(csv.split('\n')[0]).toBe('smiles,name,hERG,DILI,citation');
+    expect(csv.startsWith('#')).toBe(false);
+    expect(csv).toContain(DOI);
     expect(csv).not.toContain('extra');
   });
 
@@ -76,12 +80,12 @@ describe('scored CSV export', () => {
     // Writing 0 for an absent measurement is the defect this revision removes;
     // it must not reappear at the export boundary.
     const csv = buildScoredCSV([mol({ customProps: {} })], ['hERG']);
-    expect(csv.trim().split('\n')[1]).toBe('CCO,test,');
+    expect(csv.trim().split('\n')[1].startsWith('CCO,test,,')).toBe(true);
   });
 
   it('leaves a non-finite value empty', () => {
     const csv = buildScoredCSV([mol({ customProps: { hERG: NaN } })], ['hERG']);
-    expect(csv.trim().split('\n')[1]).toBe('CCO,test,');
+    expect(csv.trim().split('\n')[1].startsWith('CCO,test,,')).toBe(true);
   });
 });
 
@@ -91,6 +95,7 @@ describe('JSON export', () => {
     const records = Array.isArray(parsed) ? parsed : parsed.molecules;
     expect(records[0].paretoRank).toBe(3);
     expect(records[0].paretoOptimal).toBe(false);
+    expect(parsed.citation.doi).toBe(DOI);
   });
 
   it('preserves null for an unranked molecule', () => {
@@ -109,11 +114,31 @@ describe('SDF export', () => {
   it('writes the rank as N/A when the molecule is unranked', () => {
     const sdf = buildExportSDF([mol({ paretoRank: null })]);
     expect(sdf).toContain('N/A');
+    expect(sdf).toContain(DOI);
+    expect(sdf).toContain('> <Citation>');
   });
 
   it('handles an empty input without throwing', () => {
     expect(buildExportSDF([])).toBe('');
     expect(() => buildExportCSV([])).not.toThrow();
     expect(() => JSON.parse(buildExportJSON([]))).not.toThrow();
+  });
+
+  it('writes the citation on the markdown report', () => {
+    const md = buildSummaryReport([mol()], [{ key: 'MW', direction: 'min' }]);
+    expect(md).toContain(DOI);
+    expect(md).toContain('Digital Discovery');
+  });
+});
+
+describe('citation column', () => {
+  it('keeps the header row first and quotes the citation', () => {
+    const csv = withCitationColumn('smiles,name', ['CCO,ethanol']);
+    const [header, row] = csv.trim().split('\n');
+    expect(header).toBe('smiles,name,citation');
+    expect(row.startsWith('CCO,ethanol,')).toBe(true);
+    expect(row).toContain(DOI);
+    expect(row.startsWith('CCO,ethanol,"')).toBe(true);
+    expect(csv.startsWith('#')).toBe(false);
   });
 });

@@ -19,6 +19,7 @@ import {
   type AtomAttribution,
 } from '../../utils/admetAI';
 import AdmetTierModal from '../AdmetTierModal';
+import { withCitationColumn } from '../../utils/export';
 import { getTierState, clearPersonalSpace, setLocalDetected, getActiveEndpoint, type TierState } from '../../utils/admetTiers';
 
 type Category = 'all' | 'absorption' | 'distribution' | 'metabolism' | 'excretion' | 'toxicity';
@@ -765,7 +766,7 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
         ...keys.map(k => pred?.[k] != null ? String(pred[k]) : ''),
       ].join(',');
     });
-    const csv = [header.map(h => escape(h)).join(','), ...rows].join('\n');
+    const csv = withCitationColumn(header.map(h => escape(h)).join(','), rows);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

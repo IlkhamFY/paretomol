@@ -3,6 +3,7 @@ import type { Molecule } from '../../utils/types';
 import { initRDKitCache, getMolSvg } from '../../utils/chem';
 import { useTheme } from '../../contexts/ThemeContext';
 import { mannWhitneyU, sigStars } from '../../utils/stats';
+import { withCitationColumn } from '../../utils/export';
 import { PRIMARY_ADMET_KEYS, ADMET_AI_PROPERTY_META, formatAdmetAIValue, getAdmetAICategoryColor } from '../../utils/admetAI';
 
 /* ═══════════════════════════════════════════════════════
@@ -478,7 +479,7 @@ function ScaffoldView({ molecules, selectedMolIdx, setSelectedMolIdx }: Props) {
                   ...admetVals,
                 ].join(',');
               });
-              const csv = [header, ...rows].join('\n');
+              const csv = withCitationColumn(header, rows);
               const blob = new Blob([csv], { type: 'text/csv' });
               const url = URL.createObjectURL(blob);
               const a = document.createElement('a');

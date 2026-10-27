@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import CiteDetails from './CiteDetails';
 import { useTheme } from '../contexts/ThemeContext';
 import { Sun, Moon, X } from 'lucide-react';
 
@@ -417,11 +418,10 @@ score = 1 + 9 · (1 − exp(−(raw − 1) / 6.6))   → clamped to 1–10`}</pr
         q: 'How do I cite ParetoMol?',
         a: (
           <>
-            <p>ParetoMol is described in a preprint on ChemRxiv. Please cite:</p>
-            <pre className="mt-2 bg-[var(--surface2)] p-3 rounded text-[11px] font-mono overflow-x-auto whitespace-pre-wrap">{`Yabbarov, I.; Vargas-Hernández, R. A. ParetoMol: A Free Web Application for
-Multi-Objective Pareto Analysis of Molecular Safety and Pharmacokinetics.
-ChemRxiv 2026. DOI: 10.26434/chemrxiv.15002217/v1`}</pre>
-            <p className="mt-2">Use the <strong>Cite</strong> button in the header to copy a BibTeX entry.</p>
+            <p>Cite the Digital Discovery paper. The same text is on the Cite control in the header and the footer, and it is written into every export.</p>
+            <div className="mt-3">
+              <CiteDetails />
+            </div>
           </>
         ),
       },
@@ -500,6 +500,13 @@ export default function DocsPage({ onClose }: DocsPageProps) {
         </div>
         <div className="flex items-center gap-3">
           <button
+            type="button"
+            onClick={() => scrollTo('technical', 'cite')}
+            className="px-3 py-1.5 text-xs font-medium text-[var(--text2)] bg-[var(--surface2)] border border-[var(--border-5)] rounded-md hover:border-[var(--border-20)] hover:text-[var(--text-heading)] transition-colors"
+          >
+            Cite
+          </button>
+          <button
             onClick={toggleTheme}
             className="flex items-center justify-center w-8 h-8 text-[var(--text2)] bg-[var(--surface2)] border border-[var(--border-5)] rounded-md hover:border-[var(--border-20)] transition-colors"
           >
@@ -571,6 +578,8 @@ export default function DocsPage({ onClose }: DocsPageProps) {
             {/* Footer */}
             <div className="border-t border-[var(--border-5)] pt-8 mt-4 text-[12px] text-[var(--text2)]/50 text-center space-x-2">
               <span>ParetoMol</span>
+              <span>·</span>
+              <button type="button" onClick={() => scrollTo('technical', 'cite')} className="hover:text-[var(--text2)] transition-colors">Cite</button>
               <span>·</span>
               <a href="https://github.com/IlkhamFY/paretomol" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text2)] transition-colors">GitHub</a>
               <span>·</span>
