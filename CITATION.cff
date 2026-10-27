@@ -1,18 +1,20 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite it as below."
+message: "If you use this software, please cite the article in preferred-citation."
 type: software
-title: "ParetoMol: A Free Web Application for Multi-Objective Pareto Analysis of Molecular Safety and Pharmacokinetics"
+title: "ParetoMol: a free web application for multi-objective pareto analysis of molecular safety and pharmacokinetics"
 authors:
   - family-names: Yabbarov
     given-names: Ilkham
-  - family-names: Vargas-Hernández
-    given-names: Rodrigo A.
+    orcid: "https://orcid.org/0009-0004-9393-9822"
+  - family-names: "Vargas-Hernández"
+    given-names: "Rodrigo A."
+    orcid: "https://orcid.org/0000-0002-5559-6521"
 url: "https://paretomol.com"
 repository-code: "https://github.com/IlkhamFY/paretomol"
 license: MIT
 version: "0.22.0"
 date-released: "2026-01-01"
-abstract: "A free, browser-based web application for multi-objective Pareto analysis of drug-like molecules. Computes physicochemical properties, identifies Pareto-optimal subsets, and provides 14 interactive analysis views. All computation runs client-side via RDKit.js WebAssembly. Optionally integrates ADMET-AI predictions via Chemprop D-MPNN."
+abstract: "A free, browser-based web application for multi-objective Pareto analysis of drug-like molecules. Computes physicochemical properties, identifies Pareto-optimal subsets, and provides interactive analysis views. All computation runs client-side via RDKit.js WebAssembly. Optionally integrates ADMET-AI predictions via Chemprop D-MPNN."
 keywords:
   - drug discovery
   - multi-objective optimization
@@ -23,11 +25,22 @@ keywords:
   - WebAssembly
 preferred-citation:
   type: article
-  title: "ParetoMol: A Free Web Application for Multi-Objective Pareto Analysis of Molecular Safety and Pharmacokinetics"
+  title: "ParetoMol: a free web application for multi-objective pareto analysis of molecular safety and pharmacokinetics"
   authors:
     - family-names: Yabbarov
       given-names: Ilkham
-    - family-names: Vargas-Hernández
-      given-names: Rodrigo A.
-  status: in-preparation
+      orcid: "https://orcid.org/0009-0004-9393-9822"
+    - family-names: "Vargas-Hernández"
+      given-names: "Rodrigo A."
+      orcid: "https://orcid.org/0000-0002-5559-6521"
+  journal: "Digital Discovery"
+  publisher:
+    name: "Royal Society of Chemistry"
   year: 2026
+  volume: 5
+  issue: 10
+  start: 4231
+  end: 4247
+  doi: "10.1039/d6dd00366d"
+  url: "https://doi.org/10.1039/d6dd00366d"
+  issn: "2635-098X"
