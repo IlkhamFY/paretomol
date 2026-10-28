@@ -9,6 +9,7 @@ import {
   DOI_URL,
   FORMATTED_CITATION,
 } from './citation';
+import { track } from '../lib/track';
 
 /** Escape a single CSV field value (wrap in quotes, double any internal quotes). */
 function csvEscape(val: unknown): string {
@@ -106,6 +107,7 @@ export function buildExportCSV(molecules: Molecule[]): string {
 
 /** Trigger download of CSV file. */
 export function downloadCSV(molecules: Molecule[], filename = 'paretomol_export.csv'): void {
+  track('export/csv');
   const csv = buildExportCSV(molecules);
   const blob = new Blob([csv], { type: 'text/csv' });
   const a = document.createElement('a');
@@ -160,6 +162,7 @@ export function buildScoredCSV(molecules: Molecule[], propNames: string[]): stri
 
 /** Trigger download of the scored CSV. */
 export function downloadScoredCSV(molecules: Molecule[], propNames: string[], filename = 'paretomol_scored.csv'): void {
+  track('export/csv');
   const blob = new Blob([buildScoredCSV(molecules, propNames)], { type: 'text/csv' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -217,6 +220,7 @@ export function buildExportSDFPareto(molecules: Molecule[]): string {
 
 /** Trigger SDF download. */
 export function downloadSDF(molecules: Molecule[], filename = 'paretomol_export.sdf'): void {
+  track('export/sdf');
   const sdf = buildExportSDF(molecules);
   const blob = new Blob([sdf], { type: 'chemical/x-mdl-sdfile' });
   const a = document.createElement('a');
@@ -228,6 +232,7 @@ export function downloadSDF(molecules: Molecule[], filename = 'paretomol_export.
 
 /** Trigger SDF download for Pareto-optimal subset only. */
 export function downloadSDFPareto(molecules: Molecule[], filename = 'pareto_optimal.sdf'): void {
+  track('export/sdf');
   const sdf = buildExportSDFPareto(molecules);
   const blob = new Blob([sdf], { type: 'chemical/x-mdl-sdfile' });
   const a = document.createElement('a');
@@ -259,6 +264,7 @@ export function buildExportJSON(molecules: Molecule[]): string {
 
 /** Trigger download of JSON file. */
 export function downloadJSON(molecules: Molecule[], filename = 'paretomol_export.json'): void {
+  track('export/json');
   const json = buildExportJSON(molecules);
   const blob = new Blob([json], { type: 'application/json' });
   const a = document.createElement('a');
@@ -280,6 +286,7 @@ export function downloadManifest(
   formulaColumns: FormulaColumn[],
   filename = 'paretomol_manifest.json'
 ): void {
+  track('export/json');
   const manifest = {
     tool: 'ParetoMol',
     url: 'https://paretomol.com',
@@ -511,6 +518,7 @@ export function stampCitation(source: HTMLCanvasElement): HTMLCanvasElement {
 
 /** Download a PNG of `source` with the citation footer. */
 export function downloadCanvasPng(source: HTMLCanvasElement, filename: string): void {
+  track('export/png');
   const stamped = stampCitation(source);
   const save = (blob: Blob) => triggerDownload(blob, filename);
   if (typeof stamped.toBlob !== 'function') {
@@ -612,6 +620,7 @@ export function exportViewAsSVG(container: HTMLElement, filename = 'paretomol_fi
   const height = totalH + footerH;
   const footer = `<text x="${pad}" y="${totalH + 16}" font-family="sans-serif" font-size="${fontSize}" fill="${escapeXml(fg)}">${escapeXml(CITATION_LINE)}</text>`;
 
+  track('export/svg');
   const doc = `<?xml version="1.0" encoding="UTF-8"?>\n` +
     `<svg xmlns="${NS}" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" ` +
     `viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="${escapeXml(bg)}"/>${body}${footer}</svg>`;
@@ -626,6 +635,7 @@ export function downloadSummaryReport(
   admetPropNames?: string[],
   filename = 'paretomol_report.md'
 ): void {
+  track('export/md');
   const md = buildSummaryReport(molecules, paretoObjectives, admetPropNames);
   const blob = new Blob([md], { type: 'text/markdown' });
   const a = document.createElement('a');

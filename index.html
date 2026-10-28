@@ -39,7 +39,15 @@
     <script src="https://unpkg.com/@rdkit/rdkit@2025.3.4-1.0.0/dist/RDKit_minimal.js"></script>
     <!-- 3Dmol.js for interactive 3D molecular visualization -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/3Dmol/2.4.2/3Dmol-min.js"></script>
-    <script defer data-domain="paretomol.com" src="https://plausible.io/js/script.js"></script>
+    <script>
+      // Page and event counts only on the production hostname.
+      // Localhost and preview builds are skipped. no_onload keeps the library
+      // from sending location.search (the share link carries molecules in `m`).
+      if (location.hostname === 'paretomol.com') {
+        window.goatcounter = { no_onload: true };
+        document.write('<script data-goatcounter="https://paretomol.goatcounter.com/count" async src="//gc.zgo.at/count.js"><\/script>');
+      }
+    </script>
 
     <!-- Structured Data (JSON-LD) -->
     <script type="application/ld+json">

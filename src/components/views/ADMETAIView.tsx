@@ -3,6 +3,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import type { Molecule } from '../../utils/types';
 import { getMolSvg, getMolSvgHighlighted, detectStructuralAlerts, type AlertHit } from '../../utils/chem';
 import ApplicabilityDomain from './ApplicabilityDomain';
+import { track } from '../../lib/track';
 import {
   checkAdmetAIHealth,
   predictWithAdmetAI,
@@ -688,6 +689,7 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
     setLoading(true);
     setError(null);
     setProgress({ done: 0, total: molecules.length });
+    track('admet/requested');
     try {
       const results = await predictWithAdmetAI(
         molecules.map(m => ({ name: m.name, smiles: m.smiles })),
@@ -717,8 +719,10 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
       setStructuralAlerts(alertMap);
       onPredictionsReady?.(predMap);
       setApiStatus('connected'); // mark as connected after successful prediction (e.g. Space woke up)
+      track('admet/succeeded');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      track('admet/failed');
     } finally {
       setLoading(false);
     }
@@ -774,6 +778,7 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
     a.download = `paretomol_admet_${molecules.length}mol.csv`;
     a.click();
     URL.revokeObjectURL(url);
+    track('export/csv');
   }, [predictions, molecules]);
 
   // Risk summary

@@ -4,6 +4,7 @@ import { initRDKitCache, getMolSvg } from '../../utils/chem';
 import { useTheme } from '../../contexts/ThemeContext';
 import { mannWhitneyU, sigStars } from '../../utils/stats';
 import { withCitationColumn } from '../../utils/export';
+import { track } from '../../lib/track';
 import { PRIMARY_ADMET_KEYS, ADMET_AI_PROPERTY_META, formatAdmetAIValue, getAdmetAICategoryColor } from '../../utils/admetAI';
 
 /* ═══════════════════════════════════════════════════════
@@ -485,6 +486,7 @@ function ScaffoldView({ molecules, selectedMolIdx, setSelectedMolIdx }: Props) {
               const a = document.createElement('a');
               a.href = url; a.download = 'scaffold_summary.csv'; a.click();
               URL.revokeObjectURL(url);
+              track('export/csv');
             }}
           >
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">

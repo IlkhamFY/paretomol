@@ -38,7 +38,9 @@ The main analysis CSV keeps a leading `#` comment (it already did) and the citat
 
 Paste SMILES, upload SDF/CSV, or fetch from ChEMBL. ParetoMol computes physicochemical properties, identifies the Pareto-optimal subset across your chosen objectives, and provides 14 interactive views: Pareto fronts, BOILED-Egg, radar, MPO, scoring, chemical space, parallel coordinates, activity cliffs, scaffolds, similarity, statistics, and more. Optionally predict 41 ADMET endpoints (Chemprop D-MPNN) and fold them back into the Pareto analysis: **load, analyze, predict, re-Pareto, filter, export**.
 
-All computation runs client-side via [RDKit.js](https://github.com/rdkit/rdkit-js) WebAssembly. No backend, no accounts, no tracking. Your molecules never leave the browser.
+All computation runs client-side via [RDKit.js](https://github.com/rdkit/rdkit-js) WebAssembly. No backend, no accounts. Your molecules never leave the browser.
+
+Anonymous, cookie-free page and event counts via GoatCounter; no molecule data leaves the browser for analytics.
 
 ## Features
 

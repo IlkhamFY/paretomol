@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Download, MessageSquare, MoreHorizontal, ChevronDown, Menu, X, Sun, Moon } from 'lucide-react';
 import CiteDetails from './CiteDetails';
 import { subscribeCitePanel } from '../utils/citation';
+import { track } from '../lib/track';
 
 const GitHubIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
@@ -30,10 +31,17 @@ export default function Header({ moleculeCount, onReset, onExportCSV, onExportJS
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [citeOpen, setCiteOpen] = useState(false);
+  const citeOpenRef = useRef(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
   const citeRef = useRef<HTMLDivElement>(null);
   const { theme, toggleTheme } = useTheme();
+
+  const setCite = useCallback((open: boolean) => {
+    if (open && !citeOpenRef.current) track('cite/opened');
+    citeOpenRef.current = open;
+    setCiteOpen(open);
+  }, []);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -44,14 +52,14 @@ export default function Header({ moleculeCount, onReset, onExportCSV, onExportJS
         setExportOpen(false);
       }
       if (citeRef.current && !citeRef.current.contains(e.target as Node)) {
-        setCiteOpen(false);
+        setCite(false);
       }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, []);
+  }, [setCite]);
 
-  useEffect(() => subscribeCitePanel((open) => { if (open) setCiteOpen(true); }), []);
+  useEffect(() => subscribeCitePanel((open) => { if (open) setCite(true); }), [setCite]);
 
   useEffect(() => {
     if (!citeOpen) return;
@@ -59,11 +67,11 @@ export default function Header({ moleculeCount, onReset, onExportCSV, onExportJS
       if (e.key !== 'Escape') return;
       e.preventDefault();
       e.stopImmediatePropagation();
-      setCiteOpen(false);
+      setCite(false);
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [citeOpen]);
+  }, [citeOpen, setCite]);
 
   const exportActions = [
     { label: 'Figure (PNG)', onClick: onExportFigure },
@@ -142,7 +150,7 @@ export default function Header({ moleculeCount, onReset, onExportCSV, onExportJS
         <div className="relative" ref={citeRef}>
           <button
             type="button"
-            onClick={() => setCiteOpen((v) => !v)}
+            onClick={() => setCite(!citeOpenRef.current)}
             aria-expanded={citeOpen}
             aria-controls="cite-panel"
             className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-[var(--text2)] bg-[var(--surface2)] border border-[var(--border-5)] rounded-md hover:border-[var(--border-20)] hover:text-[var(--text-heading)] transition-colors whitespace-nowrap"

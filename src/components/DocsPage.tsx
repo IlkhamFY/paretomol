@@ -39,7 +39,7 @@ const sections: Section[] = [
       {
         id: 'privacy',
         q: 'Is my data private?',
-        a: <p>Yes. ParetoMol runs entirely in your browser using WebAssembly (RDKit.js). Your SMILES, structures, and properties never leave your machine. No backend, no database, no tracking beyond standard analytics. The only external calls are optional PubChem name lookups and ADMET-AI predictions (which you control).</p>,
+        a: <p>Yes. ParetoMol runs entirely in your browser using WebAssembly (RDKit.js). Your SMILES, structures, and properties never leave your machine. No backend, no database. Anonymous, cookie-free page and event counts via GoatCounter; no molecule data leaves the browser for analytics. The only external calls are optional PubChem name lookups and ADMET-AI predictions (which you control).</p>,
       },
       {
         id: 'open-source',

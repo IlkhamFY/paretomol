@@ -18,6 +18,7 @@ import { fetchBuyabilityBatch } from './utils/cost';
 import { fetchZincPrices } from './utils/zinc';
 
 import { getInitialPayloadFromUrl, getInitialTabFromUrl, getShareableUrl } from './utils/share';
+import { track } from './lib/track';
 import { downloadCSV, downloadScoredCSV, downloadJSON, downloadSDF, downloadSDFPareto, downloadManifest, downloadSummaryReport, downloadCanvasPng } from './utils/export';
 import { openCitePanel } from './utils/citation';
 import { clearSvgCache } from './utils/chem';
@@ -219,6 +220,7 @@ export default function App() {
         setSelectedMolIdx(null);
         setCompareIndices([]);
         setToast(`Loaded ${newMols.length} molecules`);
+        track('molecules/example');
       }
     } catch {
       setToast('Failed to load example');

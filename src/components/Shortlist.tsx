@@ -3,6 +3,7 @@ import type { Molecule } from '../utils/types';
 import { DRUG_FILTERS } from '../utils/types';
 import { getMolSvg } from '../utils/chem';
 import { withCitationColumn } from '../utils/export';
+import { track } from '../lib/track';
 
 /* ═══════════════════════════════════════════════════════
    Shortlist — Persistent compound accumulator
@@ -90,6 +91,7 @@ export default function Shortlist({
     const a = document.createElement('a');
     a.href = url; a.download = 'paretomol_shortlist.csv'; a.click();
     URL.revokeObjectURL(url);
+    track('export/csv');
     onToast?.(`Exported ${shortlistMols.length} compound${shortlistMols.length !== 1 ? 's' : ''}`);
   }, [shortlistMols, onToast]);
 
