@@ -4,6 +4,7 @@ import { EXAMPLES, DEFAULT_PARETO_OBJECTIVES, DRUG_FILTERS } from '../utils/type
 import { initRDKitCache, parseAndAnalyze, parseAndAnalyzeChunked, parseSDFFile, fetchChEMBLBatch, computeParetoAndDominance, getMolSvg, filterBySubstructure, mergeAssayData, enrichMoleculeNames } from '../utils/chem';
 import { useTheme } from '../contexts/ThemeContext';
 import { inferObjectives, inferObjectiveDirection } from '../utils/objectives';
+import { track } from '../lib/track';
 import { loadFDAReference, getFDAPercentile, PROP_TO_FDA } from '../utils/fda_reference';
 import type { FDADrug } from '../utils/fda_reference';
 import Mol3DViewer from './Mol3DViewer';
@@ -185,6 +186,10 @@ export default function Sidebar({
       } else {
         setStatus({ msg: finalMsg, type: 'success' });
       }
+      if (newMols.length > 0) {
+        const example = (Object.values(EXAMPLES) as string[]).some((value) => value.trim() === input.trim());
+        track(example ? 'molecules/example' : 'molecules/paste');
+      }
     } catch (e: unknown) {
       setProgress(null);
       setStatus({ msg: 'analysis error: ' + (e instanceof Error ? e.message : String(e)), type: 'error' });
@@ -314,6 +319,7 @@ export default function Sidebar({
         if (errors > 0 || failedLookups > 0) finalMsg += ` (${errors} errors, ${failedLookups} lookup failures)`;
         setStatus({ msg: finalMsg, type: errors + failedLookups > 0 ? 'error' : 'success' });
         onToast?.(`Loaded ${newMols.length} from SDF`);
+        if (newMols.length > 0) track('molecules/upload');
       } else {
         // CSV/TSV — paste the raw text into input and trigger analyze
         setInput(text);
@@ -330,6 +336,7 @@ export default function Sidebar({
         if (errors > 0 || failedLookups > 0) finalMsg += ` (${errors} errors)`;
         setStatus({ msg: finalMsg, type: errors + failedLookups > 0 ? 'error' : 'success' });
         onToast?.(`Loaded ${newMols.length} from ${file.name}`);
+        if (newMols.length > 0) track('molecules/upload');
       }
     } catch (e: unknown) {
       setStatus({ msg: 'File parse error: ' + (e instanceof Error ? e.message : String(e)), type: 'error' });
@@ -396,6 +403,7 @@ export default function Sidebar({
       setCompareIndices([]);
       setSelectedMolIdx(null);
       setStatus({ msg: `Loaded ${newMols.length} from ChEMBL${errors + failedLookups > 0 ? ` (${errors} errors, ${failedLookups} not found)` : ''}`, type: errors + failedLookups > 0 ? 'error' : 'success' });
+      if (newMols.length > 0) track('molecules/chembl');
       setChemblOpen(false);
       setChemblInput('');
     } catch (e: unknown) {
@@ -488,6 +496,7 @@ export default function Sidebar({
       const fmtLabel = assayFormat === 'B' ? 'binding' : assayFormat === 'F' ? 'functional' : 'all formats';
       setStatus({ msg: `Loaded ${result.molecules.length} compounds from ${targetId} (${data.activities.length} ${fmtLabel} activities) — assays: ${baoSummary}`, type: 'success' });
       onToast?.(`${result.molecules.length} compounds from ${targetId} (${fmtLabel})`);
+      if (result.molecules.length > 0) track('molecules/chembl');
     } catch (e: unknown) {
       setStatus({ msg: `ChEMBL error: ${e instanceof Error ? e.message : String(e)}`, type: 'error' });
     } finally {

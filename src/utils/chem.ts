@@ -1,5 +1,6 @@
 import type { Molecule, FilterResult, MolProps, ParetoObjective } from './types';
 import { DRUG_FILTERS, DEFAULT_PARETO_OBJECTIVES } from './types';
+import { track } from '../lib/track';
 import { computeQED } from './qed';
 import { QED_ALERT_SMARTS } from '../data/qedAlerts';
 import { parseAssayValue, isCensored, aggregate, isConflicting } from './assayValue';
@@ -1298,6 +1299,7 @@ export function computeParetoAndDominance(molecules: Molecule[], objectives?: Pa
     front = next;
     rank++;
   }
+  if (n > 0) track('pareto');
 }
 
 /** Compute n×n Tanimoto similarity matrix from molecules (fast packed fingerprints). */
