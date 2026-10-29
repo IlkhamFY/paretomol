@@ -34,6 +34,39 @@ export function clearEndpointOverride(): void {
   } catch { /* storage unavailable */ }
 }
 
+/**
+ * Bases already woken this page session. A repeat call for the same URL is a no-op
+ * so startup, StrictMode, and remounts cannot ping the Space more than once.
+ */
+const warmedAdmetBases = new Set<string>();
+
+/**
+ * Wake the active ADMET endpoint with one GET /health.
+ * Fire-and-forget: does not block, sends no molecule data, and swallows every failure.
+ * Endpoint resolution matches predictions (manual override, then local > personal > shared).
+ */
+export function warmupAdmetEndpoint(): void {
+  let base = '';
+  try {
+    base = getAdmetAIEndpoint().replace(/\/$/, '');
+  } catch {
+    return;
+  }
+  if (!base || warmedAdmetBases.has(base)) return;
+  warmedAdmetBases.add(base);
+  try {
+    void fetch(`${base}/health`, {
+      method: 'GET',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(90_000),
+    }).catch(() => {
+      /* sleeping, offline, or aborted — prediction reports its own status */
+    });
+  } catch {
+    /* fetch unavailable — stay silent */
+  }
+}
+
 /** 
  * Mapping from ADMET-AI column names to human-readable labels.
  * Covers the 41 primary TDC endpoints + key physicochemical descriptors.
