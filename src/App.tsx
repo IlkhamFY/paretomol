@@ -13,6 +13,7 @@ import type { SerializedMolecule } from './utils/session';
 import { packFingerprint, parseAndAnalyze, filterBySubstructure, computeParetoAndDominance } from './utils/chem';
 import { useTheme } from './contexts/ThemeContext';
 import { detectLocalServer } from './utils/admetTiers';
+import { warmupAdmetEndpoint } from './utils/admetAI';
 import { fetchRAScore, getRascoreUrl } from './utils/rascore';
 import { fetchBuyabilityBatch } from './utils/cost';
 import { fetchZincPrices } from './utils/zinc';
@@ -57,9 +58,12 @@ export default function App() {
   const [sessionToast, setSessionToast] = useState<{ molCount: number; time: string } | null>(null);
   const sessionRestoreRef = useRef(false);
 
-  // Auto-detect local ADMET-AI server once on startup
+  // Probe for a local ADMET server, then wake whatever endpoint predictions will use.
+  // One GET /health per page session; failures stay silent and nothing here blocks paint.
   useEffect(() => {
-    detectLocalServer(); // fire-and-forget — updates localStorage, components re-read on next prediction
+    void detectLocalServer().finally(() => {
+      warmupAdmetEndpoint();
+    });
   }, []);
 
   // Persist formula columns

@@ -26,6 +26,10 @@ import { getTierState, clearPersonalSpace, setLocalDetected, getActiveEndpoint, 
 type Category = 'all' | 'absorption' | 'distribution' | 'metabolism' | 'excretion' | 'toxicity';
 type ApiStatus = 'idle' | 'checking' | 'connected' | 'error';
 
+/** A cold Space often answers after this; say so instead of leaving only a spinner. */
+const ADMET_WAKE_NOTE_MS = 8_000;
+const ADMET_WAKE_NOTE = 'Waking the ADMET server, first run can take ~30 s';
+
 // ---------------------------------------------------------------------------
 // Radar chart — 8 key ADMET endpoints
 // ---------------------------------------------------------------------------
@@ -613,6 +617,12 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [error, setError] = useState<string | null>(null);
+  const [showWakeNote, setShowWakeNote] = useState(false);
+  const wakeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (wakeTimerRef.current) clearTimeout(wakeTimerRef.current);
+  }, []);
 
   // Restore predictions from customProps if they already exist (survives tab switches)
   const [predictions, setPredictions] = useState<Map<string, Record<string, number>>>(() => {
@@ -688,6 +698,12 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
     predictedForRef.current = molecules.map(m => m.smiles).sort().join('|');
     setLoading(true);
     setError(null);
+    setShowWakeNote(false);
+    if (wakeTimerRef.current) clearTimeout(wakeTimerRef.current);
+    wakeTimerRef.current = setTimeout(() => {
+      wakeTimerRef.current = null;
+      setShowWakeNote(true);
+    }, ADMET_WAKE_NOTE_MS);
     setProgress({ done: 0, total: molecules.length });
     track('admet/requested');
     try {
@@ -724,6 +740,11 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
       setError(e instanceof Error ? e.message : String(e));
       track('admet/failed');
     } finally {
+      if (wakeTimerRef.current) {
+        clearTimeout(wakeTimerRef.current);
+        wakeTimerRef.current = null;
+      }
+      setShowWakeNote(false);
       setLoading(false);
     }
   }, [molecules, onPredictionsReady]);
@@ -890,6 +911,11 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
               ? `Predicting ${progress.done} / ${progress.total} molecules...`
               : `Predicting ${molecules.length} molecule${molecules.length !== 1 ? 's' : ''}...`}
           </div>
+          {showWakeNote && progress.done === 0 && (
+            <div role="status" className="text-[11px] text-[var(--text2)]">
+              {ADMET_WAKE_NOTE}
+            </div>
+          )}
         </div>
       )}
 
