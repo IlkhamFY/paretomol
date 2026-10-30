@@ -17,3 +17,5 @@ export * from './formula.js';
 export * from './citation.js';
 export * from './sha256.js';
 export * from './profiles.js';
+export * from './analyze.js';
+export * from './decision.js';

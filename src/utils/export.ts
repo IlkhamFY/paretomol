@@ -9,6 +9,8 @@ import {
   DOI_URL,
   FORMATTED_CITATION,
 } from '@paretomol/core';
+import { stringifyDecisionRecord } from '@paretomol/core';
+import type { DecisionRecord } from '@paretomol/core';
 import { track } from '../lib/track';
 
 /** Escape a single CSV field value (wrap in quotes, double any internal quotes). */
@@ -638,6 +640,19 @@ export function downloadSummaryReport(
   track('export/md');
   const md = buildSummaryReport(molecules, paretoObjectives, admetPropNames);
   const blob = new Blob([md], { type: 'text/markdown' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ─── Decision record ─────────────────────────────────────────────────────────
+// paretomol.decision/0, see docs/decision-record.md. Re-open it with
+// "Open record" in the header to restore the exact view.
+export function downloadDecisionRecord(rec: DecisionRecord, filename = 'paretomol_decision.json'): void {
+  track('decision/exported');
+  const blob = new Blob([stringifyDecisionRecord(rec)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = filename;

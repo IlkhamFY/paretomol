@@ -21,13 +21,15 @@ interface HeaderProps {
   onExportFigure?: () => void;
   onExportSummaryReport?: () => void;
   onExportManifest?: () => void;
+  onExportDecisionRecord?: () => void;
+  onImportDecisionRecord?: (file: File) => void;
   onShareURL?: () => void;
   onDocs?: () => void;
   sidebarOpen?: boolean;
   onToggleSidebar?: () => void;
 }
 
-export default function Header({ moleculeCount, onReset, onExportCSV, onExportJSON, onExportSDF, onExportSDFPareto, onExportFigure, onExportSummaryReport, onExportManifest, onDocs, sidebarOpen, onToggleSidebar }: HeaderProps) {
+export default function Header({ moleculeCount, onReset, onExportCSV, onExportJSON, onExportSDF, onExportSDFPareto, onExportFigure, onExportSummaryReport, onExportManifest, onExportDecisionRecord, onImportDecisionRecord, onDocs, sidebarOpen, onToggleSidebar }: HeaderProps) {
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [citeOpen, setCiteOpen] = useState(false);
@@ -80,6 +82,7 @@ export default function Header({ moleculeCount, onReset, onExportCSV, onExportJS
     { label: 'SDF (all)', onClick: onExportSDF },
     { label: 'JSON', onClick: onExportJSON },
     { label: 'Reproducibility manifest', onClick: onExportManifest },
+    { label: 'Decision record (JSON)', onClick: onExportDecisionRecord },
     { label: 'Summary Report (MD)', onClick: onExportSummaryReport },
   ];
 
@@ -145,6 +148,22 @@ export default function Header({ moleculeCount, onReset, onExportCSV, onExportJS
             </div>
 
           </div>
+        )}
+
+        {onImportDecisionRecord && (
+          <label
+            className="hidden sm:flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-[var(--text2)] bg-[var(--surface2)] border border-[var(--border-5)] rounded-md hover:border-[var(--border-20)] hover:text-[var(--text-heading)] transition-colors whitespace-nowrap cursor-pointer"
+            title="Open a ParetoMol decision record (JSON) and restore its view"
+          >
+            Open record
+            <input
+              type="file"
+              accept=".json,application/json"
+              className="hidden"
+              data-testid="decision-record-input"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) onImportDecisionRecord(f); e.target.value = ''; }}
+            />
+          </label>
         )}
 
         <div className="relative" ref={citeRef}>

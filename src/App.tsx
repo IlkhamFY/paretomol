@@ -10,17 +10,18 @@ import { DEFAULT_PARETO_OBJECTIVES, EXAMPLES } from '@paretomol/core';
 import { parseFormula } from '@paretomol/core';
 import { autoSave, loadAutoSession, clearAutoSession, formatSessionTime, CURRENT_SCHEMA_VERSION } from './utils/session';
 import type { SerializedMolecule } from './utils/session';
-import { packFingerprint, parseAndAnalyze, filterBySubstructure, computeParetoAndDominance } from './utils/chem';
+import { packFingerprint, parseAndAnalyze, filterBySubstructure, computeParetoAndDominance, initRDKitCache } from './utils/chem';
 import { useTheme } from './contexts/ThemeContext';
 import { detectLocalServer } from './utils/admetTiers';
-import { warmupAdmetEndpoint } from './utils/admetAI';
+import { warmupAdmetEndpoint, getAdmetAIEndpoint } from './utils/admetAI';
+import { buildDecisionRecord, parseDecisionRecord, selectedIndices } from '@paretomol/core';
 import { fetchRAScore, getRascoreUrl } from './utils/rascore';
 import { fetchBuyabilityBatch } from './utils/cost';
 import { fetchZincPrices } from './utils/zinc';
 
 import { getInitialPayloadFromUrl, getInitialTabFromUrl, getShareableUrl } from './utils/share';
 import { track } from './lib/track';
-import { downloadCSV, downloadScoredCSV, downloadJSON, downloadSDF, downloadSDFPareto, downloadManifest, downloadSummaryReport, downloadCanvasPng } from './utils/export';
+import { downloadDecisionRecord, downloadCSV, downloadScoredCSV, downloadJSON, downloadSDF, downloadSDFPareto, downloadManifest, downloadSummaryReport, downloadCanvasPng } from './utils/export';
 import { openCitePanel } from '@paretomol/core';
 import { clearSvgCache } from './utils/chem';
 import { applyPropertyFilters } from './components/PropertyFilters';
@@ -476,6 +477,55 @@ export default function App() {
     );
   };
 
+  // Decision record (paretomol.decision/0): export the current decision and
+  // re-open it later with the exact same view. See docs/decision-record.md.
+  const handleExportDecisionRecord = async () => {
+    if (molecules.length === 0) return;
+    const rationale = window.prompt('Why these picks? (optional, saved in the record)', '');
+    if (rationale === null) return;
+    const RDKit = await initRDKitCache();
+    const rec = buildDecisionRecord({
+      molecules,
+      objectives: paretoObjectives,
+      profile: 'oral@1',
+      selected: Array.from(shortlist),
+      rationale,
+      rdkitVersion: typeof RDKit?.version === 'function' ? String(RDKit.version()) : 'unknown',
+      admetEndpoint: admetPropNames.length > 0 ? getAdmetAIEndpoint() : null,
+      view: { activeTab, formulaColumns, customPropNames, admetPropNames, propertyFilters, substructureFilter },
+    });
+    downloadDecisionRecord(rec);
+    setToast(`Decision record exported (${rec.selected.length} selected)`);
+  };
+
+  const handleImportDecisionRecord = async (file: File) => {
+    try {
+      const rec = parseDecisionRecord(await file.text());
+      const text = rec.input.molecules.map(m => `${m.smiles} ${m.name}`).join('\n');
+      const { molecules: fresh } = await parseAndAnalyze(text);
+      if (fresh.length !== rec.input.molecules.length) throw new Error(`${rec.input.molecules.length - fresh.length} structures did not parse`);
+      const restored = fresh.map((m, i) => ({ ...m, name: rec.input.molecules[i].name, customProps: { ...(rec.input.molecules[i].customProps ?? {}) } }));
+      computeParetoAndDominance(restored, rec.objectives);
+      const v = rec.view ?? {};
+      setMolecules(restored);
+      setParetoObjectives(rec.objectives);
+      setFormulaColumns(v.formulaColumns ?? []);
+      setCustomPropNames(v.customPropNames ?? Array.from(new Set(restored.flatMap(m => Object.keys(m.customProps)))));
+      setAdmetPropNames(v.admetPropNames ?? []);
+      setPropertyFilters(v.propertyFilters ?? {});
+      setSubstructureFilter(v.substructureFilter ?? '');
+      setShortlist(new Set(selectedIndices(rec)));
+      setSelectedMolIdx(null);
+      setCompareIndices([]);
+      setSessionToast(null);
+      if (v.activeTab) setActiveTab(v.activeTab);
+      track('decision/imported');
+      setToast(`Opened decision record: ${restored.length} molecules, ${rec.selected.length} selected`);
+    } catch (e) {
+      setToast(`Could not open record: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
   const handleExportCSV = () => {
     if (molecules.length === 0) return;
     downloadCSV(molecules);
@@ -573,6 +623,8 @@ export default function App() {
         onExportSDFPareto={() => { const pareto = molecules.filter(m => m.paretoRank === 1); if (pareto.length > 0) { downloadSDFPareto(molecules); setToast(`SDF exported (${pareto.length} Pareto-optimal)`); } else { setToast('No Pareto-optimal molecules'); } }}
         onExportFigure={handleExportFigure}
         onExportSummaryReport={() => { if (molecules.length > 0) { downloadSummaryReport(molecules, paretoObjectives, admetPropNames); setToast('Summary report exported'); } }}
+        onExportDecisionRecord={handleExportDecisionRecord}
+        onImportDecisionRecord={handleImportDecisionRecord}
         onExportManifest={() => { if (molecules.length > 0) { downloadManifest(molecules, paretoObjectives, propertyFilters, substructureFilter, formulaColumns); setToast('Reproducibility manifest exported'); } }}
         onDocs={() => setDocsOpen(true)}
         sidebarOpen={sidebarOpen}

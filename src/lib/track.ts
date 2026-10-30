@@ -15,6 +15,8 @@ export type TrackEvent =
   | 'admet/succeeded'
   | 'admet/failed'
   | `export/${ExportFormat}`
+  | 'decision/exported'
+  | 'decision/imported'
   | 'cite/opened'
   | `cite/${CitationFormat}/copied`
   | `cite/${CitationFormat}/downloaded`;
