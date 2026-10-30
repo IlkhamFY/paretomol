@@ -16,7 +16,7 @@ export default function LandingPage({ onLoadExample, onOpenSidebar }: LandingPag
         <p className="text-[13px] text-[var(--text2)] leading-relaxed mb-8">
           Paste SMILES, drop an SDF, or fetch by ChEMBL target.
           Pareto ranking, drug-likeness filters, ADMET predictions,
-          and 15 interactive views -- entirely in your browser.
+          and 15 interactive views -- computed in your browser.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-10">
@@ -37,7 +37,7 @@ export default function LandingPage({ onLoadExample, onOpenSidebar }: LandingPag
         </div>
 
         <p className="text-[11px] text-[var(--text2)] opacity-40">
-          100% client-side · no data leaves your browser · <a href="https://github.com/IlkhamFY/paretomol" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-70">open source</a> · <a href="https://github.com/IlkhamFY/paretomol/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-70">contribute</a> · <button type="button" onClick={openCitePanel} className="underline hover:opacity-70">cite</button>
+          computed locally · ADMET and name lookups use public services · <a href="https://github.com/IlkhamFY/paretomol" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-70">open source</a> · <a href="https://github.com/IlkhamFY/paretomol/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-70">contribute</a> · <button type="button" onClick={openCitePanel} className="underline hover:opacity-70">cite</button>
         </p>
 
         <details className="mt-6 text-[12px] text-[var(--text2)] text-left">

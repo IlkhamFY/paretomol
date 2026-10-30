@@ -19,7 +19,7 @@ const sections: Section[] = [
         q: 'What is ParetoMol?',
         a: (
           <>
-            <p>ParetoMol is a free, open-source web tool for multi-objective analysis of drug-like molecules. You paste SMILES (or upload a file), and the tool instantly computes molecular properties, identifies Pareto-optimal candidates, predicts ADMET profiles, and lets you explore the chemical space — all in your browser, with no server, no account, and no data leaving your machine.</p>
+            <p>ParetoMol is a free, open-source web tool for multi-objective analysis of drug-like molecules. You paste SMILES (or upload a file), and the tool instantly computes molecular properties, identifies Pareto-optimal candidates, predicts ADMET profiles, and lets you explore the chemical space — computed in your browser, with no account. ADMET predictions and name lookups are the only routine calls to outside services (see Privacy below).</p>
             <p className="mt-2">It is designed for medicinal chemists, computational chemists, and drug discovery scientists who need to quickly triage compound sets against multiple competing objectives (potency, safety, permeability, metabolic stability, etc.).</p>
           </>
         ),
@@ -39,7 +39,7 @@ const sections: Section[] = [
       {
         id: 'privacy',
         q: 'Is my data private?',
-        a: <p>Yes. ParetoMol runs entirely in your browser using WebAssembly (RDKit.js). Your SMILES, structures, and properties never leave your machine. No backend, no database. Anonymous, cookie-free page and event counts via GoatCounter; no molecule data leaves the browser for analytics. The only external calls are optional PubChem name lookups and ADMET-AI predictions (which you control).</p>,
+        a: <div className="space-y-2"><p>Properties, Pareto ranking and scoring run in your browser (RDKit.js WebAssembly). There is no account and no database. Molecules leave the browser only in these cases:</p><ul className="list-disc pl-5 space-y-1"><li><strong>ADMET predictions</strong> send the SMILES you predict to the Hugging Face Space ilkhamfy/admet-ai-api (or your own Space or local server). Each visit also sends one empty health-check to wake it.</li><li><strong>Name lookup</strong>: SMILES without a name are sent to PubChem to fetch a common name.</li><li><strong>Features you invoke</strong>: ChEMBL, ZINC cost, RAscore, SELFIES-TED and the AI copilot (your own key) send the relevant molecules only when you use them.</li></ul><p>Page and event counts are anonymous and cookie-free (GoatCounter) and never include molecule data.</p></div>,
       },
       {
         id: 'open-source',
