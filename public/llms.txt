@@ -1,0 +1,47 @@
+# ParetoMol
+
+> Free, open-source multi-objective triage of drug-like molecules. Paste SMILES or a CSV; ParetoMol computes RDKit descriptors in the browser, ranks molecules on the Pareto front, scores them with versioned MPO profiles, and exports a hashed decision record. Paper: Digital Discovery, DOI 10.1039/d6dd00366d (https://doi.org/10.1039/d6dd00366d).
+
+Use ParetoMol when you need to compare molecules on several objectives at once (potency, MW, LogP, TPSA, QED, ADMET) without collapsing them into one score too early, and when the result has to be reproducible and checkable.
+
+## App
+
+- [ParetoMol web app](https://paretomol.com): runs in the browser (RDKit.js WebAssembly). No account, no database.
+- Input: SMILES lines (`SMILES name`) or CSV/TSV with a SMILES column; numeric columns become custom properties. Directions are inferred from names (pIC50 max, IC50 min, hERG min); unclear columns are not optimised.
+- What leaves the browser: ADMET-AI predictions (SMILES you predict, to the Hugging Face Space ilkhamfy/admet-ai-api, plus one empty health check per visit), PubChem name lookup for unnamed SMILES, and features you invoke (ChEMBL, ZINC, RAscore, SELFIES-TED, AI copilot with your own key). Counts are anonymous (GoatCounter), never molecule data.
+- Export > Decision record (JSON) writes a decision record; Open record restores the exact view.
+
+## Core library (@paretomol/core)
+
+- [Source](https://github.com/IlkhamFY/paretomol/tree/main/packages/core): framework-free TypeScript. Pareto ranking (`computeParetoAndDominance`), objective inference (`inferObjectives`), MPO (`mpoScore`), QED, drug-likeness filters, scoring profiles (`getProfile('oral@1')`), molecule analysis with any RDKit.js instance (`analyzeInput`), decision records and the claim verifier.
+
+## Scoring profiles
+
+- Built in: `oral@1`, `cns@1`, `leadlike@1`, `lipinski@1`, `custom@1` (template). JSON in packages/core/profiles, each with a `sha256:` content hash. A profile id@version never changes meaning; changes get a new version.
+- A value exactly on a window edge (e.g. HBD = 0 under oral@1) scores as inside the window.
+
+## CLI (@paretomol/cli, command `paretomol`)
+
+- Not yet on npm. From a clone: `npm install && npm run build`, then `npx paretomol ...` inside the repository.
+
+- `npx paretomol rank in.csv --profile oral@1 --out record.json`: offline ranking with the same RDKit.js build as the app (2025.3.4-1.0.0). Output equals the app's decision record for the same CSV (except timestamp, rationale, view). 1000 SMILES in a few seconds.
+- Flags: `--objectives "MW:min,pIC50:max"`, `--select id1,id2`, `--rationale "..."`, `--timestamp <iso>`.
+- `npx paretomol verify claims.json`: recompute claimed descriptors and check objective directions. Exit 2 when anything is flagged.
+- No PubChem name lookup and no ADMET calls in the CLI.
+
+## Decision record (paretomol.decision/0)
+
+- [Spec](https://github.com/IlkhamFY/paretomol/blob/main/docs/decision-record.md): input molecules and their SHA-256, profile id@version and hash, model versions (core, RDKit.js, ADMET-AI endpoint or null), objectives, Pareto rank and MPO per molecule, selected ids, rationale, optional view, timestamp, record hash. Canonical JSON (sorted keys), SHA-256. Readers reject a wrong schema, bad hashes, or unknown selected ids.
+
+## Claim verifier
+
+- [Spec](https://github.com/IlkhamFY/paretomol/blob/main/docs/verify.md): `verifyClaims(claims, RDKit)` flags `invalid_smiles`, `value_mismatch` (MW ±0.5, LogP ±0.5, TPSA ±1.5, QED ±0.02, counts exact) and `direction_flipped`. Anything it cannot recompute is reported as unchecked, not wrong. Agents: run it on your own numbers before presenting them.
+
+## Cite
+
+- Yabbarov, I.; Vargas-Hernández, R. A. ParetoMol: a free web application for multi-objective pareto analysis of molecular safety and pharmacokinetics. Digital Discovery 2026, 5 (10), 4231-4247. DOI 10.1039/d6dd00366d. CITATION.cff in the repository.
+
+## Optional
+
+- [README](https://github.com/IlkhamFY/paretomol#readme)
+- [Docs in the app](https://paretomol.com): ? (Docs) in the header, section "Agents and automation".

@@ -321,6 +321,61 @@ score = 1 + 9 · (1 − exp(−(raw − 1) / 6.6))   → clamped to 1–10`}</pr
     ],
   },
   {
+    id: 'agents',
+    title: 'Agents and automation',
+    questions: [
+      {
+        id: 'llms-txt',
+        q: 'Can an AI agent use ParetoMol?',
+        a: (
+          <>
+            <p>Yes. <a href="/llms.txt" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline">/llms.txt</a> describes the app, the core library, the CLI, scoring profiles, the decision record and the claim verifier in one page an agent can read. Point your agent at <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">https://paretomol.com/llms.txt</code>.</p>
+            <p className="mt-2">The pieces an agent needs: <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">paretomol rank</code> to rank offline with the same RDKit.js build as this app, the <strong>decision record</strong> (Export &gt; Decision record) so its result can be opened here and checked, and <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">paretomol verify</code> to recompute the numbers it claims. The CLI is not on npm yet; run it from a clone (<code className="bg-[var(--surface2)] px-1 rounded text-[12px]">npm install &amp;&amp; npm run build</code>).</p>
+          </>
+        ),
+      },
+      {
+        id: 'decision-record',
+        q: 'What is a decision record?',
+        a: <p>One JSON file with the input molecules and their SHA-256, the scoring profile and its hash, the software versions, the objectives, each molecule&apos;s Pareto rank and MPO score, the molecules you picked and why. <strong>Export &gt; Decision record (JSON)</strong> writes it; <strong>Open record</strong> restores the exact view. A record edited after export is rejected. The app writes profile <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">oral@1</code>.</p>,
+      },
+      {
+        id: 'prompt-claude',
+        q: 'Prompt for Claude',
+        a: (
+          <>
+            <p>Paste into Claude (Claude Code, or any Claude with a shell and file access):</p>
+            <pre className="mt-2 bg-[var(--surface2)] p-3 rounded text-[11px] font-mono overflow-x-auto whitespace-pre-wrap select-all">{`Read https://paretomol.com/llms.txt first.
+I have molecules in molecules.csv (SMILES column plus assay columns).
+1. Rank them with ParetoMol: npx paretomol rank molecules.csv --profile oral@1 --out record.json
+2. From record.json, pick at most 5 molecules from Pareto rank 1 and give one line per pick saying why.
+3. Write the picks back: npx paretomol rank molecules.csv --profile oral@1 --select <ids> --rationale "<why>" --out record.json
+4. Before you quote any MW, LogP, TPSA, HBD, HBA or QED value, put your claims in claims.json and run npx paretomol verify claims.json. Fix anything it flags.
+Do not invent descriptor values. Do not change objective directions without telling me.
+I will open record.json in ParetoMol (Open record) to check your picks.`}</pre>
+          </>
+        ),
+      },
+      {
+        id: 'prompt-cursor',
+        q: 'Prompt for Cursor',
+        a: (
+          <>
+            <p>Paste into Cursor&apos;s agent with the ParetoMol repository (or a project using <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">@paretomol/core</code>) open:</p>
+            <pre className="mt-2 bg-[var(--surface2)] p-3 rounded text-[11px] font-mono overflow-x-auto whitespace-pre-wrap select-all">{`@Web https://paretomol.com/llms.txt
+Use @paretomol/core, not your own descriptor code.
+- Load RDKit.js (npm @rdkit/rdkit 2025.3.4-1.0.0) and call analyzeInput(csvText, RDKit).
+- Rank with computeParetoAndDominance(molecules, objectives); objectives default to DEFAULT_PARETO_OBJECTIVES plus inferObjectives(customPropNames).
+- Score with mpoScore(props, getProfile('oral@1').desirability, 'linear').
+- Save the result with buildDecisionRecord({ molecules, objectives, profile: 'oral@1', selected, rationale, rdkitVersion: RDKit.version() }) and stringifyDecisionRecord.
+- Check every number you report with verifyClaims(claims, RDKit) and show me the flags.
+Write a test that the record round-trips through parseDecisionRecord.`}</pre>
+          </>
+        ),
+      },
+    ],
+  },
+  {
     id: 'export',
     title: 'Exporting results',
     questions: [
