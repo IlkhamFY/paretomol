@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "dev": "vite",
-    "build": "npm run build -w @paretomol/core -w @paretomol/cli && tsc -b && vite build",
+    "build": "npm run build -w @paretomol/core -w @paretomol/cli -w @paretomol/mcp && tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",

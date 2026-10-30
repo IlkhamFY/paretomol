@@ -29,6 +29,11 @@ Use ParetoMol when you need to compare molecules on several objectives at once (
 - `npx paretomol verify claims.json`: recompute claimed descriptors and check objective directions. Exit 2 when anything is flagged.
 - No PubChem name lookup and no ADMET calls in the CLI.
 
+## MCP server (@paretomol/mcp, command `paretomol-mcp`)
+
+- Not yet on npm. From a clone: `npm install && npm run build`, then point your MCP client at `node packages/mcp/bin/paretomol-mcp.js` (stdio).
+- Tools: `score_molecules`, `pareto_front`, `apply_profile`, `explain_tradeoff`, `open_review_url`, `verify_claims`. Spec: [docs/mcp.md](https://github.com/IlkhamFY/paretomol/blob/main/docs/mcp.md).
+
 ## Decision record (paretomol.decision/0)
 
 - [Spec](https://github.com/IlkhamFY/paretomol/blob/main/docs/decision-record.md): input molecules and their SHA-256, profile id@version and hash, model versions (core, RDKit.js, ADMET-AI endpoint or null), objectives, Pareto rank and MPO per molecule, selected ids, rationale, optional view, timestamp, record hash. Canonical JSON (sorted keys), SHA-256. Readers reject a wrong schema, bad hashes, or unknown selected ids.
