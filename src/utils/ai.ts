@@ -2,7 +2,7 @@
  * BYOK AI: Gemini, OpenAI, Anthropic. Keys in localStorage only, never sent to our server.
  */
 
-import type { Molecule } from './types';
+import type { Molecule } from '@paretomol/core';
 
 export type AIProvider = 'gemini' | 'openai' | 'anthropic';
 

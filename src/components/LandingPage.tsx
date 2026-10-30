@@ -1,5 +1,5 @@
 import { Upload, ArrowRight } from 'lucide-react';
-import { openCitePanel } from '../utils/citation';
+import { openCitePanel } from '@paretomol/core';
 
 interface LandingPageProps {
   onLoadExample?: (key: string) => void;

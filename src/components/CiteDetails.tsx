@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BIBTEX, DOI_URL, FORMATTED_CITATION, RIS } from '../utils/citation';
+import { BIBTEX, DOI_URL, FORMATTED_CITATION, RIS } from '@paretomol/core';
 import { track } from '../lib/track';
 import type { TrackEvent } from '../lib/track';
 

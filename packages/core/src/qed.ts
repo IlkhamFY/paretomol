@@ -14,7 +14,7 @@ const QED_PARAMS: Record<string, number[]> = {
   AROM:   [3.217788970, 957.7374108,  2.274627939, 0.000000001,  1.317690384,  0.375760881, 312.3372610],
   // ALERTS: parameters from RDKit QED.py (canonical reference)
   // ALERTS is the count of canonical QED structural alerts matched (see
-  // src/data/qedAlerts.ts), not a PAINS/Brenk/NIH catalogue count.
+  // qedAlerts.ts), not a PAINS/Brenk/NIH catalogue count.
   ALERTS: [0.010000000, 1199.094025, -0.09002883,  0.000000001,  0.185904477,  0.875193782, 417.7253140],
 };
 

@@ -1,5 +1,5 @@
-import type { Molecule, ParetoObjective, FormulaColumn } from './types';
-import { PROPERTIES, DRUG_FILTERS } from './types';
+import type { Molecule, ParetoObjective, FormulaColumn } from '@paretomol/core';
+import { PROPERTIES, DRUG_FILTERS } from '@paretomol/core';
 import {
   CITATION_COLUMN,
   CITATION_LINE,
@@ -8,7 +8,7 @@ import {
   DOI,
   DOI_URL,
   FORMATTED_CITATION,
-} from './citation';
+} from '@paretomol/core';
 import { track } from '../lib/track';
 
 /** Escape a single CSV field value (wrap in quotes, double any internal quotes). */

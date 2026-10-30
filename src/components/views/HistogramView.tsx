@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import type { Molecule } from '../../utils/types';
+import type { Molecule } from '@paretomol/core';
 
 const CORE_PROPS = ['MW', 'LogP', 'HBD', 'HBA', 'TPSA', 'RotBonds'] as const;
 

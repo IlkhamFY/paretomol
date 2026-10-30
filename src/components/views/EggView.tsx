@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
-import type { Molecule } from '../../utils/types';
+import type { Molecule } from '@paretomol/core';
 import type { FDADrug } from '../../utils/fda_reference';
 
 // Exact polygon coordinates from the supporting information of:

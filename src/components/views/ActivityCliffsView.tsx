@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
-import type { Molecule } from '../../utils/types';
+import type { Molecule } from '@paretomol/core';
 import { computeSimilarityMatrix, computeActivityCliffs, getMolSvg, readMolProp, DEFAULT_CLIFF_KEYS, type SimilarityMetric } from '../../utils/chem';
 import { computeSelfiesTEDMatrix } from '../../utils/selfies';
 

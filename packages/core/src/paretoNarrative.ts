@@ -5,7 +5,7 @@
 // set, i.e. the axis where improving one tends to cost you the other. Deterministic
 // and offline (no API key), so it is always available and honest.
 
-import type { Molecule, ParetoObjective } from './types';
+import type { Molecule, ParetoObjective } from './types.js';
 
 function molValue(mol: Molecule, key: string): number | undefined {
   const v = (mol.props as unknown as Record<string, number>)[key] ?? mol.customProps[key];

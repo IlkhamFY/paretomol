@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { computeQED } from '../qed';
-import { QED_ALERT_SMARTS } from '../../data/qedAlerts';
+import { computeQED } from '@paretomol/core';
+import { QED_ALERT_SMARTS } from '@paretomol/core';
 
 /**
  * QED tests.

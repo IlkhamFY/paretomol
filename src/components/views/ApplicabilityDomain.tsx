@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Molecule } from '../../utils/types';
+import type { Molecule } from '@paretomol/core';
 import { loadDomainReference, assessDomain, type DomainResult } from '../../utils/applicabilityDomain';
 
 /* Applicability domain — a quiet, honest reliability cue for the ADMET predictions.

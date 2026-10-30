@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Quantify ParetoMol's QED against the canonical RDKit implementation.
 
-The QED arithmetic in src/utils/qed.ts is a direct transcription of RDKit's
+The QED arithmetic in packages/core/src/qed.ts is a direct transcription of RDKit's
 rdkit.Chem.QED (same ADS coefficients, same weights), so the remaining question
 is what the *descriptors* fed into it are. This script isolates exactly that by
 calling RDKit's own qed() with substituted QEDproperties, rather than

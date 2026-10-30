@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildExportCSV, buildScoredCSV, buildExportJSON, buildExportSDF, buildSummaryReport, withCitationColumn } from '../export';
-import { DOI } from '../citation';
-import type { Molecule } from '../types';
+import { DOI } from '@paretomol/core';
+import type { Molecule } from '@paretomol/core';
 
 /**
  * Export formats.

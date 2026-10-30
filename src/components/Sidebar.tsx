@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import type { Molecule, ParetoObjective } from '../utils/types';
-import { EXAMPLES, DEFAULT_PARETO_OBJECTIVES, DRUG_FILTERS } from '../utils/types';
+import type { Molecule, ParetoObjective } from '@paretomol/core';
+import { EXAMPLES, DEFAULT_PARETO_OBJECTIVES, DRUG_FILTERS } from '@paretomol/core';
 import { initRDKitCache, parseAndAnalyze, parseAndAnalyzeChunked, parseSDFFile, fetchChEMBLBatch, computeParetoAndDominance, getMolSvg, filterBySubstructure, mergeAssayData, enrichMoleculeNames } from '../utils/chem';
 import { useTheme } from '../contexts/ThemeContext';
-import { inferObjectives, inferObjectiveDirection } from '../utils/objectives';
+import { inferObjectives, inferObjectiveDirection } from '@paretomol/core';
 import { track } from '../lib/track';
 import { loadFDAReference, getFDAPercentile, PROP_TO_FDA } from '../utils/fda_reference';
 import type { FDADrug } from '../utils/fda_reference';

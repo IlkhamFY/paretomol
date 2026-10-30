@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
-import type { Molecule } from '../../utils/types';
+import type { Molecule } from '@paretomol/core';
 import { getMolSvg, getMolSvgHighlighted, detectStructuralAlerts, type AlertHit } from '../../utils/chem';
 import ApplicabilityDomain from './ApplicabilityDomain';
 import { track } from '../../lib/track';

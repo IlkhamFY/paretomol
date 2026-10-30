@@ -14,10 +14,10 @@ import {
   ScatterController,
   Title
 } from 'chart.js';
-import type { Molecule, ParetoObjective } from '../../utils/types';
-import { DRUG_FILTERS } from '../../utils/types';
-import { findBestCompromise } from '../../utils/paretoKnee';
-import { readFront } from '../../utils/paretoNarrative';
+import type { Molecule, ParetoObjective } from '@paretomol/core';
+import { DRUG_FILTERS } from '@paretomol/core';
+import { findBestCompromise } from '@paretomol/core';
+import { readFront } from '@paretomol/core';
 import { nearestBetterAnalog } from '../../utils/designHint';
 import type { FDADrug } from '../../utils/fda_reference';
 import { PROP_TO_FDA } from '../../utils/fda_reference';

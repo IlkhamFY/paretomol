@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Download, MessageSquare, MoreHorizontal, ChevronDown, Menu, X, Sun, Moon } from 'lucide-react';
 import CiteDetails from './CiteDetails';
-import { subscribeCitePanel } from '../utils/citation';
+import { subscribeCitePanel } from '@paretomol/core';
 import { track } from '../lib/track';
 
 const GitHubIcon = () => (

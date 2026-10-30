@@ -1,6 +1,6 @@
 import { useMemo, useCallback } from 'react';
-import type { Molecule } from '../utils/types';
-import { DRUG_FILTERS } from '../utils/types';
+import type { Molecule } from '@paretomol/core';
+import { DRUG_FILTERS } from '@paretomol/core';
 import { getMolSvg } from '../utils/chem';
 import { withCitationColumn } from '../utils/export';
 import { track } from '../lib/track';

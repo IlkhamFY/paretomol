@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
-import type { Molecule } from '../../utils/types';
+import type { Molecule } from '@paretomol/core';
 
 interface BoxPlotViewProps {
   molecules: Molecule[];

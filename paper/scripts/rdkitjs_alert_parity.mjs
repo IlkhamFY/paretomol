@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const FIXTURES = join(ROOT, 'e2e', 'fixtures');
-const ALERTS_TS = join(ROOT, 'src', 'data', 'qedAlerts.ts');
+const ALERTS_TS = join(ROOT, 'packages', 'core', 'src', 'qedAlerts.ts');
 
 const [inPath, outPath] = process.argv.slice(2);
 if (!inPath || !outPath) {

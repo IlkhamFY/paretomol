@@ -3,7 +3,7 @@
   <img src=".github/logo-dark.svg#gh-dark-mode-only" alt="ParetoMol" height="68">
 </p>
 
-<p align="center"><strong>Multi-objective Pareto analysis of drug-like molecules. Entirely in your browser.</strong></p>
+<p align="center"><strong>Multi-objective Pareto analysis of drug-like molecules, computed in your browser.</strong></p>
 
 <p align="center">
   <a href="https://paretomol.com"><img src="https://img.shields.io/badge/Live-paretomol.com-798F81?style=flat-square" alt="Live at paretomol.com"></a>&nbsp;&nbsp;<a href="https://doi.org/10.1039/d6dd00366d"><img src="https://img.shields.io/badge/DOI-10.1039%2Fd6dd00366d-5F7367?style=flat-square" alt="DOI 10.1039/d6dd00366d"></a>&nbsp;&nbsp;<a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-7E9A89?style=flat-square" alt="MIT"></a>
@@ -38,7 +38,13 @@ The main analysis CSV keeps a leading `#` comment (it already did) and the citat
 
 Paste SMILES, upload SDF/CSV, or fetch from ChEMBL. ParetoMol computes physicochemical properties, identifies the Pareto-optimal subset across your chosen objectives, and provides 14 interactive views: Pareto fronts, BOILED-Egg, radar, MPO, scoring, chemical space, parallel coordinates, activity cliffs, scaffolds, similarity, statistics, and more. Optionally predict 41 ADMET endpoints (Chemprop D-MPNN) and fold them back into the Pareto analysis: **load, analyze, predict, re-Pareto, filter, export**.
 
-All computation runs client-side via [RDKit.js](https://github.com/rdkit/rdkit-js) WebAssembly. No backend, no accounts. Your molecules never leave the browser.
+Descriptors, Pareto ranking, filters and scoring run client-side via [RDKit.js](https://github.com/rdkit/rdkit-js) WebAssembly. No accounts.
+
+**What leaves the browser.** Your molecules stay local except in these cases:
+
+- **ADMET predictions** send the SMILES you predict to the Hugging Face Space [ilkhamfy/admet-ai-api](https://huggingface.co/spaces/ilkhamfy/admet-ai-api) (or to your own Space or local server if you configure one). Each visit also sends one empty health-check request to wake that Space; it carries no molecule data.
+- **Name lookup**: SMILES entered without a name are sent to PubChem to fetch a common name, and names entered without SMILES are resolved through PubChem.
+- **Features you invoke**: ChEMBL fetch, building-block cost (ZINC), retrosynthetic accessibility (RAscore Space), SELFIES-TED similarity, and the AI copilot (your own key, sent directly to the provider you choose) each send the relevant molecules to that service only when you use them.
 
 Anonymous, cookie-free page and event counts via GoatCounter; no molecule data leaves the browser for analytics.
 
@@ -52,6 +58,20 @@ Anonymous, cookie-free page and event counts via GoatCounter; no molecule data l
 - **AI Copilot**: bring your own key (Gemini, OpenAI, Anthropic); context-aware streaming chat, keys stored in localStorage only
 
 Tested to 2,000 molecules. ~100 KB gzipped initial bundle. Full mobile support. Press `?` in the app for keyboard shortcuts.
+
+## Core library
+
+The pure logic (Pareto ranking and dominance, objective directions, MPO desirability, QED, drug-likeness filters, knee point, front narrative, similarity, activity cliffs) lives in [`packages/core`](packages/core) as `@paretomol/core`: framework-free TypeScript with no DOM or network access. The web app imports it, so there is one source of truth, and scripts, notebooks or agents get the same numbers as the app.
+
+It also ships versioned scoring profiles (`oral@1`, `cns@1`, `leadlike@1`, `lipinski@1`, and a `custom@1` template) as JSON, each with a SHA-256 content hash:
+
+```ts
+import { getProfile, mpoScore, computeParetoAndDominance } from '@paretomol/core';
+const oral = getProfile('oral@1');   // oral.hash === 'sha256:…'
+mpoScore({ MW: 320, LogP: 2.1, HBD: 1, HBA: 5, TPSA: 70, RotBonds: 4 }, oral.desirability);
+```
+
+Build it with `npm run build -w @paretomol/core`.
 
 ## Development
 

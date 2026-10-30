@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { UMAP } from 'umap-js';
-import type { Molecule } from '../../utils/types';
-import { PROPERTIES } from '../../utils/types';
+import type { Molecule } from '@paretomol/core';
+import { PROPERTIES } from '@paretomol/core';
 import { morganFpStrings } from '../../utils/chem';
 
 interface ChemSpaceViewProps {

@@ -1,5 +1,5 @@
 import { useMemo, useCallback, useRef } from 'react';
-import type { Molecule, ParetoObjective } from '../utils/types';
+import type { Molecule, ParetoObjective } from '@paretomol/core';
 
 interface PropertyFiltersProps {
   molecules: Molecule[];

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { mergeAssayData } from '../chem';
-import type { Molecule } from '../types';
+import type { Molecule } from '@paretomol/core';
 
 /**
  * Assay import: the matching ladder and the per-row account of what happened.

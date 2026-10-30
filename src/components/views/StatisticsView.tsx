@@ -1,5 +1,5 @@
 import React, { useState, lazy, Suspense } from 'react';
-import type { Molecule } from '../../utils/types';
+import type { Molecule } from '@paretomol/core';
 
 const HistogramView = lazy(() => import('./HistogramView'));
 const BoxPlotView = lazy(() => import('./BoxPlotView'));

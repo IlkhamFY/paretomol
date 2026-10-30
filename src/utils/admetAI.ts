@@ -279,11 +279,11 @@ const ADMET_AD_RANGES: Array<{
 ];
 
 export function checkApplicabilityDomain(
-  mol: import('./types').Molecule,
+  mol: import('@paretomol/core').Molecule,
 ): ApplicabilityDomainResult {
   const warnings: string[] = [];
   for (const { key, label, min, max } of ADMET_AD_RANGES) {
-    const v = mol.props[key as keyof import('./types').MolProps] as number | undefined;
+    const v = mol.props[key as keyof import('@paretomol/core').MolProps] as number | undefined;
     if (v === undefined) continue;
     if (v < min || v > max) {
       warnings.push(`${label}=${v.toFixed(1)} outside typical range (${min}–${max})`);

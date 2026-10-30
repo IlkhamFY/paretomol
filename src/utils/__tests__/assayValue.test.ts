@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseAssayValue, normaliseUnit, isCensored, aggregate, isConflicting } from '../assayValue';
+import { parseAssayValue, normaliseUnit, isCensored, aggregate, isConflicting } from '@paretomol/core';
 
 /**
  * Assay value parsing.

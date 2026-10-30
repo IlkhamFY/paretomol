@@ -5,9 +5,9 @@ import Content from './components/Content';
 import DocsPage from './components/DocsPage';
 import CopilotPanel from './components/CopilotPanel';
 import KeyboardShortcuts from './components/KeyboardShortcuts';
-import type { Molecule, ParetoObjective, FormulaColumn } from './utils/types';
-import { DEFAULT_PARETO_OBJECTIVES, EXAMPLES } from './utils/types';
-import { parseFormula } from './utils/formula';
+import type { Molecule, ParetoObjective, FormulaColumn } from '@paretomol/core';
+import { DEFAULT_PARETO_OBJECTIVES, EXAMPLES } from '@paretomol/core';
+import { parseFormula } from '@paretomol/core';
 import { autoSave, loadAutoSession, clearAutoSession, formatSessionTime, CURRENT_SCHEMA_VERSION } from './utils/session';
 import type { SerializedMolecule } from './utils/session';
 import { packFingerprint, parseAndAnalyze, filterBySubstructure, computeParetoAndDominance } from './utils/chem';
@@ -21,7 +21,7 @@ import { fetchZincPrices } from './utils/zinc';
 import { getInitialPayloadFromUrl, getInitialTabFromUrl, getShareableUrl } from './utils/share';
 import { track } from './lib/track';
 import { downloadCSV, downloadScoredCSV, downloadJSON, downloadSDF, downloadSDFPareto, downloadManifest, downloadSummaryReport, downloadCanvasPng } from './utils/export';
-import { openCitePanel } from './utils/citation';
+import { openCitePanel } from '@paretomol/core';
 import { clearSvgCache } from './utils/chem';
 import { applyPropertyFilters } from './components/PropertyFilters';
 
@@ -186,7 +186,7 @@ export default function App() {
       restored = session.molecules.map(sm => ({
         ...sm,
         svg: '',
-        props: sm.props as unknown as import('./utils/types').MolProps,
+        props: sm.props as unknown as import('@paretomol/core').MolProps,
         fpPacked: packFingerprint(sm.fingerprint),
       }));
     }

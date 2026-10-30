@@ -1,7 +1,7 @@
 ﻿import React, { useState, useMemo } from 'react';
-import type { Molecule } from '../../utils/types';
+import type { Molecule, PropDesirability, CurveType } from '@paretomol/core';
 import { useTheme } from '../../contexts/ThemeContext';
-import { doubleSigmoidDesirability } from '../../utils/mpo';
+import { desirability, geometricMean, sigmoidDesirability, getProfile } from '@paretomol/core';
 
 // ─── ADMET desirability ─────────────────────────────────────────────────────
 
@@ -15,67 +15,39 @@ const ADMET_MPO_DEFS = [
 
 // ΓöÇΓöÇΓöÇ Types ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
-interface PropDesirability {
-  idealMin: number;
-  idealMax: number;
-  acceptMin: number;
-  acceptMax: number;
-}
-
 type PropKey = 'MW' | 'LogP' | 'HBD' | 'HBA' | 'TPSA' | 'RotBonds';
 type MPOProfile = Record<PropKey, PropDesirability>;
-type CurveType = 'linear' | 'sigmoid';
 
 // ΓöÇΓöÇΓöÇ Profiles ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+// Thresholds come from the versioned profiles in @paretomol/core (oral@1, cns@1,
+// leadlike@1, custom@1); labels and descriptions stay here.
+function profileWindows(ref: string): MPOProfile {
+  const d = getProfile(ref).desirability;
+  return Object.fromEntries(PROP_KEYS_ORDER.map((k) => [k, { ...d[k] }])) as MPOProfile;
+}
+const PROP_KEYS_ORDER: PropKey[] = ['MW', 'LogP', 'HBD', 'HBA', 'TPSA', 'RotBonds'];
 
 const PROFILES: Record<string, { label: string; desc: string; profile: MPOProfile }> = {
   oral: {
     label: 'Oral Drug',
     desc: 'Lipinski Ro5-based (MW Γëñ 500, LogP Γëñ 5, HBD Γëñ 5, HBA Γëñ 10)',
-    profile: {
-      MW:       { idealMin: 150, idealMax: 400, acceptMin: 100, acceptMax: 500 },
-      LogP:     { idealMin: 0,   idealMax: 3.5, acceptMin: -1,  acceptMax: 5   },
-      HBD:      { idealMin: 0,   idealMax: 3,   acceptMin: 0,   acceptMax: 5   },
-      HBA:      { idealMin: 0,   idealMax: 7,   acceptMin: 0,   acceptMax: 10  },
-      TPSA:     { idealMin: 40,  idealMax: 100, acceptMin: 20,  acceptMax: 140 },
-      RotBonds: { idealMin: 0,   idealMax: 5,   acceptMin: 0,   acceptMax: 10  },
-    },
+    profile: profileWindows('oral@1'),
   },
   cns: {
     label: 'CNS Drug',
     desc: 'BBB-penetrant (MW Γëñ 400, LogP 1-4, TPSA Γëñ 90)',
-    profile: {
-      MW:       { idealMin: 150, idealMax: 330, acceptMin: 100, acceptMax: 400 },
-      LogP:     { idealMin: 1,   idealMax: 3.5, acceptMin: 0,   acceptMax: 5   },
-      HBD:      { idealMin: 0,   idealMax: 2,   acceptMin: 0,   acceptMax: 3   },
-      HBA:      { idealMin: 0,   idealMax: 5,   acceptMin: 0,   acceptMax: 7   },
-      TPSA:     { idealMin: 20,  idealMax: 70,  acceptMin: 0,   acceptMax: 90  },
-      RotBonds: { idealMin: 0,   idealMax: 4,   acceptMin: 0,   acceptMax: 8   },
-    },
+    profile: profileWindows('cns@1'),
   },
   leadlike: {
     label: 'Lead-like',
     desc: 'Optimization headroom (MW Γëñ 350, LogP Γëñ 3.5)',
-    profile: {
-      MW:       { idealMin: 120, idealMax: 280, acceptMin: 80,  acceptMax: 350 },
-      LogP:     { idealMin: -1,  idealMax: 2.5, acceptMin: -2,  acceptMax: 3.5 },
-      HBD:      { idealMin: 0,   idealMax: 2,   acceptMin: 0,   acceptMax: 4   },
-      HBA:      { idealMin: 0,   idealMax: 5,   acceptMin: 0,   acceptMax: 8   },
-      TPSA:     { idealMin: 20,  idealMax: 90,  acceptMin: 0,   acceptMax: 120 },
-      RotBonds: { idealMin: 0,   idealMax: 4,   acceptMin: 0,   acceptMax: 7   },
-    },
+    profile: profileWindows('leadlike@1'),
   },
   custom: {
     label: 'Custom',
     desc: 'Edit ranges below to match your target profile',
-    profile: {
-      MW:       { idealMin: 150, idealMax: 400, acceptMin: 100, acceptMax: 500 },
-      LogP:     { idealMin: 0,   idealMax: 3.5, acceptMin: -1,  acceptMax: 5   },
-      HBD:      { idealMin: 0,   idealMax: 3,   acceptMin: 0,   acceptMax: 5   },
-      HBA:      { idealMin: 0,   idealMax: 7,   acceptMin: 0,   acceptMax: 10  },
-      TPSA:     { idealMin: 40,  idealMax: 100, acceptMin: 20,  acceptMax: 140 },
-      RotBonds: { idealMin: 0,   idealMax: 5,   acceptMin: 0,   acceptMax: 10  },
-    },
+    profile: profileWindows('custom@1'),
   },
 };
 
@@ -91,32 +63,6 @@ const PROP_META: Record<PropKey, { label: string; short: string; unit: string; s
 const PROP_KEYS: PropKey[] = ['MW', 'LogP', 'HBD', 'HBA', 'TPSA', 'RotBonds'];
 
 // ΓöÇΓöÇΓöÇ Math ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-
-function linearDesirability(value: number, d: PropDesirability): number {
-  if (value < d.acceptMin || value > d.acceptMax) return 0;
-  if (value >= d.idealMin && value <= d.idealMax) return 1;
-  if (value < d.idealMin) {
-    const range = d.idealMin - d.acceptMin;
-    return range <= 0 ? 1 : (value - d.acceptMin) / range;
-  }
-  const range = d.acceptMax - d.idealMax;
-  return range <= 0 ? 1 : (d.acceptMax - value) / range;
-}
-
-function sigmoidDesirability(value: number, d: PropDesirability): number {
-  return doubleSigmoidDesirability(value, d.acceptMin, d.idealMin, d.idealMax, d.acceptMax);
-}
-
-function desirability(value: number, d: PropDesirability, curveType: CurveType = 'linear'): number {
-  return curveType === 'sigmoid' ? sigmoidDesirability(value, d) : linearDesirability(value, d);
-}
-
-function geometricMean(values: number[]): number {
-  if (values.length === 0) return 0;
-  // Floor at 0.01 so one bad property doesn't nuke the entire score to ~0
-  const product = values.reduce((acc, v) => acc * Math.max(v, 0.01), 1);
-  return Math.pow(product, 1 / values.length);
-}
 
 function dColor(d: number): string {
   if (d >= 0.8) return '#22c55e';

@@ -1,10 +1,23 @@
-import type { Molecule, FilterResult, MolProps, ParetoObjective } from './types';
-import { DRUG_FILTERS, DEFAULT_PARETO_OBJECTIVES } from './types';
+import type { Molecule, MolProps, ParetoObjective, FilterResult } from '@paretomol/core';
+import {
+  computeParetoAndDominance as coreComputeParetoAndDominance,
+  checkFilter, DRUG_FILTERS,
+  computeQED,
+  QED_ALERT_SMARTS,
+  parseAssayValue, isCensored, aggregate, isConflicting,
+  packFingerprint, tanimotoPacked, computeTanimotoMatrix,
+  syntheticComplexityFromDescriptors,
+} from '@paretomol/core';
+import type { AssayValue, SynthComplexity } from '@paretomol/core';
 import { track } from '../lib/track';
-import { computeQED } from './qed';
-import { QED_ALERT_SMARTS } from '../data/qedAlerts';
-import { parseAssayValue, isCensored, aggregate, isConflicting } from './assayValue';
-import type { AssayValue } from './assayValue';
+
+// Pure logic moved to @paretomol/core; re-exported so existing imports keep working.
+export {
+  packFingerprint, tanimotoPacked, computeTanimotoMatrix, getDiversityScore,
+  DEFAULT_CLIFF_KEYS, readMolProp, computeActivityCliffs,
+  syntheticComplexityFromDescriptors,
+} from '@paretomol/core';
+export type { ActivityCliff, SynthComplexity } from '@paretomol/core';
 
 // Let the window object hold RDKitModule globally just like index.html
 declare global {
@@ -271,39 +284,6 @@ export async function detectStructuralAlerts(smiles: string): Promise<AlertHit[]
   return hits;
 }
 
-// ─── Packed fingerprint utilities ────────────────────────────────────────────
-const EMPTY_FP_PACKED = new Uint32Array(64); // 2048 bits / 32
-
-/** Pack a '0'/'1' bit-string fingerprint into a Uint32Array for fast bitwise ops. */
-export function packFingerprint(fp: string): Uint32Array {
-  if (!fp || fp.length === 0) return EMPTY_FP_PACKED;
-  const packed = new Uint32Array(Math.ceil(fp.length / 32));
-  for (let i = 0; i < fp.length; i++) {
-    if (fp.charCodeAt(i) === 49) { // '1'
-      packed[i >>> 5] |= (1 << (i & 31));
-    }
-  }
-  return packed;
-}
-
-/** Popcount (Hamming weight) for a 32-bit integer. */
-function popcount32(x: number): number {
-  x = x - ((x >>> 1) & 0x55555555);
-  x = (x & 0x33333333) + ((x >>> 2) & 0x33333333);
-  return (((x + (x >>> 4)) & 0x0F0F0F0F) * 0x01010101) >>> 24;
-}
-
-/** Fast Tanimoto using packed Uint32Array fingerprints. */
-export function tanimotoPacked(a: Uint32Array, b: Uint32Array): number {
-  let inter = 0, union = 0;
-  const len = Math.min(a.length, b.length);
-  for (let i = 0; i < len; i++) {
-    inter += popcount32(a[i] & b[i]);
-    union += popcount32(a[i] | b[i]);
-  }
-  return union === 0 ? 0 : inter / union;
-}
-
 export type SimilarityMetric = 'tanimoto-r2' | 'tanimoto-r3' | 'tanimoto-r6' | 'selfies-ted';
 
 /**
@@ -536,20 +516,6 @@ export async function fetchChEMBLBatch(
     await delay(200);
   }
   return lines;
-}
-
-function checkFilter(filterName: string, props: any): FilterResult {
-  const filter = DRUG_FILTERS[filterName as keyof typeof DRUG_FILTERS];
-  if (!filter) return { pass: false, violations: 0 };
-  let violations = 0;
-  for (const rule of filter.rules) {
-    const val = props[rule.key as keyof typeof props];
-    if (rule.op === '<=' && val > rule.val) violations++;
-    else if (rule.op === '>=' && val < rule.val) violations++;
-    else if (rule.op === '<' && val >= rule.val) violations++;
-    else if (rule.op === '>' && val <= rule.val) violations++;
-  }
-  return { pass: violations <= filter.maxViolations, violations };
 }
 
 /** Detect if input is CSV/TSV with a header row. Returns parsed rows + header info, or null if not CSV. */
@@ -967,47 +933,6 @@ async function resolveNamesInBatch(
 }
 
 /** Parse a single resolved SMILES line into a Molecule (no SVG — deferred). */
-// ─── Synthetic complexity (transparent client-side make-ability heuristic) ────
-// A fast, interpretable estimate of synthetic difficulty (1 = trivial, 10 = very
-// hard) from structural drivers chemists recognize: stereocenters, spiro/
-// bridged/non-aromatic ring systems, molecular size, and 3-D (sp3) character.
-// A triage proxy — NOT a retrosynthetic route or building-block price (those are
-// the planned opt-in cost tier). Lower = easier / cheaper to make.
-
-export interface SynthComplexity { score: number; factors: string[]; }
-
-/** Synthetic-complexity score (1–10) + dominant contributing factors, from an
- *  RDKit get_descriptors() object. */
-export function syntheticComplexityFromDescriptors(desc: Record<string, number>): SynthComplexity {
-  const stereo = desc.NumAtomStereoCenters || 0;          // total potential stereocenters
-  const spiro = desc.NumSpiroAtoms || 0;
-  const bridge = desc.NumBridgeheadAtoms || 0;
-  const nonAromRings = (desc.NumAliphaticRings || 0) + (desc.NumSaturatedRings || 0);
-  const heavy = desc.NumHeavyAtoms || desc.HeavyAtomCount || 0;
-  const fsp3 = desc.FractionCSP3 || 0;
-
-  const raw = 1.0
-    + 0.90 * stereo
-    + 1.30 * spiro
-    + 1.30 * bridge
-    + 0.40 * nonAromRings
-    + 0.10 * Math.max(0, heavy - 28)
-    + 1.20 * fsp3;
-  // Saturating map to 1–10 (T tuned so stereocenter-rich natural products ≈ 10).
-  const score = 1 + 9 * (1 - Math.exp(-(raw - 1) / 6.6));
-
-  const contrib = [
-    { label: `${stereo} stereocentre${stereo === 1 ? '' : 's'}`, w: 0.90 * stereo },
-    { label: `${bridge} bridgehead atom${bridge === 1 ? '' : 's'}`, w: 1.30 * bridge },
-    { label: `${spiro} spiro atom${spiro === 1 ? '' : 's'}`, w: 1.30 * spiro },
-    { label: `${nonAromRings} non-aromatic ring${nonAromRings === 1 ? '' : 's'}`, w: 0.40 * nonAromRings },
-    { label: 'large size', w: 0.10 * Math.max(0, heavy - 28) },
-    { label: 'high 3-D (sp³) character', w: 1.20 * fsp3 },
-  ];
-  const factors = contrib.filter(c => c.w >= 0.45).sort((a, b) => b.w - a.w).slice(0, 3).map(c => c.label);
-  return { score: Math.min(10, Math.max(1, score)), factors };
-}
-
 /** Recompute synthetic complexity for a SMILES on demand (e.g. for a tooltip). */
 export function getSyntheticComplexity(smiles: string): SynthComplexity | null {
   const RDKit = (globalThis as { RDKitModule?: { get_mol: (s: string) => { is_valid: () => boolean; delete: () => void; get_descriptors: () => string } | null } }).RDKitModule;
@@ -1197,230 +1122,12 @@ export async function parseAndAnalyzeChunked(
   return { molecules: newMolecules, errors, failedLookups, customPropNames };
 }
 
-/** Get a molecule's value for a Pareto objective key (built-in or custom).
- *  Returns null when the value is absent or non-finite. A missing value must
- *  never be substituted with a number: for a minimised objective such as a
- *  predicted hERG risk on [0,1], an imputed 0 is the infimum, so a *failed*
- *  prediction would weakly dominate every real measurement. */
-function getMolValue(m: Molecule, key: string): number | null {
-  const v = key in m.props
-    ? (m.props[key as keyof MolProps] as number)
-    : m.customProps[key];
-  return typeof v === 'number' && Number.isFinite(v) ? v : null;
-}
-
-/** Non-dominated fronts + dominance edges in a single O(n²) pass.
- *
- *  Missing values follow a complete-case policy: a molecule lacking a usable
- *  value for any active objective is excluded from the dominance relation
- *  entirely — it can neither dominate nor be dominated — and is left unranked
- *  (`paretoRank === null`) with the offending keys recorded in
- *  `missingObjectives` so the interface can report it. Excluding pairwise
- *  instead (comparing each pair on whichever objectives they happen to share)
- *  would break transitivity of the dominance relation and yield incoherent
- *  fronts, so it is deliberately not done.
- *
- *  Ranks are true non-dominated fronts (NSGA-II fast non-dominated sorting):
- *  rank 1 is the Pareto front, rank 2 the front remaining once rank 1 is
- *  removed, and so on. Rank 1 is identical to the previous front-membership
- *  flag, so every `paretoRank === 1` consumer is unaffected. Layering reuses
- *  the dominance edges materialised by the pairwise pass and costs O(n + |E|).
- */
+/** Non-dominated fronts + dominance edges. The algorithm lives in
+ *  @paretomol/core; this wrapper only adds the analytics event. */
 export function computeParetoAndDominance(molecules: Molecule[], objectives?: ParetoObjective[]) {
-  const objs = objectives ?? DEFAULT_PARETO_OBJECTIVES;
-  const n = molecules.length;
-  const k = objs.length;
-  const minimise = objs.map(o => o.direction === 'min');
-
-  // Resolve all objectives up front; `null` marks an incomplete molecule.
-  const vals: (number[] | null)[] = new Array(n);
-  const ranked: number[] = [];
-
-  for (let i = 0; i < n; i++) {
-    const m = molecules[i];
-    m.dominates = [];
-    m.dominatedBy = [];
-    const row: number[] = [];
-    const missing: string[] = [];
-    for (const obj of objs) {
-      const v = getMolValue(m, obj.key);
-      if (v === null) missing.push(obj.key);
-      else row.push(v);
-    }
-    if (missing.length > 0) {
-      vals[i] = null;
-      m.missingObjectives = missing;
-      m.paretoRank = null;
-    } else {
-      vals[i] = row;
-      delete m.missingObjectives;
-      ranked.push(i);
-    }
-  }
-
-  for (let a = 0; a < ranked.length; a++) {
-    const i = ranked[a];
-    const vi = vals[i]!;
-    for (let b = a + 1; b < ranked.length; b++) {
-      const j = ranked[b];
-      const vj = vals[j]!;
-      let iBetter = 0, jBetter = 0;
-      for (let o = 0; o < k; o++) {
-        const x = vi[o], y = vj[o];
-        if (x === y) continue;
-        if (minimise[o] ? x < y : x > y) iBetter++;
-        else jBetter++;
-      }
-      if (iBetter > 0 && jBetter === 0) {
-        molecules[i].dominates.push(j);
-        molecules[j].dominatedBy.push(i);
-      } else if (jBetter > 0 && iBetter === 0) {
-        molecules[j].dominates.push(i);
-        molecules[i].dominatedBy.push(j);
-      }
-    }
-  }
-
-  // Peel fronts: a molecule enters front r once every molecule dominating it
-  // has been assigned to an earlier front.
-  const dominatingCount = new Array<number>(n).fill(0);
-  for (const i of ranked) dominatingCount[i] = molecules[i].dominatedBy.length;
-
-  let front = ranked.filter(i => dominatingCount[i] === 0);
-  let rank = 1;
-  while (front.length > 0) {
-    const next: number[] = [];
-    for (const i of front) {
-      molecules[i].paretoRank = rank;
-      for (const j of molecules[i].dominates) {
-        if (--dominatingCount[j] === 0) next.push(j);
-      }
-    }
-    front = next;
-    rank++;
-  }
-  if (n > 0) track('pareto');
+  coreComputeParetoAndDominance(molecules, objectives);
+  if (molecules.length > 0) track('pareto');
 }
-
-/** Compute n×n Tanimoto similarity matrix from molecules (fast packed fingerprints). */
-export function computeTanimotoMatrix(molecules: Molecule[]): number[][] {
-  const n = molecules.length;
-  const matrix: number[][] = Array.from({ length: n }, () => new Array(n).fill(0));
-  for (let i = 0; i < n; i++) {
-    matrix[i][i] = 1;
-    for (let j = i + 1; j < n; j++) {
-      const t = tanimotoPacked(molecules[i].fpPacked, molecules[j].fpPacked);
-      matrix[i][j] = matrix[j][i] = t;
-    }
-  }
-  return matrix;
-}
-
-/** Diversity score = mean(1 - T) over upper triangle. Higher = more diverse. */
-export function getDiversityScore(matrix: number[][]): number {
-  const n = matrix.length;
-  if (n < 2) return 0;
-  let sum = 0, count = 0;
-  for (let i = 0; i < n; i++) {
-    for (let j = i + 1; j < n; j++) {
-      sum += 1 - matrix[i][j];
-      count++;
-    }
-  }
-  return count === 0 ? 0 : sum / count;
-}
-
-/** Default cliff-score property set (physicochemical profile). */
-export const DEFAULT_CLIFF_KEYS: string[] = ['MW', 'LogP', 'HBD', 'HBA', 'TPSA', 'RotBonds'];
-
-/** Read a numeric property (built-in descriptor or custom/ADMET/activity column) for a molecule. */
-export function readMolProp(m: Molecule, key: string): number | undefined {
-  const v = (m.props as unknown as Record<string, number | undefined>)[key];
-  if (typeof v === 'number' && isFinite(v)) return v;
-  const cv = m.customProps?.[key];
-  return typeof cv === 'number' && isFinite(cv) ? cv : undefined;
-}
-
-export interface ActivityCliff {
-  i: number;
-  j: number;
-  tanimoto: number;
-  propDistance: number;
-  cliffScore: number;
-  topDifferingProps: string[];
-}
-
-/**
- * Activity cliffs: structurally similar pairs with divergent properties.
- *
- * Cliff score (Structure–Activity Similarity, SAS):
- *   SAS_ij = T_ij · ||x̂_i − x̂_j||₂
- * where T_ij is the pairwise structural (or semantic) similarity supplied in
- * `tanimotoMatrix`, and x̂ is the per-property vector min–max normalized to [0,1]
- * across the loaded set. Min–max (rather than fixed) normalization lets any
- * property — including imported activity (pChEMBL/IC50) or predicted ADMET
- * endpoints — contribute on a comparable scale, enabling classic SAR activity
- * cliffs when a single activity property is selected (`propKeys = ['pChEMBL']`).
- */
-export function computeActivityCliffs(
-  molecules: Molecule[],
-  tanimotoMatrix: number[][],
-  threshold = 0.5,
-  topN = 10,
-  propKeys: string[] = DEFAULT_CLIFF_KEYS,
-): ActivityCliff[] {
-  const n = molecules.length;
-  const cliffs: ActivityCliff[] = [];
-  const keys = propKeys.length ? propKeys : DEFAULT_CLIFF_KEYS;
-
-  // Per-property min/max over the loaded set for data-range normalization.
-  const ranges: Record<string, { min: number; max: number }> = {};
-  for (const k of keys) {
-    let mn = Infinity, mx = -Infinity;
-    for (const m of molecules) {
-      const v = readMolProp(m, k);
-      if (v === undefined) continue;
-      if (v < mn) mn = v;
-      if (v > mx) mx = v;
-    }
-    ranges[k] = { min: mn, max: mx };
-  }
-
-  for (let i = 0; i < n; i++) {
-    for (let j = i + 1; j < n; j++) {
-      const t = tanimotoMatrix[i][j];
-      if (t <= threshold) continue;
-
-      let sumSq = 0;
-      const diffs: { key: string; diff: number }[] = [];
-      for (const k of keys) {
-        const v1 = readMolProp(molecules[i], k);
-        const v2 = readMolProp(molecules[j], k);
-        if (v1 === undefined || v2 === undefined) continue;
-        const r = ranges[k];
-        const span = r.max - r.min;
-        const d = span > 1e-9 ? (v1 - v2) / span : 0;
-        sumSq += d * d;
-        diffs.push({ key: k, diff: Math.abs(d) });
-      }
-      if (diffs.length === 0) continue; // no comparable properties for this pair
-      const propDist = Math.sqrt(sumSq);
-      diffs.sort((a, b) => b.diff - a.diff);
-      cliffs.push({
-        i,
-        j,
-        tanimoto: t,
-        propDistance: propDist,
-        cliffScore: t * propDist,
-        topDifferingProps: diffs.slice(0, 3).map((x) => x.key),
-      });
-    }
-  }
-
-  cliffs.sort((a, b) => b.cliffScore - a.cliffScore);
-  return cliffs.slice(0, topN);
-}
-
 
 /**
  * Returns the indices of molecules that match the given SMARTS pattern.

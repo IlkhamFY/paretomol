@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
-import type { Molecule } from '../../utils/types';
+import type { Molecule } from '@paretomol/core';
 import { getMolSvg } from '../../utils/chem';
 
 function distToSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {

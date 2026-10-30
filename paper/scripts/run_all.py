@@ -100,7 +100,7 @@ NETWORK = (
 # Named rather than omitted, so the inventory above is complete.
 NOT_DRIVEN = (
     ("build_qed_alerts.py",
-     "regenerates src/data/qedAlerts.ts; --check asserts the committed catalogue instead"),
+     "regenerates packages/core/src/qedAlerts.ts; --check asserts the committed catalogue instead"),
     ("build_structural_alerts.py",
      "regenerates src/data/structural_alerts.json from a pinned RDKit release; needs network"),
 )
@@ -178,9 +178,9 @@ def check_demonstration_1() -> list[str]:
 def check_qed_alerts() -> list[str]:
     """The generated alert catalogue must match the reference implementation."""
     failures: list[str] = []
-    ts = ROOT / "src" / "data" / "qedAlerts.ts"
+    ts = ROOT / "packages" / "core" / "src" / "qedAlerts.ts"
     if not ts.exists():
-        return ["src/data/qedAlerts.ts is missing; run build_qed_alerts.py"]
+        return ["packages/core/src/qedAlerts.ts is missing; run build_qed_alerts.py"]
     n = sum(1 for line in ts.read_text(encoding="utf-8").splitlines()
             if line.strip().startswith("'") and line.strip().endswith("',"))
     want = EXPECTED["qed_alert_smarts"]

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import type { Molecule, FormulaColumn } from '../../utils/types';
-import { PROPERTIES, DRUG_FILTERS } from '../../utils/types';
-import { validateFormula, parseFormula } from '../../utils/formula';
+import type { Molecule, FormulaColumn } from '@paretomol/core';
+import { PROPERTIES, DRUG_FILTERS } from '@paretomol/core';
+import { validateFormula, parseFormula } from '@paretomol/core';
 
 const PAGE_SIZE = 100; // rows per page — keeps DOM small
 

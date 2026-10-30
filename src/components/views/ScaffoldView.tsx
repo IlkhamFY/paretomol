@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import type { Molecule } from '../../utils/types';
+import type { Molecule } from '@paretomol/core';
 import { initRDKitCache, getMolSvg } from '../../utils/chem';
 import { useTheme } from '../../contexts/ThemeContext';
-import { mannWhitneyU, sigStars } from '../../utils/stats';
+import { mannWhitneyU, sigStars } from '@paretomol/core';
 import { withCitationColumn } from '../../utils/export';
 import { track } from '../../lib/track';
 import { PRIMARY_ADMET_KEYS, ADMET_AI_PROPERTY_META, formatAdmetAIValue, getAdmetAICategoryColor } from '../../utils/admetAI';

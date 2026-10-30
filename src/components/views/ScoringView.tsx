@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import type { Molecule } from '../../utils/types';
+import type { Molecule } from '@paretomol/core';
 import { getMolSvg } from '../../utils/chem';
 import { useTheme } from '../../contexts/ThemeContext';
 

@@ -5,7 +5,7 @@
 // among rank-1 molecules, the one with the smallest Euclidean distance to the ideal
 // point in min–max-normalized objective space (each objective oriented so 0 = best).
 
-import type { Molecule, ParetoObjective } from './types';
+import type { Molecule, ParetoObjective } from './types.js';
 
 function molValue(mol: Molecule, key: string): number | undefined {
   const v = (mol.props as unknown as Record<string, number>)[key] ?? mol.customProps[key];

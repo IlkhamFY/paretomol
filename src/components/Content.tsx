@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useDeferredValue, startTransition, lazy, Suspense } from 'react';
-import type { Molecule, FormulaColumn, ParetoObjective } from '../utils/types';
+import type { Molecule, FormulaColumn, ParetoObjective } from '@paretomol/core';
 import { getInitialTabFromUrl } from '../utils/share';
 import { exportViewAsSVG, downloadCanvasPng } from '../utils/export';
 import { useTheme } from '../contexts/ThemeContext';

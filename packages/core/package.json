@@ -1,0 +1,26 @@
+{
+  "name": "@paretomol/core",
+  "version": "0.1.0",
+  "description": "Framework-free ParetoMol core: Pareto ranking, objectives, MPO, QED, filters and versioned scoring profiles.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    },
+    "./profiles/*.json": "./profiles/*.json",
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "profiles", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepack": "npm run build"
+  },
+  "repository": { "type": "git", "url": "git+https://github.com/IlkhamFY/paretomol.git", "directory": "packages/core" },
+  "engines": { "node": ">=20.10" }
+}

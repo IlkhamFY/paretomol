@@ -61,7 +61,7 @@ SEED = 20260727
 
 # Rule of five, on the average molecular weight as everywhere in this deposit.
 # Compliance here is zero violations of the four thresholds. The application's
-# drug-likeness badge (src/utils/types.ts) instead allows one violation, which
+# drug-likeness badge (packages/core/src/types.ts) instead allows one violation, which
 # is the more common convention; the compliance rates the manuscript reports for
 # this dataset are the zero-violation ones, so that is the definition analysed
 # here and it is written into the output rather than left to be inferred.

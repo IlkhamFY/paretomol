@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate src/data/qedAlerts.ts — the structural-alert SMARTS used by the
+"""Generate packages/core/src/qedAlerts.ts — the structural-alert SMARTS used by the
 canonical QED implementation.
 
 ParetoMol computes QED client-side. The alert term of QED counts matches
@@ -26,7 +26,7 @@ import rdkit
 from rdkit import Chem
 from rdkit.Chem import QED
 
-OUT = pathlib.Path(__file__).resolve().parents[2] / "src" / "data" / "qedAlerts.ts"
+OUT = pathlib.Path(__file__).resolve().parents[2] / "packages" / "core" / "src" / "qedAlerts.ts"
 
 
 def main() -> int:

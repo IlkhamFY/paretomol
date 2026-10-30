@@ -1,8 +1,8 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Radar } from 'react-chartjs-2';
-import type { Molecule } from '../../utils/types';
-import { PROPERTIES } from '../../utils/types';
+import type { Molecule } from '@paretomol/core';
+import { PROPERTIES } from '@paretomol/core';
 import { downloadCanvasPng } from '../../utils/export';
 import {
   Chart as ChartJS,

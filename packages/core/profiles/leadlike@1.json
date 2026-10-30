@@ -1,0 +1,59 @@
+{
+  "schema": "paretomol.profile/1",
+  "id": "leadlike",
+  "version": 1,
+  "label": "Lead-like",
+  "description": "Optimization headroom (MW <= 350, LogP <= 3.5).",
+  "objectives": [
+    {
+      "key": "MW",
+      "direction": "min"
+    },
+    {
+      "key": "LogP",
+      "direction": "min"
+    },
+    {
+      "key": "TPSA",
+      "direction": "min"
+    }
+  ],
+  "desirability": {
+    "MW": {
+      "idealMin": 120,
+      "idealMax": 280,
+      "acceptMin": 80,
+      "acceptMax": 350
+    },
+    "LogP": {
+      "idealMin": -1,
+      "idealMax": 2.5,
+      "acceptMin": -2,
+      "acceptMax": 3.5
+    },
+    "HBD": {
+      "idealMin": 0,
+      "idealMax": 2,
+      "acceptMin": 0,
+      "acceptMax": 4
+    },
+    "HBA": {
+      "idealMin": 0,
+      "idealMax": 5,
+      "acceptMin": 0,
+      "acceptMax": 8
+    },
+    "TPSA": {
+      "idealMin": 20,
+      "idealMax": 90,
+      "acceptMin": 0,
+      "acceptMax": 120
+    },
+    "RotBonds": {
+      "idealMin": 0,
+      "idealMax": 4,
+      "acceptMin": 0,
+      "acceptMax": 7
+    }
+  }
+}

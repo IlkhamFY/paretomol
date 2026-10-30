@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { inferObjectiveDirection, inferObjectives } from '../objectives';
+import { inferObjectiveDirection, inferObjectives } from '@paretomol/core';
 
 describe('objective direction inference', () => {
   it('minimises raw activity and affinity concentrations', () => {

@@ -9,7 +9,7 @@
 // "how approved-drug-like" a molecule is, structurally and by properties. Compounds
 // flagged "novel" are outside that space and their predictions are extrapolations.
 
-import type { Molecule } from './types';
+import type { Molecule } from '@paretomol/core';
 import { loadFDAReference, type FDADrug } from './fda_reference';
 import { packFingerprint, tanimotoPacked } from './chem';
 

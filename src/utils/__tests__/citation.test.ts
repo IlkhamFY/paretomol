@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { BIBTEX, CITATION_LINE, FORMATTED_CITATION, RIS, DOI, DOI_URL } from '../citation';
+import { BIBTEX, CITATION_LINE, FORMATTED_CITATION, RIS, DOI, DOI_URL } from '@paretomol/core';
 
 describe('citation copy', () => {
   it('points at the Digital Discovery article', () => {

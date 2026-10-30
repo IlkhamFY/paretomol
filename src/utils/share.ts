@@ -1,5 +1,5 @@
 import LZString from 'lz-string';
-import type { Molecule } from './types';
+import type { Molecule } from '@paretomol/core';
 
 /** Encode molecules to a string suitable for URL (SMILES + name per line). */
 export function encodeMoleculesToPayload(molecules: Molecule[]): string {

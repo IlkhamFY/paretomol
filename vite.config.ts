@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, defaultClientConditions } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from 'tailwindcss'
 import autoprefixer from 'autoprefixer'
@@ -26,6 +26,11 @@ export default defineConfig({
     },
   ],
   base: '/',
+  // Resolve @paretomol/core to its TypeScript source (package.json "source"
+  // condition) so the app and the package share one copy of the logic.
+  resolve: {
+    conditions: ['source', ...defaultClientConditions],
+  },
   css: {
     postcss: {
       plugins: [tailwindcss(), autoprefixer()],

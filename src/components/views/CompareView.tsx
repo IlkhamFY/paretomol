@@ -1,8 +1,8 @@
 import React, { useRef, useEffect } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Bar } from 'react-chartjs-2';
-import type { Molecule } from '../../utils/types';
-import { DRUG_FILTERS } from '../../utils/types';
+import type { Molecule } from '@paretomol/core';
+import { DRUG_FILTERS } from '@paretomol/core';
 import { getMolSvg } from '../../utils/chem';
 import {
   Chart as ChartJS,

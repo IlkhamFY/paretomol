@@ -2,7 +2,7 @@
 """Compare QED structural-alert counts between RDKit.js and RDKit Python.
 
 The application computes QED's alert term in the browser (countQEDAlerts in
-src/utils/chem.ts), against the 116 patterns in src/data/qedAlerts.ts, using a
+src/utils/chem.ts), against the 116 patterns in packages/core/src/qedAlerts.ts, using a
 WebAssembly build of RDKit that is a year older than the Python one the analysis
 scripts use. The response letter states that the two agree; that statement is
 only worth anything if it can be re-run, so it is re-run here.
@@ -145,7 +145,7 @@ def main() -> int:
             print(f"  {d['smiles']}\n    python {d['rdkit_python']}   "
                   f"rdkitjs {d['rdkit_js']}")
     if not identical:
-        print("\nsrc/data/qedAlerts.ts no longer matches rdkit.Chem.QED; "
+        print("\npackages/core/src/qedAlerts.ts no longer matches rdkit.Chem.QED; "
               "regenerate it with build_qed_alerts.py.")
     if not compiled:
         print(f"\nRDKit.js compiled only {js['n_compiled']} of {len(js['smarts'])} "

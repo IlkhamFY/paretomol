@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Key, Eye, EyeOff } from 'lucide-react';
-import type { Molecule } from '../utils/types';
+import type { Molecule } from '@paretomol/core';
 import { type AIProvider, getStoredApiKey, setStoredApiKey, askAI } from '../utils/ai';
 
 interface CopilotPanelProps {

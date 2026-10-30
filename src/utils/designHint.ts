@@ -8,7 +8,7 @@
 // dominatedBy holds the indices that dominate this one), so this is just: among the
 // dominators, pick the highest-Tanimoto one.
 
-import type { Molecule, ParetoObjective } from './types';
+import type { Molecule, ParetoObjective } from '@paretomol/core';
 import { tanimotoPacked } from './chem';
 
 function molValue(mol: Molecule, key: string): number | undefined {
