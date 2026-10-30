@@ -24,3 +24,5 @@ e2e/fixtures/
 __pycache__/
 *.pyc
 packages/core/*.tgz
+test-results/
+playwright-report/
