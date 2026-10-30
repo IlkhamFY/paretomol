@@ -4,6 +4,14 @@ export default defineConfig({
   resolve: {
     conditions: ['source'],
   },
+  // Vitest runs tests in the SSR (node) environment, which uses its own
+  // condition list. Without this, '@paretomol/core' resolves to the stale dist/.
+  ssr: {
+    resolve: {
+      conditions: ['source'],
+      externalConditions: ['source'],
+    },
+  },
   test: {
     // Scoped to the unit suite. Without this, Vitest's default glob also
     // collects the Playwright specs under e2e/, which use a different runner

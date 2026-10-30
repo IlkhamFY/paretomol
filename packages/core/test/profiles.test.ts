@@ -125,9 +125,8 @@ describe('pinned MPO scores on the fixture set', () => {
     }
     return out;
   };
-  // NaN entries are pinned on purpose: the sigmoid curve divides by zero when
-  // idealMin === acceptMin (e.g. HBD 0..0) and the value sits on that edge.
-  // This is existing app behaviour, kept identical in wave 1; see wave1-NOTES.md.
+  // Caffeine has HBD = 0 and RotBonds = 0, exactly on zero-width window edges
+  // (idealMin === acceptMin). Those score as inside the window (1), not NaN.
   it('matches the pinned table', () => {
     expect(table()).toEqual({
       'oral@1/linear': {
@@ -139,7 +138,7 @@ describe('pinned MPO scores on the fixture set', () => {
       },
       'oral@1/sigmoid': {
         'aspirin': 0.996569,
-        'caffeine': NaN,
+        'caffeine': 0.664341,
         'ibuprofen': 0.957322,
         'atorvastatin': 0.093419,
         'cyclosporin': 0.031334
@@ -153,7 +152,7 @@ describe('pinned MPO scores on the fixture set', () => {
       },
       'cns@1/sigmoid': {
         'aspirin': 0.987093,
-        'caffeine': NaN,
+        'caffeine': 0.412008,
         'ibuprofen': 0.976741,
         'atorvastatin': 0.021169,
         'cyclosporin': 0.021347
@@ -167,7 +166,7 @@ describe('pinned MPO scores on the fixture set', () => {
       },
       'leadlike@1/sigmoid': {
         'aspirin': 0.995445,
-        'caffeine': NaN,
+        'caffeine': 0.917605,
         'ibuprofen': 0.849265,
         'atorvastatin': 0.053819,
         'cyclosporin': 0.01748
@@ -181,7 +180,7 @@ describe('pinned MPO scores on the fixture set', () => {
       },
       'lipinski@1/sigmoid': {
         'aspirin': 1,
-        'caffeine': NaN,
+        'caffeine': 1,
         'ibuprofen': 1,
         'atorvastatin': 0.149022,
         'cyclosporin': 0.0974
@@ -195,11 +194,25 @@ describe('pinned MPO scores on the fixture set', () => {
       },
       'custom@1/sigmoid': {
         'aspirin': 0.996569,
-        'caffeine': NaN,
+        'caffeine': 0.664341,
         'ibuprofen': 0.957322,
         'atorvastatin': 0.093419,
         'cyclosporin': 0.031334
       }
     });
+  });
+});
+
+describe('zero-width window edges', () => {
+  it('score a value on the edge as inside, for both curves', () => {
+    const w = { acceptMin: 0, idealMin: 0, idealMax: 3, acceptMax: 3 };
+    for (const curve of ['linear', 'sigmoid'] as const) {
+      expect(mpoScore({ HBD: 0 }, { HBD: w }, curve).perProp.HBD).toBe(1);
+      expect(mpoScore({ HBD: 3 }, { HBD: w }, curve).perProp.HBD).toBe(1);
+      expect(mpoScore({ HBD: -0.5 }, { HBD: w }, curve).perProp.HBD).toBe(0);
+      expect(mpoScore({ HBD: 3.5 }, { HBD: w }, curve).perProp.HBD).toBe(0);
+    }
+    const oral = getProfile('oral@1');
+    expect(Number.isFinite(mpoScore({ HBD: 0 }, oral.desirability, 'sigmoid').score)).toBe(true);
   });
 });

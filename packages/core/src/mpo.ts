@@ -45,16 +45,21 @@ export function doubleSigmoidDesirability(
   idealMax: number,
   acceptMax: number
 ): number {
+  // A zero-width transition (ideal edge === accept edge) is a hard step: a value
+  // exactly on the edge counts as inside the window. Without this the rate is
+  // 2*ln(9)/0 and the curve evaluates to NaN on the edge.
   // Left ascending sigmoid: good=idealMin, bad=acceptMin
-  const rate1 = getRate(idealMin, acceptMin);
-  const center1 = getCenter(idealMin, acceptMin);
+  const left = idealMin === acceptMin
+    ? (x >= idealMin ? 1 : 0)
+    : sigmoid(x, getCenter(idealMin, acceptMin), getRate(idealMin, acceptMin));
 
   // Right descending sigmoid: good=idealMax, bad=acceptMax
-  // FIX: getRate(idealMax, acceptMax) gives negative rate → descending curve
-  const rate2 = getRate(idealMax, acceptMax);
-  const center2 = getCenter(idealMax, acceptMax);
+  // getRate(idealMax, acceptMax) gives negative rate → descending curve
+  const right = idealMax === acceptMax
+    ? (x <= idealMax ? 1 : 0)
+    : sigmoid(x, getCenter(idealMax, acceptMax), getRate(idealMax, acceptMax));
 
-  return doubleSigmoid(x, center1, rate1, center2, rate2);
+  return left * right;
 }
 
 // ─── Profile-based MPO scoring ──────────────────────────────────────────────
