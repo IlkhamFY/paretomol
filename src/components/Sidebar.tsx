@@ -169,7 +169,12 @@ export default function Sidebar({
       // whose direction can be established from the name become active
       // objectives; registering every column as 'max' meant an imported IC50
       // column was maximised, so the front selected the least potent compounds.
-      setParetoObjectives([...DEFAULT_PARETO_OBJECTIVES, ...inferObjectives(newCustomProps)]);
+      const objs = [...DEFAULT_PARETO_OBJECTIVES, ...inferObjectives(newCustomProps)];
+      // Rank under the objectives being shown: parseAndAnalyze ranks under the
+      // defaults only, so inferred columns (e.g. pIC50) were listed as active
+      // objectives but ignored by the front until the user toggled something.
+      computeParetoAndDominance(newMols, objs);
+      setParetoObjectives(objs);
       setMolecules(newMols);
       setCompareIndices([]);
       setSelectedMolIdx(null);
@@ -327,7 +332,9 @@ export default function Sidebar({
         const { molecules: newMols, errors, failedLookups, customPropNames: newCustomProps } = result;
         setCustomPropNames(newCustomProps);
         // See the note above: columns are offered, not silently optimised.
-        setParetoObjectives([...DEFAULT_PARETO_OBJECTIVES, ...inferObjectives(newCustomProps)]);
+        const objs = [...DEFAULT_PARETO_OBJECTIVES, ...inferObjectives(newCustomProps)];
+        computeParetoAndDominance(newMols, objs);
+        setParetoObjectives(objs);
         setMolecules(newMols);
         setCompareIndices([]);
         setSelectedMolIdx(null);

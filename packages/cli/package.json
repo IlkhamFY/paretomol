@@ -1,0 +1,29 @@
+{
+  "name": "@paretomol/cli",
+  "version": "0.1.0",
+  "description": "ParetoMol command line: rank molecules offline with RDKit.js and write a decision record.",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "paretomol": "./bin/paretomol.js" },
+  "main": "./dist/src/rank.js",
+  "types": "./dist/src/rank.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/rank.ts",
+      "types": "./dist/src/rank.d.ts",
+      "default": "./dist/src/rank.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": ["bin", "dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@paretomol/core": "0.1.0",
+    "@rdkit/rdkit": "2025.3.4-1.0.0"
+  },
+  "repository": { "type": "git", "url": "git+https://github.com/IlkhamFY/paretomol.git", "directory": "packages/cli" },
+  "engines": { "node": ">=20.10" }
+}
