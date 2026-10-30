@@ -15,6 +15,7 @@ All notable changes to ParetoMol. Dates are release dates; unreleased work is li
 - Decision record (`paretomol.decision/0`): Export > Decision record (JSON) and Open record. See docs/decision-record.md.
 - CLI `@paretomol/cli` (`paretomol rank`, `paretomol verify`), producing the same decision record as the app for the same input.
 - Claim verifier (`verifyClaims`): recomputes claimed descriptors and checks objective directions. See docs/verify.md.
+- Open review URL (`#r=`, schema `paretomol.review/0`): an agent's shortlist opens in review mode with Accept/Reject per molecule and exports as a decision record with a `review` block. Analytics strip `r` as they already did `m`. See docs/review-url.md.
 - `/llms.txt` for AI agents, linked from the page head and the sitemap; Docs section "Agents and automation" with Claude and Cursor prompts.
 - Citation panel, BibTeX/RIS export and citation footers on exports.
 - Anonymous, cookie-free usage counts (GoatCounter); molecule data is never sent.

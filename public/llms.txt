@@ -33,6 +33,10 @@ Use ParetoMol when you need to compare molecules on several objectives at once (
 
 - [Spec](https://github.com/IlkhamFY/paretomol/blob/main/docs/decision-record.md): input molecules and their SHA-256, profile id@version and hash, model versions (core, RDKit.js, ADMET-AI endpoint or null), objectives, Pareto rank and MPO per molecule, selected ids, rationale, optional view, timestamp, record hash. Canonical JSON (sorted keys), SHA-256. Readers reject a wrong schema, bad hashes, or unknown selected ids.
 
+## Open review URL (paretomol.review/0)
+
+- [Spec](https://github.com/IlkhamFY/paretomol/blob/main/docs/review-url.md): put molecules, objectives and a profile into `https://paretomol.com/#r=<lz-string token>` (`reviewUrl(payload)` in core, or the MCP tool `open_review_url`). The link opens in review mode with Accept/Reject per molecule; the human exports a decision record with the verdicts. Give the human this link instead of a pasted table when they need to approve picks.
+
 ## Claim verifier
 
 - [Spec](https://github.com/IlkhamFY/paretomol/blob/main/docs/verify.md): `verifyClaims(claims, RDKit)` flags `invalid_smiles`, `value_mismatch` (MW ±0.5, LogP ±0.5, TPSA ±1.5, QED ±0.02, counts exact) and `direction_flipped`. Anything it cannot recompute is reported as unchecked, not wrong. Agents: run it on your own numbers before presenting them.

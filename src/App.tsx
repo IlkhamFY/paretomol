@@ -14,7 +14,10 @@ import { packFingerprint, parseAndAnalyze, filterBySubstructure, computeParetoAn
 import { useTheme } from './contexts/ThemeContext';
 import { detectLocalServer } from './utils/admetTiers';
 import { warmupAdmetEndpoint, getAdmetAIEndpoint } from './utils/admetAI';
-import { buildDecisionRecord, parseDecisionRecord, selectedIndices } from '@paretomol/core';
+import { buildDecisionRecord, parseDecisionRecord, selectedIndices, reviewTokenFromUrl, decodeReview, getProfile } from '@paretomol/core';
+import type { ReviewVerdict } from '@paretomol/core';
+import ReviewPanel from './components/ReviewPanel';
+import type { ReviewState } from './components/ReviewPanel';
 import { fetchRAScore, getRascoreUrl } from './utils/rascore';
 import { fetchBuyabilityBatch } from './utils/cost';
 import { fetchZincPrices } from './utils/zinc';
@@ -56,6 +59,9 @@ export default function App() {
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
+  const [review, setReview] = useState<ReviewState | null>(null);
+  // Captured on first render, before any effect rewrites the URL.
+  const [reviewToken] = useState(() => reviewTokenFromUrl(window.location.href));
   const [sessionToast, setSessionToast] = useState<{ molCount: number; time: string } | null>(null);
   const sessionRestoreRef = useRef(false);
 
@@ -214,6 +220,65 @@ export default function App() {
     const payload = getInitialPayloadFromUrl();
     if (payload) setInitialPayloadFromUrl(payload);
   }, []);
+
+  // Open review link (#r= or ?r=, docs/review-url.md): an agent's shortlist
+  // opens straight into review mode with Accept/Reject per molecule.
+  useEffect(() => {
+    const token = reviewToken;
+    if (!token) return;
+    void (async () => {
+      try {
+        const payload = decodeReview(token);
+        const text = payload.molecules.map(m => `${m.smiles} ${m.name}`).join('\n');
+        const { molecules: fresh } = await parseAndAnalyze(text);
+        if (fresh.length !== payload.molecules.length) throw new Error(`${payload.molecules.length - fresh.length} structures did not parse`);
+        const mols = fresh.map((m, i) => ({ ...m, name: payload.molecules[i].name, customProps: { ...(payload.molecules[i].customProps ?? {}) } }));
+        const objectives = payload.objectives ?? getProfile(payload.profile ?? 'oral@1').objectives.map(o => ({ ...o }));
+        computeParetoAndDominance(mols, objectives);
+        setMolecules(mols);
+        setParetoObjectives(objectives);
+        setCustomPropNames(Array.from(new Set(mols.flatMap(m => Object.keys(m.customProps)))));
+        setShortlist(new Set());
+        setSessionToast(null);
+        setReview({ payload, decisions: {} });
+        track('review/opened');
+        setToast(`Review: ${mols.length} molecules${payload.source ? ` from ${payload.source}` : ''}`);
+      } catch (e) {
+        setToast(`Could not open review link: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    })();
+  }, [reviewToken]);
+
+  const handleReviewDecide = useCallback((idx: number, v: ReviewVerdict | null) => {
+    setReview(prev => {
+      if (!prev) return prev;
+      const decisions = { ...prev.decisions };
+      if (v) decisions[idx] = v; else delete decisions[idx];
+      return { ...prev, decisions };
+    });
+    setShortlist(prev => { const next = new Set(prev); if (v === 'accept') next.add(idx); else next.delete(idx); return next; });
+  }, []);
+
+  const handleReviewExport = async (note: string) => {
+    if (!review || molecules.length === 0) return;
+    const RDKit = await initRDKitCache();
+    const accepted = Object.entries(review.decisions).filter(([, v]) => v === 'accept').map(([k]) => Number(k));
+    const names = new Map(molecules.map((m, i) => [m.name, i] as const));
+    const rec = buildDecisionRecord({
+      molecules,
+      objectives: paretoObjectives,
+      profile: review.payload.profile ?? 'oral@1',
+      selected: accepted,
+      rationale: note,
+      rdkitVersion: typeof RDKit?.version === 'function' ? String(RDKit.version()) : 'unknown',
+      admetEndpoint: null,
+      view: { activeTab, formulaColumns, customPropNames, admetPropNames, propertyFilters, substructureFilter },
+      review: { source: review.payload.source, decisions: review.decisions, suggested: (review.payload.suggested ?? []).flatMap(n => names.has(n) ? [names.get(n)!] : []) },
+    });
+    downloadDecisionRecord(rec, 'paretomol_review.json');
+    track('review/exported');
+    setToast(`Review exported: ${accepted.length} accepted`);
+  };
 
   const handleLoadExample = useCallback(async (key: string) => {
     const smiles = (EXAMPLES as Record<string, string>)[key];
@@ -615,7 +680,7 @@ export default function App() {
       )}
       <Header
         moleculeCount={filteredMolecules.length}
-        onReset={() => { setMolecules([]); setSelectedMolIdx(null); setCompareIndices([]); setSubstructureFilter(''); setPropertyFilters({}); clearSvgCache(); window.history.replaceState(null, '', window.location.pathname); }}
+        onReset={() => { setReview(null); setMolecules([]); setSelectedMolIdx(null); setCompareIndices([]); setSubstructureFilter(''); setPropertyFilters({}); clearSvgCache(); window.history.replaceState(null, '', window.location.pathname); }}
         onShareURL={handleShareURL}
         onExportCSV={handleExportCSV}
         onExportJSON={() => { if (molecules.length > 0) { downloadJSON(molecules); setToast('JSON exported'); } }}
@@ -756,6 +821,18 @@ export default function App() {
           Cite
         </button>
       </div>
+
+      {review && (
+        <ReviewPanel
+          review={review}
+          molecules={molecules}
+          objectives={paretoObjectives}
+          onDecide={handleReviewDecide}
+          onExport={(note) => { void handleReviewExport(note); }}
+          onExit={() => { setReview(null); window.history.replaceState(null, '', window.location.pathname + window.location.search.replace(/([?&])r=[^&]*&?/, '$1').replace(/[?&]$/, '')); }}
+          onSelect={setSelectedMolIdx}
+        />
+      )}
 
       <KeyboardShortcuts isOpen={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       {docsOpen && <DocsPage onClose={() => setDocsOpen(false)} />}

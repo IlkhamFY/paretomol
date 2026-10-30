@@ -17,6 +17,8 @@ export type TrackEvent =
   | `export/${ExportFormat}`
   | 'decision/exported'
   | 'decision/imported'
+  | 'review/opened'
+  | 'review/exported'
   | 'cite/opened'
   | `cite/${CitationFormat}/copied`
   | `cite/${CitationFormat}/downloaded`;
@@ -48,16 +50,20 @@ function productionHost(): boolean {
   return typeof location !== 'undefined' && location.hostname === PRODUCTION_HOST;
 }
 
-/** Drop the compressed molecule payload (`m`) from a path, query, or referrer. */
-function stripMoleculePayload(value: string): string {
+const PAYLOAD_KEYS = ['m', 'r'];
+
+/** Drop compressed molecule payloads (`m` share links, `r` review links) from a
+ *  path, query, or referrer, in the query and in the fragment. */
+export function stripMoleculePayload(value: string): string {
   const hashAt = value.indexOf('#');
-  const hash = hashAt >= 0 ? value.slice(hashAt) : '';
+  let hash = hashAt >= 0 ? value.slice(hashAt) : '';
+  if (PAYLOAD_KEYS.some((k) => new URLSearchParams(hash.slice(1)).has(k))) hash = '';
   const beforeHash = hashAt >= 0 ? value.slice(0, hashAt) : value;
   const queryAt = beforeHash.indexOf('?');
-  if (queryAt === -1) return value;
+  if (queryAt === -1) return beforeHash + hash;
   const params = new URLSearchParams(beforeHash.slice(queryAt + 1));
-  if (!params.has('m')) return value;
-  params.delete('m');
+  if (!PAYLOAD_KEYS.some((k) => params.has(k))) return beforeHash + hash;
+  for (const k of PAYLOAD_KEYS) params.delete(k);
   const rest = params.toString();
   return beforeHash.slice(0, queryAt) + (rest ? `?${rest}` : '') + hash;
 }

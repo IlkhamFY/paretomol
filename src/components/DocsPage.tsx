@@ -340,6 +340,11 @@ score = 1 + 9 · (1 − exp(−(raw − 1) / 6.6))   → clamped to 1–10`}</pr
         a: <p>One JSON file with the input molecules and their SHA-256, the scoring profile and its hash, the software versions, the objectives, each molecule&apos;s Pareto rank and MPO score, the molecules you picked and why. <strong>Export &gt; Decision record (JSON)</strong> writes it; <strong>Open record</strong> restores the exact view. A record edited after export is rejected. The app writes profile <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">oral@1</code>.</p>,
       },
       {
+        id: 'review-url',
+        q: 'What is a review link?',
+        a: <p>An agent can send you a link of the form <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">https://paretomol.com/#r=...</code> with its molecules, objectives and profile packed into the fragment (never sent to the server). It opens in review mode: Accept or Reject each molecule, add why, and <strong>Export decision record</strong>. Nothing is accepted until you click. Spec: docs/review-url.md.</p>,
+      },
+      {
         id: 'prompt-claude',
         q: 'Prompt for Claude',
         a: (

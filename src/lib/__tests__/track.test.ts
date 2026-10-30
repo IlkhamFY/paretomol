@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyticsPath, track } from '../track';
+import { analyticsPath, stripMoleculePayload, track } from '../track';
 
 describe('track', () => {
   it('is a no-op when GoatCounter is not running on paretomol.com', () => {
@@ -26,5 +26,15 @@ describe('track', () => {
 
   it('does not read a molecule payload when building a page path', () => {
     expect(analyticsPath().includes('m=')).toBe(false);
+  });
+});
+
+describe('stripMoleculePayload', () => {
+  it('drops share (m) and review (r) payloads from query and fragment', () => {
+    expect(stripMoleculePayload('https://paretomol.com/?m=abc&tab=table')).toBe('https://paretomol.com/?tab=table');
+    expect(stripMoleculePayload('https://paretomol.com/?r=abc')).toBe('https://paretomol.com/');
+    expect(stripMoleculePayload('https://paretomol.com/#r=abc')).toBe('https://paretomol.com/');
+    expect(stripMoleculePayload('/?tab=table#r=abc')).toBe('/?tab=table');
+    expect(stripMoleculePayload('/?docs#intro')).toBe('/?docs#intro');
   });
 });

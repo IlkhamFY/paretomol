@@ -39,6 +39,17 @@ export interface DecisionView {
   substructureFilter?: string;
 }
 
+export type ReviewVerdict = 'accept' | 'reject';
+
+export interface DecisionReview {
+  /** Who produced the review link, e.g. the agent name. */
+  source?: string;
+  /** Per molecule id; molecules without a verdict were left undecided. */
+  decisions: Record<string, ReviewVerdict>;
+  /** Molecule ids the agent suggested. */
+  suggested?: string[];
+}
+
 export interface DecisionRecord {
   schema: typeof DECISION_RECORD_SCHEMA;
   input: { sha256: string; count: number; molecules: DecisionMolecule[] };
@@ -49,6 +60,8 @@ export interface DecisionRecord {
   selected: string[];
   rationale: string;
   view?: DecisionView;
+  /** Present when the decision came from an open review link (docs/review-url.md). */
+  review?: DecisionReview;
   /** ISO 8601, UTC. */
   timestamp: string;
   /** `sha256:<hex>` of canonicalJSON(record without recordHash). */
@@ -84,6 +97,18 @@ export function recordHash(rec: Omit<DecisionRecord, 'recordHash'> | DecisionRec
   return 'sha256:' + sha256Hex(canonicalJSON(rest));
 }
 
+function buildReview(r: NonNullable<BuildDecisionOptions['review']>, ids: string[]): DecisionReview {
+  const decisions: Record<string, ReviewVerdict> = {};
+  for (const [k, v] of Object.entries(r.decisions)) {
+    const i = Number(k);
+    if (Number.isInteger(i) && i >= 0 && i < ids.length && (v === 'accept' || v === 'reject')) decisions[ids[i]] = v;
+  }
+  const out: DecisionReview = { decisions };
+  if (r.source) out.source = r.source;
+  if (r.suggested?.length) out.suggested = [...new Set(r.suggested)].filter((i) => i >= 0 && i < ids.length).sort((a, b) => a - b).map((i) => ids[i]);
+  return out;
+}
+
 const round6 = (x: number) => Math.round(x * 1e6) / 1e6;
 
 export interface BuildDecisionOptions {
@@ -97,6 +122,8 @@ export interface BuildDecisionOptions {
   /** Set when any column came from ADMET-AI; null/undefined when ADMET was not used. */
   admetEndpoint?: string | null;
   view?: DecisionView;
+  /** Review verdicts keyed by molecule index. */
+  review?: { source?: string; decisions: Record<number, ReviewVerdict>; suggested?: number[] };
   timestamp?: string;
 }
 
@@ -127,6 +154,7 @@ export function buildDecisionRecord(o: BuildDecisionOptions): DecisionRecord {
     selected,
     rationale: o.rationale ?? '',
     ...(o.view ? { view: o.view } : {}),
+    ...(o.review ? { review: buildReview(o.review, ids) } : {}),
     timestamp: o.timestamp ?? new Date().toISOString(),
   };
   return { ...rec, recordHash: recordHash(rec) };
@@ -152,6 +180,12 @@ export function parseDecisionRecord(json: string | unknown): DecisionRecord {
   if (p && p.hash !== rec.profile.hash) throw new Error(`Decision record: profile ${rec.profile.ref} hash differs from this version of ParetoMol`);
   const ids = new Set(rec.input.molecules.map((m) => m.id));
   for (const s of rec.selected) if (!ids.has(s)) throw new Error(`Decision record: selected id not in input: ${s}`);
+  if (rec.review) {
+    for (const [id, v] of Object.entries(rec.review.decisions ?? {})) {
+      if (!ids.has(id)) throw new Error(`Decision record: review decision for unknown id: ${id}`);
+      if (v !== 'accept' && v !== 'reject') throw new Error(`Decision record: review decision must be accept or reject: ${id}`);
+    }
+  }
   return rec;
 }
 

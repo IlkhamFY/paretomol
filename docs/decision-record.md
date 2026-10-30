@@ -42,7 +42,7 @@ Code: `packages/core/src/decision.ts` (`buildDecisionRecord`,
 | `input.molecules[]` | Ordered input: `id`, `name`, `smiles`, and `customProps` (imported, measured or ADMET-predicted numbers). RDKit descriptors are not stored; they are recomputed. |
 | `input.count` | Number of molecules. |
 | `input.sha256` | `sha256:<hex>` of the canonical JSON of the molecules (id, name, smiles, finite customProps). |
-| `profile.ref` / `profile.hash` | Scoring profile as `id@version` and its content hash. The app always writes `oral@1` in v0. |
+| `profile.ref` / `profile.hash` | Scoring profile as `id@version` and its content hash. The app's Export menu writes `oral@1`; a review link exports the link's profile. |
 | `models.core` | `@paretomol/core` version. |
 | `models.rdkitjs` | RDKit.js version that computed descriptors (`RDKit.version()`). |
 | `models.admet` | `{endpoint, model}` when any column came from ADMET-AI, else `null`. |
@@ -51,6 +51,7 @@ Code: `packages/core/src/decision.ts` (`buildDecisionRecord`,
 | `selected[]` | Picked molecule ids (the shortlist), sorted. Every id must exist in the input. |
 | `rationale` | Free text: why these picks. |
 | `view` | Optional UI state: active tab, formula columns, custom/ADMET column names, property filters, substructure filter. The CLI omits it. |
+| `review` | Optional, from an open review link ([review-url.md](review-url.md)): `source` (who made the link), `decisions` (`{id: "accept" \| "reject"}`, undecided molecules absent), `suggested` (ids the agent proposed). `selected` equals the accepted ids. |
 | `timestamp` | ISO 8601 UTC. |
 | `recordHash` | `sha256:<hex>` of the canonical JSON of the whole record without `recordHash`. |
 
@@ -77,7 +78,8 @@ use the same scheme. The file itself is written with sorted keys and a
 - `recordHash` does not match (the file was edited after export; recompute it
   with `recordHash()` if the edit is deliberate);
 - `profile.ref` is a built-in profile whose hash differs from this version;
-- a `selected` id is not in the input.
+- a `selected` id is not in the input;
+- a `review.decisions` key is not in the input, or a verdict is not `accept`/`reject`.
 
 ## Round trip
 

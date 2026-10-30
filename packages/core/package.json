@@ -21,6 +21,9 @@
     "./profiles/*.json": "./profiles/*.json",
     "./package.json": "./package.json"
   },
+  "dependencies": {
+    "lz-string": "^1.5.0"
+  },
   "files": ["dist", "profiles", "README.md"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
