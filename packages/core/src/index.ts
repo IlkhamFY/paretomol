@@ -19,3 +19,4 @@ export * from './sha256.js';
 export * from './profiles.js';
 export * from './analyze.js';
 export * from './decision.js';
+export * from './verify.js';

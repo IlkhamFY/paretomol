@@ -19,3 +19,16 @@ Differences from the app: no PubChem name lookup (lines that do not parse as
 SMILES are skipped and counted), no ADMET-AI calls, and no `view` block.
 Everything else in the record (input hash, Pareto ranks, MPO, profile hash)
 is identical; `e2e/cli-match.spec.ts` checks this.
+
+## verify
+
+```sh
+npx paretomol verify claims.json
+```
+
+Recomputes claimed RDKit descriptors (MW, LogP, HBD, HBA, TPSA, RotBonds, Fsp3,
+rings, heavy atoms, MR, QED; common aliases like cLogP or RotB accepted) and
+checks objective directions (pIC50 max, IC50 min, QED max, hERG min, SA_Score
+min ...). Prints a JSON report; exit code 2 when anything is flagged. Values it
+cannot recompute and objectives with no universal direction (MW, LogP) are
+listed as unchecked, never flagged.

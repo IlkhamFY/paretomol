@@ -64,4 +64,17 @@ describe('paretomol rank', () => {
     const rec = parseDecisionRecord(readFileSync(out, 'utf8'));
     expect(rec.input.count).toBe(2);
   });
+
+  it('verify exits 2 on the seeded fixture and 0 on a clean claim', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pm-verify-'));
+    const good = join(dir, 'good.json');
+    (await import('node:fs')).writeFileSync(good, JSON.stringify([{ id: 'ethanol', smiles: 'CCO', properties: { MW: 46.07, HBD: 1 }, objectives: [{ key: 'QED', direction: 'max' }] }]));
+    const fx = join(__dirname, '..', '..', 'core', 'test', 'fixtures', 'verify-claims.json');
+    const out = process.stdout.write, err = process.stderr.write;
+    process.stdout.write = () => true; process.stderr.write = () => true;
+    try {
+      expect(await main(['verify', fx])).toBe(2);
+      expect(await main(['verify', good])).toBe(0);
+    } finally { process.stdout.write = out; process.stderr.write = err; }
+  });
 });

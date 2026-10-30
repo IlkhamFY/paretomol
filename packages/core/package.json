@@ -13,6 +13,11 @@
       "types": "./dist/src/index.d.ts",
       "default": "./dist/src/index.js"
     },
+    "./verify": {
+      "source": "./src/verify.ts",
+      "types": "./dist/src/verify.d.ts",
+      "default": "./dist/src/verify.js"
+    },
     "./profiles/*.json": "./profiles/*.json",
     "./package.json": "./package.json"
   },
