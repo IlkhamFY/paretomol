@@ -17,7 +17,7 @@ export default defineConfig({
     // collects the Playwright specs under e2e/, which use a different runner
     // and fail immediately on collection. The two suites are run separately:
     // `npm test` for units, `npm run test:e2e` for the browser tests.
-    include: ['src/**/*.{test,spec}.{ts,tsx}', 'packages/*/test/**/*.test.ts'],
+    include: ['src/**/*.{test,spec}.{ts,tsx}', 'packages/*/test/**/*.test.ts', 'benchmarks/*/test/**/*.test.ts'],
     exclude: ['node_modules', '**/dist/**', 'e2e'],
   },
 });

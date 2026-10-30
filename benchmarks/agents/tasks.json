@@ -1,0 +1,1434 @@
+{
+  "schema": "paretomol.agentbench/0",
+  "tasks": [
+    {
+      "id": "t01",
+      "kind": "set",
+      "truth": [
+        "aspirin",
+        "caffeine",
+        "imipramine",
+        "nicotine",
+        "paracetamol"
+      ],
+      "molecules": [
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin"
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
+          "name": "ibuprofen"
+        },
+        {
+          "smiles": "CC(=O)Nc1ccc(O)cc1",
+          "name": "paracetamol"
+        },
+        {
+          "smiles": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+          "name": "caffeine"
+        },
+        {
+          "smiles": "CN1CCC[C@H]1c1cccnc1",
+          "name": "nicotine"
+        },
+        {
+          "smiles": "COc1ccc2[nH]cc(CCN(C)C)c2c1",
+          "name": "5-MeO-DMT"
+        },
+        {
+          "smiles": "CN(C)CCCN1c2ccccc2CCc2ccccc21",
+          "name": "imipramine"
+        },
+        {
+          "smiles": "Clc1ccc2c(c1)C(=NCC(=O)N2C)c1ccccc1",
+          "name": "diazepam"
+        },
+        {
+          "smiles": "CC(C)NCC(O)COc1cccc2ccccc12",
+          "name": "propranolol"
+        },
+        {
+          "smiles": "CN1CCN(CC1)C(=O)OC1N=C(c2ccccc2)c2cc(Cl)ccc2NC1=O",
+          "name": "camazepam-like"
+        },
+        {
+          "smiles": "OC(=O)CCCCC1SCC2NC(=O)NC12",
+          "name": "biotin"
+        },
+        {
+          "smiles": "CC1(C)SC2C(NC(=O)Cc3ccccc3)C(=O)N2C1C(=O)O",
+          "name": "penicillin G"
+        }
+      ],
+      "objectives": [
+        {
+          "key": "MW",
+          "direction": "min"
+        },
+        {
+          "key": "LogP",
+          "direction": "min"
+        },
+        {
+          "key": "TPSA",
+          "direction": "min"
+        }
+      ],
+      "prompt": "Which molecules are on the Pareto front minimising MW, LogP and TPSA?",
+      "computes": "front"
+    },
+    {
+      "id": "t02",
+      "kind": "set",
+      "truth": [
+        "5-MeO-DMT",
+        "ibuprofen",
+        "nicotine",
+        "paracetamol"
+      ],
+      "molecules": [
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin"
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
+          "name": "ibuprofen"
+        },
+        {
+          "smiles": "CC(=O)Nc1ccc(O)cc1",
+          "name": "paracetamol"
+        },
+        {
+          "smiles": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+          "name": "caffeine"
+        },
+        {
+          "smiles": "CN1CCC[C@H]1c1cccnc1",
+          "name": "nicotine"
+        },
+        {
+          "smiles": "COc1ccc2[nH]cc(CCN(C)C)c2c1",
+          "name": "5-MeO-DMT"
+        },
+        {
+          "smiles": "CN(C)CCCN1c2ccccc2CCc2ccccc21",
+          "name": "imipramine"
+        },
+        {
+          "smiles": "Clc1ccc2c(c1)C(=NCC(=O)N2C)c1ccccc1",
+          "name": "diazepam"
+        },
+        {
+          "smiles": "CC(C)NCC(O)COc1cccc2ccccc12",
+          "name": "propranolol"
+        },
+        {
+          "smiles": "CN1CCN(CC1)C(=O)OC1N=C(c2ccccc2)c2cc(Cl)ccc2NC1=O",
+          "name": "camazepam-like"
+        },
+        {
+          "smiles": "OC(=O)CCCCC1SCC2NC(=O)NC12",
+          "name": "biotin"
+        },
+        {
+          "smiles": "CC1(C)SC2C(NC(=O)Cc3ccccc3)C(=O)N2C1C(=O)O",
+          "name": "penicillin G"
+        }
+      ],
+      "objectives": [
+        {
+          "key": "QED",
+          "direction": "max"
+        },
+        {
+          "key": "MW",
+          "direction": "min"
+        }
+      ],
+      "prompt": "Which molecules are Pareto-optimal for maximising QED and minimising MW?",
+      "computes": "front"
+    },
+    {
+      "id": "t03",
+      "kind": "set",
+      "truth": [
+        "A1",
+        "A4",
+        "A6",
+        "A7"
+      ],
+      "molecules": [
+        {
+          "smiles": "c1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A1",
+          "props": {
+            "pIC50": 5.1,
+            "solubility": -3.2
+          }
+        },
+        {
+          "smiles": "Cc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A2",
+          "props": {
+            "pIC50": 5.6,
+            "solubility": -3.6
+          }
+        },
+        {
+          "smiles": "Clc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A3",
+          "props": {
+            "pIC50": 6.4,
+            "solubility": -4.1
+          }
+        },
+        {
+          "smiles": "COc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A4",
+          "props": {
+            "pIC50": 5.9,
+            "solubility": -3.4
+          }
+        },
+        {
+          "smiles": "Clc1ccc(cc1)C(=O)Nc1ccc(F)cc1",
+          "name": "A5",
+          "props": {
+            "pIC50": 7,
+            "solubility": -4.6
+          }
+        },
+        {
+          "smiles": "OC(=O)c1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A6",
+          "props": {
+            "pIC50": 4.8,
+            "solubility": -2.1
+          }
+        },
+        {
+          "smiles": "Clc1ccc(cc1)C(=O)Nc1ccc(cc1)N1CCOCC1",
+          "name": "A7",
+          "props": {
+            "pIC50": 7.3,
+            "solubility": -3.9
+          }
+        },
+        {
+          "smiles": "Nc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A8",
+          "props": {
+            "pIC50": 5
+          }
+        }
+      ],
+      "objectives": [
+        {
+          "key": "pIC50",
+          "direction": "max"
+        },
+        {
+          "key": "solubility",
+          "direction": "max"
+        }
+      ],
+      "prompt": "In the amide series, which compounds are Pareto-optimal for maximising both pIC50 and solubility (log S)?",
+      "computes": "front"
+    },
+    {
+      "id": "t04",
+      "kind": "set",
+      "truth": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A7",
+        "A8"
+      ],
+      "molecules": [
+        {
+          "smiles": "c1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A1",
+          "props": {
+            "pIC50": 5.1,
+            "solubility": -3.2
+          }
+        },
+        {
+          "smiles": "Cc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A2",
+          "props": {
+            "pIC50": 5.6,
+            "solubility": -3.6
+          }
+        },
+        {
+          "smiles": "Clc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A3",
+          "props": {
+            "pIC50": 6.4,
+            "solubility": -4.1
+          }
+        },
+        {
+          "smiles": "COc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A4",
+          "props": {
+            "pIC50": 5.9,
+            "solubility": -3.4
+          }
+        },
+        {
+          "smiles": "Clc1ccc(cc1)C(=O)Nc1ccc(F)cc1",
+          "name": "A5",
+          "props": {
+            "pIC50": 7,
+            "solubility": -4.6
+          }
+        },
+        {
+          "smiles": "OC(=O)c1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A6",
+          "props": {
+            "pIC50": 4.8,
+            "solubility": -2.1
+          }
+        },
+        {
+          "smiles": "Clc1ccc(cc1)C(=O)Nc1ccc(cc1)N1CCOCC1",
+          "name": "A7",
+          "props": {
+            "pIC50": 7.3,
+            "solubility": -3.9
+          }
+        },
+        {
+          "smiles": "Nc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A8",
+          "props": {
+            "pIC50": 5
+          }
+        }
+      ],
+      "objectives": [
+        {
+          "key": "pIC50",
+          "direction": "max"
+        },
+        {
+          "key": "LogP",
+          "direction": "min"
+        },
+        {
+          "key": "MW",
+          "direction": "min"
+        }
+      ],
+      "prompt": "Which series compounds are on the front for max pIC50, min LogP, min MW?",
+      "computes": "front"
+    },
+    {
+      "id": "t05",
+      "kind": "set",
+      "truth": [
+        "A2",
+        "A3",
+        "A5"
+      ],
+      "molecules": [
+        {
+          "smiles": "c1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A1",
+          "props": {
+            "pIC50": 5.1,
+            "solubility": -3.2
+          }
+        },
+        {
+          "smiles": "Cc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A2",
+          "props": {
+            "pIC50": 5.6,
+            "solubility": -3.6
+          }
+        },
+        {
+          "smiles": "Clc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A3",
+          "props": {
+            "pIC50": 6.4,
+            "solubility": -4.1
+          }
+        },
+        {
+          "smiles": "COc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A4",
+          "props": {
+            "pIC50": 5.9,
+            "solubility": -3.4
+          }
+        },
+        {
+          "smiles": "Clc1ccc(cc1)C(=O)Nc1ccc(F)cc1",
+          "name": "A5",
+          "props": {
+            "pIC50": 7,
+            "solubility": -4.6
+          }
+        },
+        {
+          "smiles": "OC(=O)c1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A6",
+          "props": {
+            "pIC50": 4.8,
+            "solubility": -2.1
+          }
+        },
+        {
+          "smiles": "Clc1ccc(cc1)C(=O)Nc1ccc(cc1)N1CCOCC1",
+          "name": "A7",
+          "props": {
+            "pIC50": 7.3,
+            "solubility": -3.9
+          }
+        },
+        {
+          "smiles": "Nc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A8",
+          "props": {
+            "pIC50": 5
+          }
+        }
+      ],
+      "objectives": [
+        {
+          "key": "pIC50",
+          "direction": "max"
+        },
+        {
+          "key": "solubility",
+          "direction": "max"
+        }
+      ],
+      "prompt": "Which compounds form the second Pareto front (rank 2) for max pIC50 and max solubility?",
+      "computes": "rank2"
+    },
+    {
+      "id": "t06",
+      "kind": "set",
+      "truth": [
+        "A8"
+      ],
+      "molecules": [
+        {
+          "smiles": "c1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A1",
+          "props": {
+            "pIC50": 5.1,
+            "solubility": -3.2
+          }
+        },
+        {
+          "smiles": "Cc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A2",
+          "props": {
+            "pIC50": 5.6,
+            "solubility": -3.6
+          }
+        },
+        {
+          "smiles": "Clc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A3",
+          "props": {
+            "pIC50": 6.4,
+            "solubility": -4.1
+          }
+        },
+        {
+          "smiles": "COc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A4",
+          "props": {
+            "pIC50": 5.9,
+            "solubility": -3.4
+          }
+        },
+        {
+          "smiles": "Clc1ccc(cc1)C(=O)Nc1ccc(F)cc1",
+          "name": "A5",
+          "props": {
+            "pIC50": 7,
+            "solubility": -4.6
+          }
+        },
+        {
+          "smiles": "OC(=O)c1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A6",
+          "props": {
+            "pIC50": 4.8,
+            "solubility": -2.1
+          }
+        },
+        {
+          "smiles": "Clc1ccc(cc1)C(=O)Nc1ccc(cc1)N1CCOCC1",
+          "name": "A7",
+          "props": {
+            "pIC50": 7.3,
+            "solubility": -3.9
+          }
+        },
+        {
+          "smiles": "Nc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A8",
+          "props": {
+            "pIC50": 5
+          }
+        }
+      ],
+      "objectives": [
+        {
+          "key": "pIC50",
+          "direction": "max"
+        },
+        {
+          "key": "solubility",
+          "direction": "max"
+        }
+      ],
+      "prompt": "Which compounds cannot be ranked for max pIC50 / max solubility because a value is missing?",
+      "computes": "unranked"
+    },
+    {
+      "id": "t07",
+      "kind": "name",
+      "truth": "aspirin",
+      "molecules": [
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin"
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
+          "name": "ibuprofen"
+        },
+        {
+          "smiles": "CC(=O)Nc1ccc(O)cc1",
+          "name": "paracetamol"
+        },
+        {
+          "smiles": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+          "name": "caffeine"
+        },
+        {
+          "smiles": "CN1CCC[C@H]1c1cccnc1",
+          "name": "nicotine"
+        },
+        {
+          "smiles": "COc1ccc2[nH]cc(CCN(C)C)c2c1",
+          "name": "5-MeO-DMT"
+        },
+        {
+          "smiles": "CN(C)CCCN1c2ccccc2CCc2ccccc21",
+          "name": "imipramine"
+        },
+        {
+          "smiles": "Clc1ccc2c(c1)C(=NCC(=O)N2C)c1ccccc1",
+          "name": "diazepam"
+        },
+        {
+          "smiles": "CC(C)NCC(O)COc1cccc2ccccc12",
+          "name": "propranolol"
+        },
+        {
+          "smiles": "CN1CCN(CC1)C(=O)OC1N=C(c2ccccc2)c2cc(Cl)ccc2NC1=O",
+          "name": "camazepam-like"
+        },
+        {
+          "smiles": "OC(=O)CCCCC1SCC2NC(=O)NC12",
+          "name": "biotin"
+        },
+        {
+          "smiles": "CC1(C)SC2C(NC(=O)Cc3ccccc3)C(=O)N2C1C(=O)O",
+          "name": "penicillin G"
+        }
+      ],
+      "profile": "oral@1",
+      "prompt": "Under the oral@1 profile, which drug has the highest MPO score?",
+      "computes": "top_mpo"
+    },
+    {
+      "id": "t08",
+      "kind": "name",
+      "truth": "aspirin",
+      "molecules": [
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin"
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
+          "name": "ibuprofen"
+        },
+        {
+          "smiles": "CC(=O)Nc1ccc(O)cc1",
+          "name": "paracetamol"
+        },
+        {
+          "smiles": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+          "name": "caffeine"
+        },
+        {
+          "smiles": "CN1CCC[C@H]1c1cccnc1",
+          "name": "nicotine"
+        },
+        {
+          "smiles": "COc1ccc2[nH]cc(CCN(C)C)c2c1",
+          "name": "5-MeO-DMT"
+        },
+        {
+          "smiles": "CN(C)CCCN1c2ccccc2CCc2ccccc21",
+          "name": "imipramine"
+        },
+        {
+          "smiles": "Clc1ccc2c(c1)C(=NCC(=O)N2C)c1ccccc1",
+          "name": "diazepam"
+        },
+        {
+          "smiles": "CC(C)NCC(O)COc1cccc2ccccc12",
+          "name": "propranolol"
+        },
+        {
+          "smiles": "CN1CCN(CC1)C(=O)OC1N=C(c2ccccc2)c2cc(Cl)ccc2NC1=O",
+          "name": "camazepam-like"
+        },
+        {
+          "smiles": "OC(=O)CCCCC1SCC2NC(=O)NC12",
+          "name": "biotin"
+        },
+        {
+          "smiles": "CC1(C)SC2C(NC(=O)Cc3ccccc3)C(=O)N2C1C(=O)O",
+          "name": "penicillin G"
+        }
+      ],
+      "profile": "cns@1",
+      "prompt": "Under the cns@1 profile, which drug has the highest MPO score?",
+      "computes": "top_mpo"
+    },
+    {
+      "id": "t09",
+      "kind": "set",
+      "truth": [
+        "atorvastatin",
+        "tetracontane",
+        "tripalmitin"
+      ],
+      "molecules": [
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin"
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
+          "name": "ibuprofen"
+        },
+        {
+          "smiles": "CC(=O)Nc1ccc(O)cc1",
+          "name": "paracetamol"
+        },
+        {
+          "smiles": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+          "name": "caffeine"
+        },
+        {
+          "smiles": "CN1CCC[C@H]1c1cccnc1",
+          "name": "nicotine"
+        },
+        {
+          "smiles": "COc1ccc2[nH]cc(CCN(C)C)c2c1",
+          "name": "5-MeO-DMT"
+        },
+        {
+          "smiles": "CN(C)CCCN1c2ccccc2CCc2ccccc21",
+          "name": "imipramine"
+        },
+        {
+          "smiles": "Clc1ccc2c(c1)C(=NCC(=O)N2C)c1ccccc1",
+          "name": "diazepam"
+        },
+        {
+          "smiles": "CC(C)NCC(O)COc1cccc2ccccc12",
+          "name": "propranolol"
+        },
+        {
+          "smiles": "CN1CCN(CC1)C(=O)OC1N=C(c2ccccc2)c2cc(Cl)ccc2NC1=O",
+          "name": "camazepam-like"
+        },
+        {
+          "smiles": "OC(=O)CCCCC1SCC2NC(=O)NC12",
+          "name": "biotin"
+        },
+        {
+          "smiles": "CC1(C)SC2C(NC(=O)Cc3ccccc3)C(=O)N2C1C(=O)O",
+          "name": "penicillin G"
+        },
+        {
+          "smiles": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+          "name": "tetracontane"
+        },
+        {
+          "smiles": "CC(C)c1c(C(=O)Nc2ccccc2)c(-c2ccccc2)c(-c2ccc(F)cc2)n1CC[C@@H](O)C[C@@H](O)CC(=O)O",
+          "name": "atorvastatin"
+        },
+        {
+          "smiles": "CCCCCCCCCCCCCCCC(=O)OCC(COC(=O)CCCCCCCCCCCCCCC)OC(=O)CCCCCCCCCCCCCCC",
+          "name": "tripalmitin"
+        }
+      ],
+      "profile": "lipinski@1",
+      "prompt": "Which molecules fail the lipinski@1 filter (more than one Rule-of-5 violation)?",
+      "computes": "filter_fail"
+    },
+    {
+      "id": "t10",
+      "kind": "name",
+      "truth": "A8",
+      "molecules": [
+        {
+          "smiles": "c1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A1",
+          "props": {
+            "pIC50": 5.1,
+            "solubility": -3.2
+          }
+        },
+        {
+          "smiles": "Cc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A2",
+          "props": {
+            "pIC50": 5.6,
+            "solubility": -3.6
+          }
+        },
+        {
+          "smiles": "Clc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A3",
+          "props": {
+            "pIC50": 6.4,
+            "solubility": -4.1
+          }
+        },
+        {
+          "smiles": "COc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A4",
+          "props": {
+            "pIC50": 5.9,
+            "solubility": -3.4
+          }
+        },
+        {
+          "smiles": "Clc1ccc(cc1)C(=O)Nc1ccc(F)cc1",
+          "name": "A5",
+          "props": {
+            "pIC50": 7,
+            "solubility": -4.6
+          }
+        },
+        {
+          "smiles": "OC(=O)c1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A6",
+          "props": {
+            "pIC50": 4.8,
+            "solubility": -2.1
+          }
+        },
+        {
+          "smiles": "Clc1ccc(cc1)C(=O)Nc1ccc(cc1)N1CCOCC1",
+          "name": "A7",
+          "props": {
+            "pIC50": 7.3,
+            "solubility": -3.9
+          }
+        },
+        {
+          "smiles": "Nc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A8",
+          "props": {
+            "pIC50": 5
+          }
+        }
+      ],
+      "profile": "leadlike@1",
+      "prompt": "Under the leadlike@1 profile, which series compound has the highest MPO score?",
+      "computes": "top_mpo"
+    },
+    {
+      "id": "t11",
+      "kind": "number",
+      "tol": 0.5,
+      "truth": 280.415,
+      "descriptor": {
+        "name": "imipramine",
+        "key": "MW"
+      },
+      "molecules": [
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin"
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
+          "name": "ibuprofen"
+        },
+        {
+          "smiles": "CC(=O)Nc1ccc(O)cc1",
+          "name": "paracetamol"
+        },
+        {
+          "smiles": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+          "name": "caffeine"
+        },
+        {
+          "smiles": "CN1CCC[C@H]1c1cccnc1",
+          "name": "nicotine"
+        },
+        {
+          "smiles": "COc1ccc2[nH]cc(CCN(C)C)c2c1",
+          "name": "5-MeO-DMT"
+        },
+        {
+          "smiles": "CN(C)CCCN1c2ccccc2CCc2ccccc21",
+          "name": "imipramine"
+        },
+        {
+          "smiles": "Clc1ccc2c(c1)C(=NCC(=O)N2C)c1ccccc1",
+          "name": "diazepam"
+        },
+        {
+          "smiles": "CC(C)NCC(O)COc1cccc2ccccc12",
+          "name": "propranolol"
+        },
+        {
+          "smiles": "CN1CCN(CC1)C(=O)OC1N=C(c2ccccc2)c2cc(Cl)ccc2NC1=O",
+          "name": "camazepam-like"
+        },
+        {
+          "smiles": "OC(=O)CCCCC1SCC2NC(=O)NC12",
+          "name": "biotin"
+        },
+        {
+          "smiles": "CC1(C)SC2C(NC(=O)Cc3ccccc3)C(=O)N2C1C(=O)O",
+          "name": "penicillin G"
+        }
+      ],
+      "prompt": "What is the molecular weight of imipramine (Da)?",
+      "computes": "descriptor"
+    },
+    {
+      "id": "t12",
+      "kind": "number",
+      "tol": 0.5,
+      "truth": 32.67,
+      "descriptor": {
+        "name": "diazepam",
+        "key": "TPSA"
+      },
+      "molecules": [
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin"
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
+          "name": "ibuprofen"
+        },
+        {
+          "smiles": "CC(=O)Nc1ccc(O)cc1",
+          "name": "paracetamol"
+        },
+        {
+          "smiles": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+          "name": "caffeine"
+        },
+        {
+          "smiles": "CN1CCC[C@H]1c1cccnc1",
+          "name": "nicotine"
+        },
+        {
+          "smiles": "COc1ccc2[nH]cc(CCN(C)C)c2c1",
+          "name": "5-MeO-DMT"
+        },
+        {
+          "smiles": "CN(C)CCCN1c2ccccc2CCc2ccccc21",
+          "name": "imipramine"
+        },
+        {
+          "smiles": "Clc1ccc2c(c1)C(=NCC(=O)N2C)c1ccccc1",
+          "name": "diazepam"
+        },
+        {
+          "smiles": "CC(C)NCC(O)COc1cccc2ccccc12",
+          "name": "propranolol"
+        },
+        {
+          "smiles": "CN1CCN(CC1)C(=O)OC1N=C(c2ccccc2)c2cc(Cl)ccc2NC1=O",
+          "name": "camazepam-like"
+        },
+        {
+          "smiles": "OC(=O)CCCCC1SCC2NC(=O)NC12",
+          "name": "biotin"
+        },
+        {
+          "smiles": "CC1(C)SC2C(NC(=O)Cc3ccccc3)C(=O)N2C1C(=O)O",
+          "name": "penicillin G"
+        }
+      ],
+      "prompt": "What is the TPSA of diazepam (RDKit, A^2)?",
+      "computes": "descriptor"
+    },
+    {
+      "id": "t13",
+      "kind": "number",
+      "tol": 0.05,
+      "truth": 2.578,
+      "descriptor": {
+        "name": "propranolol",
+        "key": "LogP"
+      },
+      "molecules": [
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin"
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
+          "name": "ibuprofen"
+        },
+        {
+          "smiles": "CC(=O)Nc1ccc(O)cc1",
+          "name": "paracetamol"
+        },
+        {
+          "smiles": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+          "name": "caffeine"
+        },
+        {
+          "smiles": "CN1CCC[C@H]1c1cccnc1",
+          "name": "nicotine"
+        },
+        {
+          "smiles": "COc1ccc2[nH]cc(CCN(C)C)c2c1",
+          "name": "5-MeO-DMT"
+        },
+        {
+          "smiles": "CN(C)CCCN1c2ccccc2CCc2ccccc21",
+          "name": "imipramine"
+        },
+        {
+          "smiles": "Clc1ccc2c(c1)C(=NCC(=O)N2C)c1ccccc1",
+          "name": "diazepam"
+        },
+        {
+          "smiles": "CC(C)NCC(O)COc1cccc2ccccc12",
+          "name": "propranolol"
+        },
+        {
+          "smiles": "CN1CCN(CC1)C(=O)OC1N=C(c2ccccc2)c2cc(Cl)ccc2NC1=O",
+          "name": "camazepam-like"
+        },
+        {
+          "smiles": "OC(=O)CCCCC1SCC2NC(=O)NC12",
+          "name": "biotin"
+        },
+        {
+          "smiles": "CC1(C)SC2C(NC(=O)Cc3ccccc3)C(=O)N2C1C(=O)O",
+          "name": "penicillin G"
+        }
+      ],
+      "prompt": "What is the Crippen LogP of propranolol?",
+      "computes": "descriptor"
+    },
+    {
+      "id": "t14",
+      "kind": "number",
+      "tol": 0.02,
+      "truth": 0.8,
+      "descriptor": {
+        "name": "penicillin G",
+        "key": "QED"
+      },
+      "molecules": [
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin"
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
+          "name": "ibuprofen"
+        },
+        {
+          "smiles": "CC(=O)Nc1ccc(O)cc1",
+          "name": "paracetamol"
+        },
+        {
+          "smiles": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+          "name": "caffeine"
+        },
+        {
+          "smiles": "CN1CCC[C@H]1c1cccnc1",
+          "name": "nicotine"
+        },
+        {
+          "smiles": "COc1ccc2[nH]cc(CCN(C)C)c2c1",
+          "name": "5-MeO-DMT"
+        },
+        {
+          "smiles": "CN(C)CCCN1c2ccccc2CCc2ccccc21",
+          "name": "imipramine"
+        },
+        {
+          "smiles": "Clc1ccc2c(c1)C(=NCC(=O)N2C)c1ccccc1",
+          "name": "diazepam"
+        },
+        {
+          "smiles": "CC(C)NCC(O)COc1cccc2ccccc12",
+          "name": "propranolol"
+        },
+        {
+          "smiles": "CN1CCN(CC1)C(=O)OC1N=C(c2ccccc2)c2cc(Cl)ccc2NC1=O",
+          "name": "camazepam-like"
+        },
+        {
+          "smiles": "OC(=O)CCCCC1SCC2NC(=O)NC12",
+          "name": "biotin"
+        },
+        {
+          "smiles": "CC1(C)SC2C(NC(=O)Cc3ccccc3)C(=O)N2C1C(=O)O",
+          "name": "penicillin G"
+        }
+      ],
+      "prompt": "What is the QED of penicillin G?",
+      "computes": "descriptor"
+    },
+    {
+      "id": "t15",
+      "kind": "string",
+      "truth": "A7",
+      "molecules": [
+        {
+          "smiles": "c1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A1",
+          "props": {
+            "pIC50": 5.1,
+            "solubility": -3.2
+          }
+        },
+        {
+          "smiles": "Cc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A2",
+          "props": {
+            "pIC50": 5.6,
+            "solubility": -3.6
+          }
+        },
+        {
+          "smiles": "Clc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A3",
+          "props": {
+            "pIC50": 6.4,
+            "solubility": -4.1
+          }
+        },
+        {
+          "smiles": "COc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A4",
+          "props": {
+            "pIC50": 5.9,
+            "solubility": -3.4
+          }
+        },
+        {
+          "smiles": "Clc1ccc(cc1)C(=O)Nc1ccc(F)cc1",
+          "name": "A5",
+          "props": {
+            "pIC50": 7,
+            "solubility": -4.6
+          }
+        },
+        {
+          "smiles": "OC(=O)c1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A6",
+          "props": {
+            "pIC50": 4.8,
+            "solubility": -2.1
+          }
+        },
+        {
+          "smiles": "Clc1ccc(cc1)C(=O)Nc1ccc(cc1)N1CCOCC1",
+          "name": "A7",
+          "props": {
+            "pIC50": 7.3,
+            "solubility": -3.9
+          }
+        },
+        {
+          "smiles": "Nc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A8",
+          "props": {
+            "pIC50": 5
+          }
+        }
+      ],
+      "objectives": [
+        {
+          "key": "pIC50",
+          "direction": "max"
+        },
+        {
+          "key": "solubility",
+          "direction": "max"
+        }
+      ],
+      "compare": [
+        "A3",
+        "A7"
+      ],
+      "prompt": "For max pIC50 and max solubility, does A3 dominate A7, does A7 dominate A3, or neither? Answer \"A3\", \"A7\" or \"neither\".",
+      "computes": "relation"
+    },
+    {
+      "id": "t16",
+      "kind": "string",
+      "truth": "neither",
+      "molecules": [
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin"
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
+          "name": "ibuprofen"
+        },
+        {
+          "smiles": "CC(=O)Nc1ccc(O)cc1",
+          "name": "paracetamol"
+        },
+        {
+          "smiles": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+          "name": "caffeine"
+        },
+        {
+          "smiles": "CN1CCC[C@H]1c1cccnc1",
+          "name": "nicotine"
+        },
+        {
+          "smiles": "COc1ccc2[nH]cc(CCN(C)C)c2c1",
+          "name": "5-MeO-DMT"
+        },
+        {
+          "smiles": "CN(C)CCCN1c2ccccc2CCc2ccccc21",
+          "name": "imipramine"
+        },
+        {
+          "smiles": "Clc1ccc2c(c1)C(=NCC(=O)N2C)c1ccccc1",
+          "name": "diazepam"
+        },
+        {
+          "smiles": "CC(C)NCC(O)COc1cccc2ccccc12",
+          "name": "propranolol"
+        },
+        {
+          "smiles": "CN1CCN(CC1)C(=O)OC1N=C(c2ccccc2)c2cc(Cl)ccc2NC1=O",
+          "name": "camazepam-like"
+        },
+        {
+          "smiles": "OC(=O)CCCCC1SCC2NC(=O)NC12",
+          "name": "biotin"
+        },
+        {
+          "smiles": "CC1(C)SC2C(NC(=O)Cc3ccccc3)C(=O)N2C1C(=O)O",
+          "name": "penicillin G"
+        }
+      ],
+      "objectives": [
+        {
+          "key": "MW",
+          "direction": "min"
+        },
+        {
+          "key": "LogP",
+          "direction": "min"
+        },
+        {
+          "key": "TPSA",
+          "direction": "min"
+        }
+      ],
+      "compare": [
+        "aspirin",
+        "ibuprofen"
+      ],
+      "prompt": "Minimising MW, LogP and TPSA: does aspirin dominate ibuprofen, ibuprofen dominate aspirin, or neither?",
+      "computes": "relation"
+    },
+    {
+      "id": "t17",
+      "kind": "set",
+      "truth": [
+        "pIC50",
+        "solubility"
+      ],
+      "molecules": [
+        {
+          "smiles": "c1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A1",
+          "props": {
+            "pIC50": 5.1,
+            "solubility": -3.2
+          }
+        },
+        {
+          "smiles": "Cc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A2",
+          "props": {
+            "pIC50": 5.6,
+            "solubility": -3.6
+          }
+        },
+        {
+          "smiles": "Clc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A3",
+          "props": {
+            "pIC50": 6.4,
+            "solubility": -4.1
+          }
+        },
+        {
+          "smiles": "COc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A4",
+          "props": {
+            "pIC50": 5.9,
+            "solubility": -3.4
+          }
+        },
+        {
+          "smiles": "Clc1ccc(cc1)C(=O)Nc1ccc(F)cc1",
+          "name": "A5",
+          "props": {
+            "pIC50": 7,
+            "solubility": -4.6
+          }
+        },
+        {
+          "smiles": "OC(=O)c1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A6",
+          "props": {
+            "pIC50": 4.8,
+            "solubility": -2.1
+          }
+        },
+        {
+          "smiles": "Clc1ccc(cc1)C(=O)Nc1ccc(cc1)N1CCOCC1",
+          "name": "A7",
+          "props": {
+            "pIC50": 7.3,
+            "solubility": -3.9
+          }
+        },
+        {
+          "smiles": "Nc1ccc(cc1)C(=O)Nc1ccccc1",
+          "name": "A8",
+          "props": {
+            "pIC50": 5
+          }
+        }
+      ],
+      "objectives": [
+        {
+          "key": "pIC50",
+          "direction": "max"
+        },
+        {
+          "key": "solubility",
+          "direction": "max"
+        },
+        {
+          "key": "MW",
+          "direction": "min"
+        }
+      ],
+      "prompt": "Among max pIC50, max solubility and min MW, which pair of objectives is in the sharpest trade-off? Answer the two keys.",
+      "computes": "tradeoff_pair"
+    },
+    {
+      "id": "t18",
+      "kind": "number",
+      "tol": 0,
+      "truth": 5,
+      "molecules": [
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin"
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
+          "name": "ibuprofen"
+        },
+        {
+          "smiles": "CC(=O)Nc1ccc(O)cc1",
+          "name": "paracetamol"
+        },
+        {
+          "smiles": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+          "name": "caffeine"
+        },
+        {
+          "smiles": "CN1CCC[C@H]1c1cccnc1",
+          "name": "nicotine"
+        },
+        {
+          "smiles": "COc1ccc2[nH]cc(CCN(C)C)c2c1",
+          "name": "5-MeO-DMT"
+        },
+        {
+          "smiles": "CN(C)CCCN1c2ccccc2CCc2ccccc21",
+          "name": "imipramine"
+        },
+        {
+          "smiles": "Clc1ccc2c(c1)C(=NCC(=O)N2C)c1ccccc1",
+          "name": "diazepam"
+        },
+        {
+          "smiles": "CC(C)NCC(O)COc1cccc2ccccc12",
+          "name": "propranolol"
+        },
+        {
+          "smiles": "CN1CCN(CC1)C(=O)OC1N=C(c2ccccc2)c2cc(Cl)ccc2NC1=O",
+          "name": "camazepam-like"
+        },
+        {
+          "smiles": "OC(=O)CCCCC1SCC2NC(=O)NC12",
+          "name": "biotin"
+        },
+        {
+          "smiles": "CC1(C)SC2C(NC(=O)Cc3ccccc3)C(=O)N2C1C(=O)O",
+          "name": "penicillin G"
+        }
+      ],
+      "objectives": [
+        {
+          "key": "QED",
+          "direction": "max"
+        },
+        {
+          "key": "TPSA",
+          "direction": "min"
+        },
+        {
+          "key": "FrCSP3",
+          "direction": "max"
+        }
+      ],
+      "prompt": "How many drugs are on the Pareto front for max QED, min TPSA, max FrCSP3?",
+      "computes": "front_size"
+    },
+    {
+      "id": "t19",
+      "kind": "set",
+      "truth": [
+        "c2",
+        "c4",
+        "c5"
+      ],
+      "prompt": "Another agent made these claims. Which claim ids are wrong?",
+      "claims": [
+        {
+          "id": "c1",
+          "smiles": "CCO",
+          "properties": {
+            "MW": 46.07,
+            "LogP": -0.0014
+          }
+        },
+        {
+          "id": "c2",
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "properties": {
+            "MW": 194.19
+          }
+        },
+        {
+          "id": "c3",
+          "smiles": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+          "properties": {
+            "HBD": 0,
+            "TPSA": 61.82
+          }
+        },
+        {
+          "id": "c4",
+          "smiles": "c1ccccc1",
+          "objectives": [
+            {
+              "key": "QED",
+              "direction": "min"
+            }
+          ]
+        },
+        {
+          "id": "c5",
+          "smiles": "C1=CC=CN=C1C(",
+          "properties": {
+            "MW": 80
+          }
+        }
+      ],
+      "computes": "flagged"
+    },
+    {
+      "id": "t20",
+      "kind": "set",
+      "truth": [
+        "d2",
+        "d4"
+      ],
+      "prompt": "Which of these descriptor claims are wrong?",
+      "claims": [
+        {
+          "id": "d1",
+          "smiles": "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
+          "properties": {
+            "HBD": 1,
+            "HBA": 1,
+            "RotBonds": 4
+          }
+        },
+        {
+          "id": "d2",
+          "smiles": "CC(=O)Nc1ccc(O)cc1",
+          "properties": {
+            "HBD": 3
+          }
+        },
+        {
+          "id": "d3",
+          "smiles": "CN1CCC[C@H]1c1cccnc1",
+          "properties": {
+            "MW": 162.24,
+            "Rings": 2
+          }
+        },
+        {
+          "id": "d4",
+          "smiles": "Clc1ccc2c(c1)C(=NCC(=O)N2C)c1ccccc1",
+          "properties": {
+            "AromaticRings": 3
+          }
+        }
+      ],
+      "computes": "flagged"
+    }
+  ]
+}

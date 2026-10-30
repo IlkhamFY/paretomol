@@ -4,7 +4,9 @@
   "description": "ParetoMol MCP server (stdio): score molecules, Pareto fronts, scoring profiles, trade-off readings, review links and claim checks for chemistry agents.",
   "license": "MIT",
   "type": "module",
-  "bin": { "paretomol-mcp": "./bin/paretomol-mcp.js" },
+  "bin": {
+    "paretomol-mcp": "./bin/paretomol-mcp.js"
+  },
   "main": "./dist/src/server.js",
   "types": "./dist/src/server.d.ts",
   "exports": {
@@ -13,9 +15,18 @@
       "types": "./dist/src/server.d.ts",
       "default": "./dist/src/server.js"
     },
+    "./tools": {
+      "source": "./src/tools.ts",
+      "types": "./dist/src/tools.d.ts",
+      "default": "./dist/src/tools.js"
+    },
     "./package.json": "./package.json"
   },
-  "files": ["bin", "dist", "README.md"],
+  "files": [
+    "bin",
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "prepack": "npm run build"
@@ -24,6 +35,12 @@
     "@paretomol/core": "0.1.0",
     "@paretomol/cli": "0.1.0"
   },
-  "repository": { "type": "git", "url": "git+https://github.com/IlkhamFY/paretomol.git", "directory": "packages/mcp" },
-  "engines": { "node": ">=20.10" }
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IlkhamFY/paretomol.git",
+    "directory": "packages/mcp"
+  },
+  "engines": {
+    "node": ">=20.10"
+  }
 }
