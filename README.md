@@ -9,6 +9,21 @@
   <a href="https://paretomol.com"><img src="https://img.shields.io/badge/Live-paretomol.com-798F81?style=flat-square" alt="Live at paretomol.com"></a>&nbsp;&nbsp;<a href="https://doi.org/10.1039/d6dd00366d"><img src="https://img.shields.io/badge/DOI-10.1039%2Fd6dd00366d-5F7367?style=flat-square" alt="DOI 10.1039/d6dd00366d"></a>&nbsp;&nbsp;<a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-7E9A89?style=flat-square" alt="MIT"></a>
 </p>
 
+<p align="center">
+  <img src="docs/images/pareto-front.webp" width="880" alt="Pareto front of kinase inhibitors with ranked molecule cards">
+</p>
+<p align="center"><em>Pareto front of the built-in kinase set, ranked on MW, LogP, and TPSA.</em></p>
+
+<p align="center">
+  <img src="docs/images/molecule-compare.webp" width="880" alt="Comparison of erlotinib and gefitinib structures and properties">
+</p>
+<p align="center"><em>Comparison view: structures and property deltas for two molecules on the front.</em></p>
+
+<p align="center">
+  <img src="docs/images/review-mode.webp" width="880" alt="Review mode accepting and rejecting a kinase shortlist">
+</p>
+<p align="center"><em>Review mode for a shared shortlist: accept or reject each molecule, then export the decision.</em></p>
+
 ## How to cite
 
 If you use ParetoMol, please cite the paper:
