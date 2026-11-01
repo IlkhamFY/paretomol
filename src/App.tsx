@@ -67,6 +67,7 @@ export default function App() {
     } catch { return []; }
   });
   const [review, setReview] = useState<ReviewState | null>(null);
+  const [reviewLinkError, setReviewLinkError] = useState<string | null>(null);
   // Captured on first render, before any effect rewrites the URL.
   const [reviewToken] = useState(() => reviewTokenFromUrl(window.location.href));
   const [sessionToast, setSessionToast] = useState<{ molCount: number; time: string } | null>(null);
@@ -260,7 +261,7 @@ export default function App() {
         track('review/opened');
         setToast(`Review: ${mols.length} molecules${payload.source ? ` from ${payload.source}` : ''}`);
       } catch (e) {
-        setToast(`Could not open review link: ${e instanceof Error ? e.message : String(e)}`);
+        setReviewLinkError(e instanceof Error ? e.message : String(e));
       }
     })();
   }, [reviewToken]);
@@ -833,7 +834,27 @@ export default function App() {
           />
         </div>
 
-        <div className="flex-1 bg-[var(--bg)] min-w-0 min-h-0">
+        {review && (
+          <div className="fixed inset-0 z-[45] flex min-h-0 flex-col bg-[var(--bg)] md:static md:inset-auto md:z-auto md:h-full md:w-[320px] md:shrink-0 md:border-l md:border-[var(--border-5)]">
+            <ReviewPanel
+              review={review}
+              molecules={molecules}
+              objectives={paretoObjectives}
+              onDecide={handleReviewDecide}
+              onExport={(note) => { void handleReviewExport(note); }}
+              onExit={() => { setReview(null); window.history.replaceState(null, '', window.location.pathname + window.location.search); }}
+              onSelect={setSelectedMolIdx}
+            />
+          </div>
+        )}
+
+        <div className="flex-1 bg-[var(--bg)] min-w-0 min-h-0 flex flex-col">
+          {reviewLinkError && (
+            <div role="alert" className="m-4 rounded-md border border-[var(--border-10)] bg-[var(--surface)] p-3 text-[13px] text-[var(--text)]">
+              <p>Could not open review link: {reviewLinkError}</p>
+              <button type="button" className="mt-2 text-[12px] text-[var(--text2)]" onClick={() => setReviewLinkError(null)}>Dismiss</button>
+            </div>
+          )}
           <Content
             molecules={filteredMolecules}
             compareIndices={compareIndices}
@@ -896,18 +917,6 @@ export default function App() {
           Cite
         </button>
       </div>
-
-      {review && (
-        <ReviewPanel
-          review={review}
-          molecules={molecules}
-          objectives={paretoObjectives}
-          onDecide={handleReviewDecide}
-          onExport={(note) => { void handleReviewExport(note); }}
-          onExit={() => { setReview(null); window.history.replaceState(null, '', window.location.pathname + window.location.search.replace(/([?&])r=[^&]*&?/, '$1').replace(/[?&]$/, '')); }}
-          onSelect={setSelectedMolIdx}
-        />
-      )}
 
       <KeyboardShortcuts isOpen={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       {docsOpen && <DocsPage onClose={() => setDocsOpen(false)} />}

@@ -87,9 +87,9 @@ function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, cust
   );
   const [axes, setAxes] = useState<ScatterAxes[]>(DEFAULT_AXES);
   const [showAll, setShowAll] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<string | null>('lipinski');
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
-  const visibleAxes = showAll ? axes : axes.slice(0, 2);
+  const visibleAxes = showAll ? axes : axes.slice(0, 1);
 
   // Grouped, human-labelled axis options — make-ability & cost surfaced first,
   // then physicochemical, then any ADMET / imported columns that are present.
@@ -143,18 +143,17 @@ function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, cust
           </button>
           {Object.entries(DRUG_FILTERS).map(([fname, fdef]) => {
             const isActive = activeFilter === fname;
-            const color = FILTER_COLORS[fname] ?? '#22c55e';
             return (
               <button
                 key={fname}
                 onClick={() => setActiveFilter(isActive ? null : fname)}
                 title={(fdef as any).desc}
-                className={`px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                aria-pressed={isActive}
+                className={`px-2.5 py-1 text-[11px] transition-colors ${
                   isActive
-                    ? 'text-white'
+                    ? 'text-[var(--text)] font-medium'
                     : 'text-[var(--text2)] hover:text-[var(--text)]'
                 }`}
-                style={isActive ? { backgroundColor: color, color: '#fff' } : undefined}
               >
                 {fdef.label}
               </button>
@@ -253,7 +252,7 @@ function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, cust
           return (
           <div key={`${axis.x}-${axis.y}-${i}`} className={`bg-[var(--surface)] border border-[var(--border-5)] rounded-lg p-4 flex flex-col min-w-0 ${expandedIdx === i ? 'h-[560px]' : 'h-[380px]'}`}>
             <div className="flex justify-between items-center gap-2 mb-4 min-w-0">
-              <div className="text-[13px] font-medium min-w-0 truncate shrink" title={`${labelFor(axis.x)} vs ${labelFor(axis.y)}`}>{labelFor(axis.x)} vs {labelFor(axis.y)}</div>
+              <div className="text-[13px] font-medium shrink-0" title={`${labelFor(axis.x)} vs ${labelFor(axis.y)}`}>{labelFor(axis.x)} vs {labelFor(axis.y)}</div>
               <div className="flex gap-2 items-center text-[11px] shrink-0">
                 <label className="flex items-center gap-1 text-[var(--text2)]">
                   X:
@@ -472,6 +471,7 @@ function ScatterChart({ molecules, xKey, yKey, activeFilter, onSelectMolecule, s
       ctx.beginPath();
       ctx.rect(left, top, width, height);
       ctx.clip();
+      const pending: { x: number; y: number; text: string }[] = [];
 
       for (let dsIdx = 0; dsIdx < chart.data.datasets.length; dsIdx++) {
         const meta = chart.getDatasetMeta(dsIdx);
@@ -490,6 +490,8 @@ function ScatterChart({ molecules, xKey, yKey, activeFilter, onSelectMolecule, s
             ctx.strokeStyle = '#fbbf24';
             ctx.lineWidth = 2.5;
             ctx.stroke();
+            const text = String(raw.label || '').replace(/_.*/g, '').slice(0, 14);
+            if (text) pending.push({ x: ex, y: ey, text });
           }
 
           if (selIdx != null && raw.molIndex === selIdx) {
@@ -504,13 +506,23 @@ function ScatterChart({ molecules, xKey, yKey, activeFilter, onSelectMolecule, s
         });
       }
 
+      ctx.font = '11px Geist, sans-serif';
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#E8E6E3';
+      ctx.textBaseline = 'bottom';
+      const placed: { x: number; y: number }[] = [];
+      for (const p of pending) {
+        if (placed.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < 36)) continue;
+        ctx.fillText(p.text, p.x + 10, p.y - 4);
+        placed.push(p);
+      }
+
       ctx.restore();
     },
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), []);
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full" role="img" aria-label={`${labelFor(xKey)} versus ${labelFor(yKey)}. Named points are on the Pareto front.`}>
       <div
         ref={tooltipRef}
         id="pareto-tooltip"
@@ -619,7 +631,17 @@ function ScatterChart({ molecules, xKey, yKey, activeFilter, onSelectMolecule, s
             x: {
               title: { display: true, text: labelFor(xKey), color: getComputedStyle(document.documentElement).getPropertyValue('--canvas-sublabel').trim() },
               grid: { color: getComputedStyle(document.documentElement).getPropertyValue('--border-10').trim() },
-              ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--canvas-sublabel').trim() },
+              ticks: {
+                color: getComputedStyle(document.documentElement).getPropertyValue('--canvas-sublabel').trim(),
+                callback: (value: string | number) => {
+                  const n = typeof value === 'number' ? value : Number(value);
+                  if (!Number.isFinite(n)) return String(value);
+                  const abs = Math.abs(n);
+                  if (abs >= 100) return String(Math.round(n));
+                  if (abs >= 10) return String(Math.round(n * 10) / 10);
+                  return String(Math.round(n * 100) / 100);
+                },
+              },
               ...((() => {
                 const vals = molecules.map(m => getMolPropValue(m, xKey));
                 const fdaXKey = PROP_TO_FDA[xKey as string];
@@ -636,7 +658,17 @@ function ScatterChart({ molecules, xKey, yKey, activeFilter, onSelectMolecule, s
             y: {
               title: { display: true, text: labelFor(yKey), color: getComputedStyle(document.documentElement).getPropertyValue('--canvas-sublabel').trim() },
               grid: { color: getComputedStyle(document.documentElement).getPropertyValue('--border-10').trim() },
-              ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--canvas-sublabel').trim() },
+              ticks: {
+                color: getComputedStyle(document.documentElement).getPropertyValue('--canvas-sublabel').trim(),
+                callback: (value: string | number) => {
+                  const n = typeof value === 'number' ? value : Number(value);
+                  if (!Number.isFinite(n)) return String(value);
+                  const abs = Math.abs(n);
+                  if (abs >= 100) return String(Math.round(n));
+                  if (abs >= 10) return String(Math.round(n * 10) / 10);
+                  return String(Math.round(n * 100) / 100);
+                },
+              },
               ...((() => {
                 const vals = molecules.map(m => getMolPropValue(m, yKey));
                 const fdaYKey = PROP_TO_FDA[yKey as string];

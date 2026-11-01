@@ -32,6 +32,7 @@ All notable changes to ParetoMol. Dates are release dates; unreleased work is li
 - ADMET Space warm-up request on page load to cut cold-start time.
 
 ### Changed
+- The empty screen has one act, Try kinase inhibitors. Paste stays in the sidebar. The plot names the front and the knee, starts on one chart, and leaves the Lipinski overlay off. Objective changes update the front immediately. Review is a list (suggested first, with structures) beside the plot on a desktop and the whole screen on a phone. The view bar is Pareto, Table, ADMET, Compare, and More. ADMET waits on a skeleton, and a bad review link stays on screen until it is dismissed.
 - The default Pareto front ranks desirability windows from the Oral profile (MW, LogP, HBD, HBA, TPSA, rotatable bonds). It no longer minimizes LogP and TPSA. MPO and Scoring use the same windows. Plain minimize or maximize is what you get when you pick that direction. A p-scaled potency column is added when the file has one. **Paper reproduction** minimizes MW, LogP, HBD, HBA, TPSA and rotatable bonds, the directions in the Digital Discovery FDA figures (50 compounds on the front, mean LogP -2.57).
 - `pareto_front` returns fronts and counts. The dominance edge list is included only when `edges` is true.
 - `open_review_url` refuses a link over ~32,000 characters and tells the agent to write a decision record file.

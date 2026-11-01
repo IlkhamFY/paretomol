@@ -26,6 +26,8 @@ const StatisticsView = lazy(() => import('./views/StatisticsView'));
 const MakeabilityView = lazy(() => import('./views/MakeabilityView'));
 
 export default function Content({ molecules, compareIndices, selectedMolIdx, setSelectedMolIdx, exportContainerRef, setCompareIndices, isInitialLoading, customPropNames = [], paretoObjectives = [], onADMETPredictions, onComputeMakeability, onCheckBuyability, onCheckAvailability, onExportScores, onLoadExample, onOpenSidebar, activeTab: activeTabProp, setActiveTab: setActiveTabProp, showFDARef: showFDARefProp, setShowFDARef: setShowFDARefProp, onToast, shortlist, toggleShortlist, formulaColumns, setFormulaColumns, scoringPreset = 'oral@1', onScoringPreset, scoringProfileRef, onScoringProfileRef, mpoCurve, onMpoCurve }: { molecules: Molecule[]; compareIndices: number[]; selectedMolIdx: number | null; setSelectedMolIdx?: (idx: number | null) => void; exportContainerRef?: React.RefObject<HTMLDivElement | null>; setCompareIndices?: React.Dispatch<React.SetStateAction<number[]>>; isInitialLoading?: boolean; customPropNames?: string[]; paretoObjectives?: ParetoObjective[]; onADMETPredictions?: (predictions: Map<string, Record<string, number>>) => void; onComputeMakeability?: () => Promise<{ sa: number; ra: number; sc: number; total: number }>; onCheckBuyability?: () => Promise<{ resolved: number; buyable: number; total: number }>; onCheckAvailability?: () => Promise<{ inZinc: number; total: number }>; onExportScores?: () => void; onLoadExample?: (key: string) => void; onOpenSidebar?: () => void; activeTab?: string; setActiveTab?: (tab: string) => void; showFDARef?: boolean; setShowFDARef?: (v: boolean | ((prev: boolean) => boolean)) => void; onToast?: (msg: string) => void; shortlist?: Set<number>; toggleShortlist?: (idx: number) => void; formulaColumns?: FormulaColumn[]; setFormulaColumns?: (cols: FormulaColumn[]) => void; scoringPreset?: ScoringPreset; onScoringPreset?: (preset: ScoringPreset, windows?: Record<string, ObjectiveWindow> | null) => void; scoringProfileRef?: string; onScoringProfileRef?: (ref: string) => void; mpoCurve?: 'linear' | 'sigmoid'; onMpoCurve?: (curve: 'linear' | 'sigmoid') => void }) {
+  void isInitialLoading;
+  void onOpenSidebar;
   // Use lifted state from App if provided, otherwise fallback to local state
   const validTabs = ['pareto','admet-ai','egg','table','makeability','radar','scaffolds','chemspace','scoring','mpo','cliffs','compare','parallel','similarity','statistics'];
   // Legacy tab IDs → new tab IDs (for old shared URLs)
@@ -43,6 +45,7 @@ export default function Content({ molecules, compareIndices, selectedMolIdx, set
   const setShowFDARef = setShowFDARefProp ?? setLocalShowFDARef;
   const fdaData = useFDAReference(showFDARef);
   const [shortlistOpen, setShortlistOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   // Keep the tab query in sync. Molecule payloads stay in the fragment
   // (#m= share, #r= review). Old ?m= and ?r= links are moved there on this
@@ -77,15 +80,7 @@ export default function Content({ molecules, compareIndices, selectedMolIdx, set
   }, [updateTabScroll, molecules.length]);
 
   if (molecules.length === 0) {
-    if (isInitialLoading) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full text-[var(--text2)] text-center gap-3">
-          <div className="w-5 h-5 border-2 border-[#5F7367]/30 border-t-[#5F7367] rounded-full animate-spin" />
-          <p className="text-[13px]">Loading molecules...</p>
-        </div>
-      );
-    }
-    return <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="w-5 h-5 border-2 border-[#5F7367]/30 border-t-[#5F7367] rounded-full animate-spin" /></div>}><LandingPage onLoadExample={onLoadExample} onOpenSidebar={onOpenSidebar} /></Suspense>;
+    return <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="w-5 h-5 border-2 border-[#5F7367]/30 border-t-[#5F7367] rounded-full animate-spin" /></div>}><LandingPage onLoadExample={onLoadExample} /></Suspense>;
   }
 
   return (
@@ -210,61 +205,18 @@ export default function Content({ molecules, compareIndices, selectedMolIdx, set
           className="flex items-center border-b border-[var(--border-5)] pb-0 overflow-x-auto scrollbar-none"
           onScroll={updateTabScroll}
         >
-          {/* Group 1: Core */}
+          <div role="tablist" aria-label="Views" className="flex items-center">
           {[
             { id: 'pareto', label: 'Pareto' },
-            { id: 'admet-ai', label: 'ADMET' },
-            { id: 'egg', label: 'BOILED-Egg' },
             { id: 'table', label: 'Table' },
-            { id: 'makeability', label: 'Make-ability' },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-3 sm:px-4 py-2 text-[12px] sm:text-[13px] font-medium transition-colors border-b-2 whitespace-nowrap shrink-0 ${
-                activeTab === tab.id
-                  ? 'border-[var(--accent)] text-[var(--text-heading)]'
-                  : 'border-transparent text-[var(--text2)] hover:text-[var(--text)]'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-          {/* Divider */}
-          <div className="w-px h-5 bg-[var(--border-10)] shrink-0 mx-1" />
-          {/* Group 2: Properties & Structure */}
-          {[
-            { id: 'radar', label: 'Radar' },
-            { id: 'scaffolds', label: 'Scaffolds' },
-            { id: 'chemspace', label: 'Chem Space' },
-            { id: 'scoring', label: 'Scoring' },
-            { id: 'mpo', label: 'MPO' },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-3 sm:px-4 py-2 text-[12px] sm:text-[13px] font-medium transition-colors border-b-2 whitespace-nowrap shrink-0 ${
-                activeTab === tab.id
-                  ? 'border-[var(--accent)] text-[var(--text-heading)]'
-                  : 'border-transparent text-[var(--text2)] hover:text-[var(--text)]'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-          {/* Divider */}
-          <div className="w-px h-5 bg-[var(--border-10)] shrink-0 mx-1" />
-          {/* Group 3: Comparison & Analysis */}
-          {[
-            { id: 'cliffs', label: 'Cliffs' },
+            { id: 'admet-ai', label: 'ADMET' },
             { id: 'compare', label: 'Compare' },
-            { id: 'parallel', label: 'Parallel' },
-            { id: 'similarity', label: 'Similarity' },
-            { id: 'statistics', label: 'Statistics' },
           ].map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              onClick={() => { setMoreOpen(false); setActiveTab(tab.id); }}
               className={`px-3 sm:px-4 py-2 text-[12px] sm:text-[13px] font-medium transition-colors border-b-2 whitespace-nowrap shrink-0 ${
                 activeTab === tab.id
                   ? 'border-[var(--accent)] text-[var(--text-heading)]'
@@ -274,6 +226,46 @@ export default function Content({ molecules, compareIndices, selectedMolIdx, set
               {tab.label}
             </button>
           ))}
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              aria-expanded={moreOpen}
+              aria-haspopup="menu"
+              onClick={() => setMoreOpen(v => !v)}
+              className={`px-3 sm:px-4 py-2 text-[12px] sm:text-[13px] font-medium border-b-2 ${
+                moreOpen || !['pareto', 'table', 'admet-ai', 'compare'].includes(activeTab)
+                  ? 'border-[var(--accent)] text-[var(--text-heading)]'
+                  : 'border-transparent text-[var(--text2)] hover:text-[var(--text)]'
+              }`}
+            >
+              More
+            </button>
+            {moreOpen && (
+              <div role="menu" className="absolute left-0 top-full z-30 mt-1 w-44 rounded-md border border-[var(--border-10)] bg-[var(--bg)] py-1 shadow-lg">
+                {[
+                  ['Shape', [['egg', 'BOILED-Egg'], ['radar', 'Radar'], ['parallel', 'Parallel']]],
+                  ['Scores', [['mpo', 'MPO'], ['scoring', 'Scoring'], ['makeability', 'Make-ability']]],
+                  ['Similarity', [['scaffolds', 'Scaffolds'], ['cliffs', 'Cliffs'], ['chemspace', 'Chem Space'], ['similarity', 'Similarity'], ['statistics', 'Statistics']]],
+                ].map(([group, items]) => (
+                  <div key={group as string} className="py-1">
+                    <div className="px-3 py-1 text-[10px] text-[var(--text2)]">{group as string}</div>
+                    {(items as [string, string][]).map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => { setActiveTab(id); setMoreOpen(false); }}
+                        className={`block w-full text-left px-3 py-1.5 text-[12px] ${activeTab === id ? 'text-[var(--text)] font-medium' : 'text-[var(--text2)] hover:text-[var(--text)]'}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          </div>
         </div>
       </div>
 

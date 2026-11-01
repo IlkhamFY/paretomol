@@ -76,8 +76,11 @@ test('switches between synchronised views', async ({ page }) => {
   await page.goto('/');
   await waitForRDKit(page);
   await analyse(page, DRUGS);
-  for (const tab of [/^Table$/, /^Radar$/, /^Scaffolds$/]) {
-    await page.getByRole('button', { name: tab }).first().click();
+  await page.getByRole('tab', { name: 'Table' }).click();
+  await expect(page.locator('#root')).toContainText(/aspirin/i);
+  for (const name of ['Radar', 'Scaffolds']) {
+    await page.getByRole('button', { name: 'More' }).click();
+    await page.getByRole('menuitem', { name }).click();
     await expect(page.locator('#root')).toContainText(/aspirin/i);
   }
 });

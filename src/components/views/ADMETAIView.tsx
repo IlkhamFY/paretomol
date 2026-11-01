@@ -857,15 +857,6 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
         >
           Configure endpoint
         </button>
-        {tierState.tier === 'shared' && (
-          <button
-            onClick={() => setShowTierModal(true)}
-            className="px-2 py-1 text-[10px] text-[#5F7367] border border-[#5F7367]/40 rounded hover:bg-[#5F7367]/10 transition-colors"
-            title="Deploy your own ADMET-AI Space for unlimited predictions"
-          >
-            Get Unlimited
-          </button>
-        )}
         <div className="flex-1" />
         {predictions.size > 0 && (
           <div className="flex items-center gap-2">
@@ -929,7 +920,18 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
       {/* Configure endpoint */}
       {showConfig && (
         <div className="p-4 bg-[var(--surface)] border border-[var(--border-5)] rounded-lg space-y-3">
-          <div className="text-[11px] text-[var(--text2)] uppercase tracking-wider font-medium">Endpoint</div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[11px] text-[var(--text2)] uppercase tracking-wider font-medium">Endpoint</div>
+            {tierState.tier === 'shared' && (
+              <button
+                type="button"
+                onClick={() => setShowTierModal(true)}
+                className="text-[11px] text-[var(--text2)] hover:text-[var(--text)]"
+              >
+                Get Unlimited
+              </button>
+            )}
+          </div>
           <div className="flex gap-2">
             <input
               type="text"
@@ -977,7 +979,7 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
         </div>
       )}
 
-      {/* Category filter tabs */}
+      {predictions.size > 0 && (
       <div className="flex gap-1.5 flex-wrap">
         {CATEGORIES.map(c => (
           <button
@@ -993,6 +995,7 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
           </button>
         ))}
       </div>
+      )}
 
       {/* Applicability domain — reliability cue for the predictions */}
       {predictions.size > 0 && <ApplicabilityDomain molecules={molecules} />}
@@ -1106,18 +1109,15 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
       )}
 
       {/* No predictions yet */}
-      {predictions.size === 0 && !loading && (
+      {predictions.size === 0 && (
         <div className="flex flex-col items-center justify-center py-12 gap-3 text-[var(--text2)] text-[13px]">
-          {apiStatus === 'connected' ? (
-            <>
-              <div className="w-4 h-4 border-2 border-[#5F7367]/30 border-t-[#5F7367] rounded-full animate-spin" />
-              <span>Starting predictions...</span>
-            </>
-          ) : apiStatus === 'checking' ? (
-            <>
-              <div className="w-4 h-4 border-2 border-[var(--text2)]/20 border-t-[var(--text2)]/60 rounded-full animate-spin" />
-              <span>Connecting to ADMET-AI endpoint...</span>
-            </>
+          {apiStatus === 'connected' || apiStatus === 'checking' || loading ? (
+            <div className="w-full max-w-lg space-y-2" role="status">
+              <p className="text-[13px] text-[var(--text)]">{ADMET_WAKE_NOTE}</p>
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-8 rounded bg-[var(--surface2)]" />
+              ))}
+            </div>
           ) : apiStatus === 'error' && tierState.tier === 'personal' ? (
             <>
               <span>Your Space is sleeping. Click to wake it up.</span>

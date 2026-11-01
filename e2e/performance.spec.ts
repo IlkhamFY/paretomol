@@ -126,7 +126,7 @@ for (const n of SIZES) {
 
     // The application must remain responsive, not merely finish: switching view
     // after a large load is the interaction that would expose a frozen tab.
-    await page.getByRole('button', { name: /^Table$/i }).first().click();
+    await page.getByRole('tab', { name: /^Table$/i }).first().click();
     await expect(page.locator('#root')).toContainText(/pareto/i);
   });
 }

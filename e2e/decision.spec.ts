@@ -51,7 +51,8 @@ test('decision record uses the MPO profile and curve', async ({ page }) => {
   await page.goto('/');
   await waitForRDKit(page);
   await analyse(page, DRUGS);
-  await page.getByRole('button', { name: 'MPO', exact: true }).click();
+  await page.getByRole('button', { name: 'More' }).click();
+  await page.getByRole('menuitem', { name: 'MPO' }).click();
   await page.getByRole('button', { name: 'CNS Drug' }).click();
   await page.getByRole('button', { name: 'Sigmoid' }).click();
   const rec = await exportRecord(page, 'cns sigmoid');
@@ -82,7 +83,8 @@ test('decision record round-trips to the exact same view', async ({ page }) => {
   await waitForRDKit(page);
   await importRecord(page, b);
   const viewB = await page.locator('#root').innerText();
-  expect(viewB.replace(/Opened decision record[^\n]*/g, '')).toBe(viewA.replace(/Opened decision record[^\n]*/g, ''));
+  const calm = (s: string) => s.replace(/Opened decision record[^\n]*/g, '').replace(/Updating view…/g, '');
+  expect(calm(viewB)).toBe(calm(viewA));
   const c = await exportRecord(page, 'lowest MW pair');
   expect(strip(c)).toEqual(strip(b));
 });
