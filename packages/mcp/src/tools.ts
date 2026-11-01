@@ -1,8 +1,9 @@
 // ParetoMol MCP tools. Each tool is a plain function over @paretomol/core so the
 // same logic serves the SDK server, tests and the agent benchmark.
 import {
-  analyzeMolecule, checkInputLimits, computeParetoAndDominance, getMolValue, getProfile, listProfiles, mpoScore,
-  readFront, reviewUrl, verifyClaims, verifyDecision, DEFAULT_PARETO_OBJECTIVES, REVIEW_URL_SOFT_LIMIT,
+  analyzeInput, analyzeMolecule, checkInputLimits, computeParetoAndDominance, getMolValue, getProfile, inferObjectives,
+  listProfiles, moleculeIds, mpoScore, readFront, reviewUrl, verifyClaims, verifyDecision,
+  DEFAULT_PARETO_OBJECTIVES, REVIEW_URL_SOFT_LIMIT,
 } from '@paretomol/core';
 import type { Claim, Molecule, ParetoObjective, ResolvedProfile, ReviewInput } from '@paretomol/core';
 import { loadRDKit } from '@paretomol/core/node';
@@ -234,4 +235,32 @@ function asDecisionRecord(args: Record<string, unknown>): unknown {
   if (args.record && typeof args.record === 'object') return args.record;
   if (args.schema === 'paretomol.decision/0') return args;
   throw new ToolError('invalid_input', 'Pass a paretomol.decision/0 record as { record } or as the record itself.');
+}
+
+/** Rank a CSV, TSV or SMILES-lines string the way the CLI does, and return decision-record ids.
+ *  Quoted fields are kept intact, including commas inside a name. Repeated names become `name~2`, `name~3`, ... */
+export async function rankInput(args: Record<string, unknown>) {
+  if (typeof args.text !== 'string' || !args.text.trim()) throw new ToolError('invalid_input', 'text must be a non-empty CSV, TSV or SMILES string');
+  const RDKit = await loadRDKit();
+  const { molecules, errors, customPropNames } = analyzeInput(args.text, RDKit);
+  if (molecules.length === 0) throw new ToolError('invalid_input', 'no molecules parsed');
+  assertLimits(molecules.map((m) => ({ smiles: m.smiles })), args);
+  const objectives = asObjectives(args.objectives, [...DEFAULT_PARETO_OBJECTIVES, ...inferObjectives(customPropNames)]);
+  computeParetoAndDominance(molecules, objectives);
+  const ids = moleculeIds(molecules.map((m) => m.name));
+  const rows = molecules.map((m, i) => ({
+    id: ids[i],
+    name: m.name,
+    smiles: m.smiles,
+    paretoRank: m.paretoRank,
+    props: m.customProps,
+    ...(m.missingObjectives?.length ? { missingObjectives: m.missingObjectives } : {}),
+  }));
+  return {
+    objectives,
+    errors,
+    ids,
+    front: rows.filter((r) => r.paretoRank === 1).map((r) => r.id),
+    molecules: rows,
+  };
 }

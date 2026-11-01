@@ -12,7 +12,7 @@ import { ToolError } from './errors.js';
 import { REVIEW_UI_URI, exportReviewDecision, reviewShortlist } from './reviewTool.js';
 import { limitShape, maxMoleculesField, maxSmilesLengthField, moleculesField, objectivesField } from './schemas.js';
 import {
-  applyProfile, explainTradeoff, listProfilesTool, openReviewUrl, paretoFront,
+  applyProfile, explainTradeoff, listProfilesTool, openReviewUrl, paretoFront, rankInput,
   scoreMolecules, verifyClaimsTool, verifyDecisionTool,
 } from './tools.js';
 import { z } from 'zod';
@@ -144,6 +144,15 @@ export function createServer(): McpServer {
     description: `List versioned scoring profiles with their content hashes and objectives. Profiles: ${profiles}.`,
     inputSchema: z.object({}),
   }, async () => run(() => listProfilesTool()));
+
+  server.registerTool('rank_input', {
+    description: 'Parse a CSV, TSV or "SMILES name" text (quoted fields kept intact) and return Pareto ranks plus decision-record ids. A repeated name is disambiguated as name~2, name~3, in input order.',
+    inputSchema: {
+      text: z.string().describe('CSV, TSV or SMILES lines'),
+      objectives: objectivesField.optional(),
+      ...limitShape,
+    },
+  }, async (args) => run(() => rankInput(args as Record<string, unknown>)));
 
   server.registerTool('verify_decision', {
     description: 'Parse a paretomol.decision/0 record, check its hashes, and recompute the Pareto front and MPO with RDKit. Returns a diff. ok is false when anything does not match.',

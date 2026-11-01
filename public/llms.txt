@@ -33,7 +33,7 @@ Use ParetoMol when you need to compare molecules on several objectives at once (
 ## MCP server (@paretomol/mcp, command `paretomol-mcp`)
 
 - Not on npm. From a clone: `npm install && npm run build`, then `npx paretomol-mcp` (stdio, official TypeScript SDK). Claude Desktop and Cursor: `{ "command": "npx", "args": ["paretomol-mcp"], "cwd": "/path/to/paretomol" }`.
-- Tools: `score_molecules`, `pareto_front` (edges only if `edges` is true), `apply_profile`, `list_profiles`, `explain_tradeoff`, `open_review_url`, `verify_claims`, `verify_decision`. Caps: 2000 molecules and 10000 characters of SMILES unless `maxMolecules` or `maxSmilesLength` is set. Errors are `{ code, message }`.
+- Tools: `score_molecules`, `pareto_front` (edges only if `edges` is true), `apply_profile`, `list_profiles`, `explain_tradeoff`, `open_review_url`, `verify_claims`, `verify_decision`, `rank_input`. Caps: 2000 molecules and 10000 characters of SMILES unless `maxMolecules` or `maxSmilesLength` is set. Errors are `{ code, message }`.
 - `open_review_url` refuses a link over ~32000 characters (`review_url_too_long`) and does not return the URL. Write a decision record instead.
 - Experimental: `review_shortlist` is an MCP App (`ui://paretomol/review.html`) with structures, Pareto rank, Accept or Reject, and an export of the same decision record as the web app. Without MCP Apps, use `fallbackUrl`. Spec: [docs/mcp.md](https://github.com/IlkhamFY/paretomol/blob/main/docs/mcp.md).
 

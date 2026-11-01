@@ -11,6 +11,9 @@ All notable changes to ParetoMol. Dates are release dates; unreleased work is li
 - `list_profiles` and `verify_decision` on the MCP server. `verifyDecision` in `@paretomol/core`, and `paretomol verify-decision`, recompute a decision record's front and MPO.
 - Molecule calls are capped at 2,000 molecules (the web app's cap) and 10,000 characters of SMILES, with `maxMolecules` / `maxSmilesLength` overrides and stable error codes.
 - `loadRDKit` lives at `@paretomol/core/node`. The MCP server no longer depends on the CLI.
+- Agent benchmark (`benchmarks/agents`, schema `paretomol.agentbench/1`): 27 tasks on a 12-molecule ChEMBL_37 extract (CC BY-SA 3.0). Twenty answers are regenerated from `@paretomol/core`. Seven are independent: RDKit Python 2026.03.4 descriptors, a hand-checked Pareto front, quoted CSV, duplicate ids, and a tampered decision record that must fail verification. `node benchmarks/agents/mcp-client.mjs` runs every task through the stdio server.
+- MCP tool `rank_input` (CSV or SMILES text, quoted fields kept).
+- CSV parsing keeps quoted fields, including commas inside a name.
 - `@paretomol/core`: headless TypeScript core (Pareto ranking, objective inference, MPO, QED, filters, similarity, SHA-256) shared by the app, CLI and MCP server.
 - Versioned scoring profiles `oral@1`, `cns@1`, `leadlike@1`, `lipinski@1`, `custom@1`, each with a pinned `sha256:` hash.
 - Decision record (`paretomol.decision/0`): Export > Decision record (JSON) and Open record. See docs/decision-record.md.

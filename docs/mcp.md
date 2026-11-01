@@ -56,6 +56,7 @@ Every call that takes molecules is capped at 2,000 molecules, the same cap the w
 | `open_review_url` | A `https://paretomol.com/#r=` link (see review-url.md). Over the size limit the tool errors with `review_url_too_long` and tells the agent to write a decision record file. |
 | `verify_claims` | Claimed descriptor values and objective directions (see verify.md). |
 | `verify_decision` | A `paretomol.decision/0` record: hashes, then a recomputed front and MPO (see decision-record.md). Same function as `paretomol verify-decision`. |
+| `rank_input` | Parses CSV, TSV or SMILES text, including quoted fields, and returns Pareto ranks and decision-record ids (`name`, then `name~2` for a repeated name). |
 | `review_shortlist` | Experimental MCP App. See below. |
 
 Successful results are JSON text plus `structuredContent`.

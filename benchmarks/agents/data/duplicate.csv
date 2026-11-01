@@ -1,0 +1,3 @@
+smiles,name,chembl_id,potency
+COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1,gefitinib,CHEMBL939,6
+C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1,gefitinib,CHEMBL553,8

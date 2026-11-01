@@ -1,0 +1,8 @@
+# Pinned RDKit for the independent descriptor ground truth.
+# MolWt, MolLogP and TPSA are what benchmarks/agents/data/rdkit_python.json records.
+#
+#   pip install -r benchmarks/agents/build/requirements.txt
+#   python3 benchmarks/agents/build/rdkit_descriptors.py
+#   python3 benchmarks/agents/build/rdkit_descriptors.py --check
+
+rdkit==2026.03.4

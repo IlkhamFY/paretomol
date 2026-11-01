@@ -47,7 +47,7 @@ describe('paretomol mcp', () => {
     const names = listed.tools.map((t) => t.name).sort();
     expect(names).toEqual([
       'apply_profile', 'explain_tradeoff', 'export_review_decision', 'list_profiles',
-      'open_review_url', 'pareto_front', 'review_shortlist', 'score_molecules',
+      'open_review_url', 'pareto_front', 'rank_input', 'review_shortlist', 'score_molecules',
       'verify_claims', 'verify_decision',
     ]);
     const review = listed.tools.find((t) => t.name === 'review_shortlist');
@@ -213,7 +213,7 @@ describe('paretomol mcp', () => {
     const byId = Object.fromEntries(lines.map((l) => [l.id, l]));
     expect(byId[1].result.serverInfo.name).toBe('paretomol');
     expect(byId[1].result.protocolVersion).toBe('2025-06-18');
-    expect(byId[2].result.tools.length).toBeGreaterThanOrEqual(9);
+    expect(byId[2].result.tools.length).toBeGreaterThanOrEqual(11);
     expect(byId[3].result.structuredContent.molecules[0].descriptors.MW).toBeCloseTo(46.069, 2);
   }, 60000);
 });

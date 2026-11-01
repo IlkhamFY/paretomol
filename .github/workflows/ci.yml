@@ -24,8 +24,15 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      # Descriptor ground truth for the agent benchmark is RDKit Python, pinned
+      # separately from the RDKit.js the tools use.
+      - run: pip install -r benchmarks/agents/build/requirements.txt
       # `npm run build` is `tsc -b && vite build`, so this gates on typechecking
-      # as well as on the bundle actually building.
+      # as well as on the bundle actually building. The MCP client in the unit
+      # tests speaks to the built stdio server.
       - name: Typecheck and build
         run: npm run build
       - name: Unit tests

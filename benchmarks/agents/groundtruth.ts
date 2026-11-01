@@ -5,6 +5,8 @@ import { TASKS, type Task } from './tasks';
 export type Answer = string | number | string[];
 
 export async function truthFor(t: Task): Promise<Answer> {
+  // Independent tasks carry their own expected value. Core is not asked to invent it.
+  if (t.answer !== undefined) return t.answer;
   const a = { molecules: t.molecules, objectives: t.objectives, profile: t.profile } as Record<string, unknown>;
   switch (t.truth) {
     case 'front': case 'rank2': case 'unranked': case 'front_size': {
