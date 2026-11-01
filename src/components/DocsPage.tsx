@@ -192,7 +192,7 @@ CC(=O)Oc1ccccc1C(=O)O,aspirin,45.2,12.1`}</pre>
       {
         id: 'tab-scaffold',
         q: 'Scaffolds — how are scaffolds grouped?',
-        a: <p>The Scaffolds tab uses Bemis-Murcko scaffold decomposition (via RDKit) to group your molecules by core scaffold. Each scaffold shows the member count, average properties, and the fraction of Pareto-optimal members. Useful for quickly identifying which chemotypes dominate your Pareto front.</p>,
+        a: <p>Scaffolds groups molecules by a Bemis-Murcko scaffold: rings, the atoms that link the rings, and exocyclic double bonds. Side chains are removed. Acyclic molecules stay in a no-ring group. Generic draws the same skeleton with every atom as carbon and every bond single. Pairs lists single-cut matched molecular pairs and the change in properties and activity. Cliffs scores an activity column only.</p>,
       },
       {
         id: 'tab-chemspace',
@@ -218,7 +218,7 @@ CC(=O)Oc1ccccc1C(=O)O,aspirin,45.2,12.1`}</pre>
       {
         id: 'tab-cliffs',
         q: 'Activity Cliffs — what does this show?',
-        a: <p>Activity Cliffs identifies pairs of structurally similar molecules (default Tanimoto ≥ 0.3, adjustable via slider) that have large differences in a selected property (e.g. LogP, TPSA, or any custom property). These pairs represent SAR leverage points — small structural changes with large property consequences. Pairs are visualized as a network: nodes are molecules, edges connect similar pairs, edge thickness encodes the property difference.</p>,
+        a: <p>Cliffs are computed only after you import an activity column such as pIC50, pKi, or pChEMBL. The score is SALI: the absolute activity change divided by one minus the Morgan similarity. The similarity threshold is shown and can be moved. Pairs below it, and pairs with the same fingerprint, are left out. Physicochemical properties are not used as the cliff column.</p>,
       },
       {
         id: 'tab-compare',

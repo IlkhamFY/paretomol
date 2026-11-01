@@ -1,4 +1,6 @@
 import type { Molecule } from './types.js';
+import { tanimotoPacked } from './similarity.js';
+import { isActivityColumn } from './assayValue.js';
 
 /** Default cliff-score property set (physicochemical profile). */
 export const DEFAULT_CLIFF_KEYS: string[] = ['MW', 'LogP', 'HBD', 'HBA', 'TPSA', 'RotBonds'];
@@ -89,4 +91,79 @@ export function computeActivityCliffs(
 
   cliffs.sort((a, b) => b.cliffScore - a.cliffScore);
   return cliffs.slice(0, topN);
+}
+
+/** Pairs at or above this Morgan Tanimoto are eligible for a SALI cliff.
+ *  0.30 matches radius-2 fingerprints on small analogs. Raise it for a tighter series. */
+export const DEFAULT_SALI_SIMILARITY = 0.3;
+
+export interface SaliCliff {
+  i: number;
+  j: number;
+  similarity: number;
+  /** Activity of j minus activity of i. i is the lower index. */
+  activityDelta: number;
+  /** |Δactivity| / (1 − similarity). Similarity of 1 is omitted. */
+  sali: number;
+}
+
+/**
+ * Activity cliffs on one activity column.
+ *
+ * SALI (Guha, Van Drie) is the activity change divided by how far the
+ * structures are from identical. `similarityThreshold` drops pairs below it.
+ * A similarity of 1 is omitted because the denominator would be zero.
+ * Keys that are not activity columns (MW, LogP, predicted ADMET) return nothing.
+ */
+type CliffMol = { fpPacked: Uint32Array; customProps?: Record<string, number>; props?: Molecule['props'] };
+
+function activityValue(m: CliffMol, activityKey: string): number | undefined {
+  const builtIn = m.props ? (m.props as unknown as Record<string, number | undefined>)[activityKey] : undefined;
+  if (typeof builtIn === 'number' && isFinite(builtIn)) return builtIn;
+  const custom = m.customProps?.[activityKey];
+  return typeof custom === 'number' && isFinite(custom) ? custom : undefined;
+}
+
+/** SALI pairs for rows i in [iStart, iEnd). Unsorted. Used to score a large set in chunks. */
+export function saliPairsInRange(
+  molecules: readonly CliffMol[],
+  activityKey: string,
+  similarityThreshold: number,
+  iStart: number,
+  iEnd: number,
+): SaliCliff[] {
+  if (!isActivityColumn(activityKey)) return [];
+  const cliffs: SaliCliff[] = [];
+  const end = Math.min(iEnd, molecules.length);
+  for (let i = Math.max(0, iStart); i < end; i++) {
+    const ai = activityValue(molecules[i], activityKey);
+    if (ai === undefined) continue;
+    for (let j = i + 1; j < molecules.length; j++) {
+      const aj = activityValue(molecules[j], activityKey);
+      if (aj === undefined) continue;
+      const similarity = tanimotoPacked(molecules[i].fpPacked, molecules[j].fpPacked);
+      if (similarity < similarityThreshold || similarity >= 0.999) continue;
+      const activityDelta = aj - ai;
+      if (activityDelta === 0) continue;
+      cliffs.push({
+        i,
+        j,
+        similarity,
+        activityDelta,
+        sali: Math.abs(activityDelta) / (1 - similarity),
+      });
+    }
+  }
+  return cliffs;
+}
+
+export function computeSaliCliffs(
+  molecules: readonly CliffMol[],
+  activityKey: string,
+  similarityThreshold = DEFAULT_SALI_SIMILARITY,
+  limit = 50,
+): SaliCliff[] {
+  const cliffs = saliPairsInRange(molecules, activityKey, similarityThreshold, 0, molecules.length);
+  cliffs.sort((a, b) => b.sali - a.sali);
+  return cliffs.slice(0, limit);
 }

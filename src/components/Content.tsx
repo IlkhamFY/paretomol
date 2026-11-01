@@ -17,7 +17,6 @@ const RadarView = lazy(() => import('./views/RadarView'));
 const TableView = lazy(() => import('./views/TableView'));
 const EggView = lazy(() => import('./views/EggView'));
 const SimilarityMatrixView = lazy(() => import('./views/SimilarityMatrixView'));
-const ActivityCliffsView = lazy(() => import('./views/ActivityCliffsView'));
 const MPOView = lazy(() => import('./views/MPOView'));
 const ScaffoldView = lazy(() => import('./views/ScaffoldView'));
 const ChemSpaceView = lazy(() => import('./views/ChemSpaceView'));
@@ -279,11 +278,11 @@ export default function Content({ molecules, compareIndices, selectedMolIdx, set
           {activeTab === 'table' && <TableView molecules={deferredMolecules} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} customPropNames={customPropNames} formulaColumns={formulaColumns} setFormulaColumns={setFormulaColumns} />}
           {activeTab === 'makeability' && <MakeabilityView molecules={deferredMolecules} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} onComputeScores={onComputeMakeability} onCheckBuyability={onCheckBuyability} onCheckAvailability={onCheckAvailability} onExportScores={onExportScores} />}
           {activeTab === 'radar' && <RadarView molecules={deferredMolecules} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} shortlist={shortlist} />}
-          {activeTab === 'scaffolds' && <ScaffoldView molecules={deferredMolecules} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} />}
+          {activeTab === 'scaffolds' && <ScaffoldView molecules={deferredMolecules} customPropNames={customPropNames} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} section="scaffolds" onComparePair={setCompareIndices ? (i, j) => { setCompareIndices([i, j]); setActiveTab('compare'); } : undefined} />}
           {activeTab === 'chemspace' && <ChemSpaceView molecules={deferredMolecules} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} />}
           {activeTab === 'scoring' && <ScoringView molecules={deferredMolecules} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} scoringPreset={scoringPreset} onScoringPreset={onScoringPreset} />}
           {activeTab === 'mpo' && <MPOView molecules={deferredMolecules} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} profileRef={scoringProfileRef} onProfileRef={onScoringProfileRef} curveType={mpoCurve} onCurveType={onMpoCurve} />}
-          {activeTab === 'cliffs' && <ActivityCliffsView molecules={deferredMolecules} onComparePair={setCompareIndices ? (i, j) => { setCompareIndices([i, j]); setActiveTab('compare'); } : undefined} />}
+          {activeTab === 'cliffs' && <ScaffoldView molecules={deferredMolecules} customPropNames={customPropNames} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} section="cliffs" onComparePair={setCompareIndices ? (i, j) => { setCompareIndices([i, j]); setActiveTab('compare'); } : undefined} />}
           {activeTab === 'compare' && <CompareView molecules={deferredMolecules} compareIndices={compareIndices} setCompareIndices={setCompareIndices} />}
           {activeTab === 'parallel' && <ParallelView molecules={deferredMolecules} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} />}
           {activeTab === 'similarity' && <SimilarityMatrixView molecules={deferredMolecules} onComparePair={setCompareIndices ? (i, j) => { setCompareIndices([i, j]); setActiveTab('compare'); } : undefined} />}

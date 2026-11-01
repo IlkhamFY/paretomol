@@ -10,6 +10,7 @@ export * from './qedAlerts.js';
 export * from './filters.js';
 export * from './similarity.js';
 export * from './cliffs.js';
+export * from './series.js';
 export * from './synth.js';
 export * from './assayValue.js';
 export * from './stats.js';

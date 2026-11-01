@@ -32,6 +32,7 @@ All notable changes to ParetoMol. Dates are release dates; unreleased work is li
 - ADMET Space warm-up request on page load to cut cold-start time.
 
 ### Changed
+- Scaffolds group molecules by a Bemis-Murcko scaffold, with a generic carbon skeleton as an option. Acyclic molecules stay in a no-ring group. Matched pairs are single cuts, with the property and activity change on each row. Activity cliffs use an activity column only. The score is SALI, and the similarity threshold is shown.
 - A robust front ignores gaps of 0.05 on predicted probabilities. The plot says that 0.05 is the gap from the paper, not a confidence interval for one compound. The ADMET table says the same next to the probabilities.
 - An activity column with units (for example IC50 in uM) is stored in nM for display and as a p-scale column for ranking. The status line says which conversion was used. A column with mixed units is not used as an objective. ChEMBL columns are named from the standard type and units, and pChEMBL stays the objective.
 - Light mode uses a green and a red that stay readable. Molecule names are buttons, the chart can take keyboard focus, and arrow keys move the selection only from that list or chart. On a phone the toast sits under the header and the AI button stays off the plot. Filter badges use full words. Cite stays in the header.

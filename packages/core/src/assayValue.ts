@@ -126,6 +126,11 @@ export interface ActivityHeader {
   alreadyP: boolean;
 }
 
+/** True for an activity column this importer knows, including the stored names (`pIC50`, `IC50_nM`, `pChEMBL`). */
+export function isActivityColumn(name: string): boolean {
+  return activityHeader(name) !== null;
+}
+
 /** IC50, Ki, Kd and the p-scaled forms. Other headers are left alone. */
 export function activityHeader(header: string): ActivityHeader | null {
   const compact = header.trim().replace(/[^a-z0-9]+/gi, '').toLowerCase();

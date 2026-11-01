@@ -83,6 +83,7 @@ test('switches between synchronised views', async ({ page }) => {
     await page.getByRole('menuitem', { name }).click();
     await expect(page.locator('#root')).toContainText(/aspirin/i);
   }
+  await expect(page.getByText(/\d+ Murcko scaffolds? from/i)).toBeVisible();
 });
 
 test('survives an unreachable prediction service', async ({ page }) => {

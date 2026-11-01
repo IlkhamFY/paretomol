@@ -1,961 +1,477 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import type { Molecule } from '@paretomol/core';
-import { initRDKitCache, getMolSvg } from '../../utils/chem';
+import React, { useEffect, useMemo, useState } from 'react';
+import type { Molecule, MmpCut, MmpRow, SaliCliff } from '@paretomol/core';
+import {
+  DEFAULT_SALI_SIMILARITY,
+  MMP_MAX_R_ATOMS,
+  activityHeader,
+  isActivityColumn,
+  murckoScaffold,
+  pairCuts,
+  saliPairsInRange,
+  singleCuts,
+} from '@paretomol/core';
+import { getMolSvg, initRDKitCache } from '../../utils/chem';
 import { useTheme } from '../../contexts/ThemeContext';
-import { mannWhitneyU, sigStars } from '@paretomol/core';
-import { withCitationColumn } from '../../utils/export';
-import { track } from '../../lib/track';
-import { PRIMARY_ADMET_KEYS, ADMET_AI_PROPERTY_META, formatAdmetAIValue, getAdmetAICategoryColor } from '../../utils/admetAI';
 
-/* ═══════════════════════════════════════════════════════
-   Types
-   ═══════════════════════════════════════════════════════ */
-
-interface ScaffoldInfo {
-  smiles: string;
-  svg: string;
-  count: number;
-  molIndices: number[];
-  avgMW: number;
-  avgLogP: number;
-  avgTPSA: number;
-  paretoFraction: number;
-}
-
-interface EndpointResult {
-  endpoint: string;
-  scaffoldMean: number;
-  restMean: number;
-  delta: number;
-  p: number;
-  stars: string;
-  fracAbove: number;
-  isLiability: boolean;
-  category: string;
-}
-
-interface ScaffoldReport {
-  scaffold: ScaffoldInfo;
-  endpoints: EndpointResult[];
-  liabilityCount: number;
-  topLiabilities: EndpointResult[];
-}
+type Section = 'scaffolds' | 'pairs' | 'cliffs';
 
 interface Props {
   molecules: Molecule[];
+  customPropNames?: string[];
   selectedMolIdx?: number | null;
   setSelectedMolIdx?: (idx: number | null) => void;
+  section?: Section;
+  onComparePair?: (i: number, j: number) => void;
 }
 
-type SubTab = 'structure' | 'safety' | 'detail';
+interface Assigned {
+  index: number;
+  scaffold: string;
+  generic: string;
+}
 
-/* ═══════════════════════════════════════════════════════
-   Constants
-   ═══════════════════════════════════════════════════════ */
+interface Group {
+  smiles: string;
+  indices: number[];
+  avgMW: number;
+  avgLogP: number;
+  paretoFraction: number;
+}
 
-const SUB_TABS: { id: SubTab; label: string }[] = [
-  { id: 'structure', label: 'Structure' },
-  { id: 'safety', label: 'Safety' },
-  { id: 'detail', label: 'Detail' },
-];
+const scaffoldCache = new Map<string, Assigned[]>();
+const cutCache = new Map<string, MmpCut[]>();
 
-const HEATMAP_KEYS = [
-  'hERG', 'AMES', 'DILI', 'ClinTox', 'NR-AhR',
-  'BBB_Martins', 'CYP3A4_Veith', 'CYP1A2_Veith',
-  'Pgp_Broccatelli', 'HIA_Hou',
-];
+function seriesKey(molecules: Molecule[]): string {
+  let key = String(molecules.length);
+  for (const m of molecules) key += '\n' + m.smiles;
+  return key;
+}
 
-const HEATMAP_SHORT: Record<string, string> = {
-  hERG: 'hERG', AMES: 'Ames', DILI: 'DILI', ClinTox: 'ClinTox',
-  'NR-AhR': 'AhR', 'BBB_Martins': 'BBB', 'CYP3A4_Veith': 'CYP3A4',
-  'CYP1A2_Veith': 'CYP1A2', 'Pgp_Broccatelli': 'Pgp', 'HIA_Hou': 'HIA',
-};
-
-/* ═══════════════════════════════════════════════════════
-   SVG helpers
-   ═══════════════════════════════════════════════════════ */
-
-function themeSvg(svg: string): string {
-  const cs = getComputedStyle(document.documentElement);
-  const stroke = cs.getPropertyValue('--mol-stroke').trim() || '#E8E6E3';
-  const isDark = document.documentElement.classList.contains('dark');
-  let s = svg
-    .replace(/fill:#FFFFFF/g, 'fill:transparent')
-    .replace(/fill:#ffffff/g, 'fill:transparent')
-    .replace(/fill:white/gi, 'fill:transparent')
-    .replace(/fill:#000000/g, `fill:${stroke}`)
-    .replace(/stroke:#000000/g, `stroke:${stroke}`)
-    .replace(/<rect[^>]*style=['"][^'"]*fill:\s*(white|#FFFFFF)[^'"]*['"][^>]*>/gi, (m) =>
-      m.replace(/fill:\s*(white|#FFFFFF)/i, 'fill:transparent')
-    );
-  if (isDark) {
-    s = s.replace(/fill:#0000FF/gi, 'fill:#809FFF')
-      .replace(/fill:#FF0000/gi, 'fill:#FF8A80')
-      .replace(/fill:#00CC00/gi, 'fill:#69DB7C')
-      .replace(/fill:#33CCCC/gi, 'fill:#66E0E0')
-      .replace(/fill:#B2B200/gi, 'fill:#E0D64A');
+function activityChoices(names: string[], molecules: Molecule[]): string[] {
+  const found = new Set(names);
+  for (const m of molecules) {
+    for (const k of Object.keys(m.customProps ?? {})) found.add(k);
   }
-  return s;
+  const keys = [...found].filter((k) => isActivityColumn(k));
+  const pScaled = keys.filter((k) => activityHeader(k)?.alreadyP);
+  return (pScaled.length ? pScaled : keys).sort();
 }
 
 function scalableSvg(svg: string): string {
-  const wMatch = svg.match(/width='(\d+)px'/);
-  const hMatch = svg.match(/height='(\d+)px'/);
-  const w = wMatch ? wMatch[1] : '200';
-  const h = hMatch ? hMatch[1] : '150';
+  const w = svg.match(/width=['"](\d+)/)?.[1] ?? '200';
+  const h = svg.match(/height=['"](\d+)/)?.[1] ?? '150';
   return svg
-    .replace(/width='[^']*'/, `width='100%'`)
-    .replace(/height='[^']*'/, `height='100%'`)
+    .replace(/width=['"][^'"]*['"]/, "width='100%'")
+    .replace(/height=['"][^'"]*['"]/, "height='100%'")
     .replace(/<svg /, `<svg viewBox='0 0 ${w} ${h}' `);
 }
 
-function getThemedScaffoldSvg(smiles: string, RDKit: any): string {
-  try {
-    const mol = RDKit.get_mol(smiles);
-    if (mol && mol.is_valid()) {
-      const raw = mol.get_svg_with_highlights(
-        JSON.stringify({ width: 200, height: 150, bondLineWidth: 1.5, backgroundColour: [0, 0, 0, 0] })
-      );
-      mol.delete();
-      return scalableSvg(themeSvg(raw));
-    }
-  } catch { /* ignore */ }
-  return '';
-}
-
-/* ═══════════════════════════════════════════════════════
-   Murcko scaffold extraction
-   ═══════════════════════════════════════════════════════ */
-
-async function extractScaffolds(molecules: Molecule[]): Promise<ScaffoldInfo[]> {
-  const RDKit = await initRDKitCache();
-  const scaffoldMap = new Map<string, number[]>();
-
-  for (let i = 0; i < molecules.length; i++) {
-    const { smiles } = molecules[i];
-    let scaffoldSmiles = '';
-
-    try {
-      const mol = RDKit.get_mol(smiles);
-      if (mol && mol.is_valid()) {
-        const desc = JSON.parse(mol.get_descriptors());
-        const numRings = desc.NumRings || 0;
-
-        const ringQ = RDKit.get_qmol('[R]');
-        let ringAtoms = new Set<number>();
-        if (ringQ) {
-          try {
-            const ringMatches = JSON.parse(mol.get_substruct_matches(ringQ));
-            ringAtoms = new Set(ringMatches.map((m: { atoms: number[] }) => m.atoms[0]));
-          } catch { /* parse failed */ }
-          ringQ.delete();
-        }
-
-        if (ringAtoms.size === 0 && numRings > 0) {
-          for (const pattern of ['[r]', '[R1]', '[x2]']) {
-            const q = RDKit.get_qmol(pattern);
-            if (q) {
-              try {
-                const mm = JSON.parse(mol.get_substruct_matches(q));
-                q.delete();
-                if (mm.length > 0) { ringAtoms = new Set(mm.map((m: { atoms: number[] }) => m.atoms[0])); break; }
-              } catch { q.delete(); }
-            }
-          }
-        }
-
-        if (ringAtoms.size > 0) {
-          const molblock = mol.get_molblock();
-          const lines = molblock.split('\n');
-          const countsLine = lines[3];
-          const nAtoms = parseInt(countsLine.substring(0, 3).trim());
-          const nBonds = parseInt(countsLine.substring(3, 6).trim());
-          const bondStart = 4 + nAtoms;
-          const adj: Set<number>[] = Array.from({ length: nAtoms }, () => new Set());
-          for (let b = 0; b < nBonds; b++) {
-            const bline = lines[bondStart + b];
-            const a1 = parseInt(bline.substring(0, 3).trim()) - 1;
-            const a2 = parseInt(bline.substring(3, 6).trim()) - 1;
-            adj[a1].add(a2); adj[a2].add(a1);
-          }
-
-          // Iterative pruning: remove leaf non-ring atoms
-          const alive = new Set<number>();
-          for (let a = 0; a < nAtoms; a++) alive.add(a);
-          let changed = true;
-          while (changed) {
-            changed = false;
-            for (const a of alive) {
-              if (ringAtoms.has(a)) continue;
-              let deg = 0;
-              for (const nb of adj[a]) { if (alive.has(nb)) deg++; }
-              if (deg <= 1) { alive.delete(a); changed = true; }
-            }
-          }
-
-          if (alive.size > 0 && alive.size < nAtoms) {
-            const oldToNew = new Map<number, number>();
-            let newIdx = 0;
-            for (let a = 0; a < nAtoms; a++) { if (alive.has(a)) { oldToNew.set(a, newIdx); newIdx++; } }
-            const newAtomLines = Array.from({ length: nAtoms }, (_, a) => a).filter(a => alive.has(a)).map(a => lines[4 + a]);
-            const newBondLines: string[] = [];
-            for (let b = 0; b < nBonds; b++) {
-              const bline = lines[bondStart + b];
-              const a1 = parseInt(bline.substring(0, 3).trim()) - 1;
-              const a2 = parseInt(bline.substring(3, 6).trim()) - 1;
-              if (alive.has(a1) && alive.has(a2)) {
-                newBondLines.push(String(oldToNew.get(a1)! + 1).padStart(3) + String(oldToNew.get(a2)! + 1).padStart(3) + bline.substring(6));
-              }
-            }
-            const newCounts = String(newIdx).padStart(3) + String(newBondLines.length).padStart(3) + countsLine.substring(6);
-            const newMolblock = [lines[0], lines[1], lines[2], newCounts, ...newAtomLines, ...newBondLines, 'M  END', ''].join('\n');
-            const scaffMol = RDKit.get_mol(newMolblock);
-            if (scaffMol && scaffMol.is_valid()) { scaffoldSmiles = scaffMol.get_smiles(); scaffMol.delete(); }
-          } else if (alive.size === nAtoms) {
-            scaffoldSmiles = mol.get_smiles();
-          }
-        }
-        mol.delete();
-      }
-    } catch { /* acyclic */ }
-
-    if (!scaffoldMap.has(scaffoldSmiles)) scaffoldMap.set(scaffoldSmiles, []);
-    scaffoldMap.get(scaffoldSmiles)!.push(i);
+function Structure({ smiles }: { smiles: string }) {
+  if (!smiles) {
+    return <div className="text-[12px] text-[var(--text2)]">No ring</div>;
   }
-
-  const infos: ScaffoldInfo[] = [];
-  for (const [smiles, indices] of scaffoldMap) {
-    const mols = indices.map(i => molecules[i]);
-    const avgMW = mols.reduce((s, m) => s + m.props.MW, 0) / mols.length;
-    const avgLogP = mols.reduce((s, m) => s + m.props.LogP, 0) / mols.length;
-    const avgTPSA = mols.reduce((s, m) => s + m.props.TPSA, 0) / mols.length;
-    const paretoFraction = mols.filter(m => m.paretoRank === 1).length / mols.length;
-    const svg = smiles.length > 0 ? getThemedScaffoldSvg(smiles, RDKit) : '';
-    infos.push({ smiles, svg, count: indices.length, molIndices: indices, avgMW, avgLogP, avgTPSA, paretoFraction });
-  }
-  infos.sort((a, b) => b.count - a.count);
-  return infos.slice(0, 30);
+  const svg = getMolSvg(smiles);
+  if (!svg) return <div className="text-[11px] font-mono text-[var(--text2)] break-all">{smiles}</div>;
+  return <span className="block w-full h-full" dangerouslySetInnerHTML={{ __html: scalableSvg(svg) }} />;
 }
 
-/* ═══════════════════════════════════════════════════════
-   Helpers
-   ═══════════════════════════════════════════════════════ */
-
-function getVal(mol: Molecule, ep: string): number | null {
-  const v = mol.customProps[ep];
-  return typeof v === 'number' ? v : null;
+function fmt(n: number): string {
+  const abs = Math.abs(n);
+  const digits = abs >= 100 ? 0 : abs >= 10 ? 1 : 2;
+  const text = n.toFixed(digits);
+  return n > 0 ? `+${text}` : text;
 }
 
-function DeltaBar({ value, max }: { value: number; max: number }) {
-  const pct = max > 0 ? Math.min(Math.abs(value) / max, 1) * 100 : 0;
-  const isPositive = value > 0;
+function Toggle({ pressed, onClick, children }: { pressed: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <div className="flex-1 h-[3px] bg-[var(--border-5)] rounded-full overflow-hidden relative">
-      <div
-        className="absolute top-0 h-full rounded-full transition-all"
-        style={{
-          width: `${pct}%`,
-          left: isPositive ? '50%' : `${50 - pct}%`,
-          backgroundColor: isPositive ? '#ef4444' : '#22c55e',
-          opacity: 0.7,
-        }}
-      />
-      <div className="absolute top-0 left-1/2 w-px h-full bg-[var(--border-20)]" />
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════
-   MolCard — reusable compound card
-   ═══════════════════════════════════════════════════════ */
-
-function MolCard({ mol, isSelected, onClick }: {
-  mol: Molecule; isSelected: boolean; onClick: () => void;
-}) {
-  const svg = getMolSvg(mol.smiles);
-  const themed = svg ? scalableSvg(themeSvg(svg)) : null;
-  return (
-    <div
+    <button
+      type="button"
+      aria-pressed={pressed}
       onClick={onClick}
-      className={`flex items-center gap-2.5 p-2 rounded-md cursor-pointer border transition-colors ${
-        isSelected
-          ? 'bg-[#5F7367]/10 border-[#5F7367]/30'
-          : 'bg-[var(--bg)] border-[var(--border-5)] hover:border-[var(--border-10)]'
-      }`}
+      className={pressed ? 'text-[var(--text)] font-medium' : 'text-[var(--text2)] hover:text-[var(--text)]'}
     >
-      <div className="shrink-0 w-[48px] h-[36px] rounded overflow-hidden border border-[var(--border-5)] bg-[var(--surface)] flex items-center justify-center">
-        {themed
-          ? <span className="block w-full h-full" dangerouslySetInnerHTML={{ __html: themed }} style={{ lineHeight: 0 }} />
-          : <span className="text-[8px] text-[var(--text2)]">?</span>
-        }
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] font-medium text-[var(--text)] truncate">{mol.name}</span>
-          {mol.paretoRank === 1 && (
-            <span className="shrink-0 text-[8px] font-medium text-[#22c55e] bg-[#22c55e]/10 px-1 py-0.5 rounded">P</span>
-          )}
-        </div>
-        <div className="text-[9px] text-[var(--text2)] mt-0.5">
-          MW {mol.props.MW.toFixed(0)} / LogP {mol.props.LogP.toFixed(1)} / TPSA {mol.props.TPSA.toFixed(0)}
-        </div>
-      </div>
-    </div>
+      {children}
+    </button>
   );
 }
 
-/* ═══════════════════════════════════════════════════════
-   Main Component
-   ═══════════════════════════════════════════════════════ */
-
-function ScaffoldView({ molecules, selectedMolIdx, setSelectedMolIdx }: Props) {
-  const { themeVersion } = useTheme();
-  const [scaffolds, setScaffolds] = useState<ScaffoldInfo[]>([]);
-  const [loading, setLoading] = useState(false);
+function ScaffoldView({
+  molecules,
+  customPropNames = [],
+  selectedMolIdx,
+  setSelectedMolIdx,
+  section: initialSection = 'scaffolds',
+  onComparePair,
+}: Props) {
+  useTheme();
+  const [section, setSection] = useState<Section>(initialSection);
+  const [generic, setGeneric] = useState(false);
+  const [assigned, setAssigned] = useState<Assigned[] | null>(null);
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [selectedScaffold, setSelectedScaffold] = useState<string | null>(null);
-  const [subTab, setSubTab] = useState<SubTab>('structure');
+  const [selected, setSelected] = useState<string | null>(null);
+  const [cutState, setCutState] = useState<{ key: string; cuts: MmpCut[] } | null>(null);
+  const [cutProgress, setCutProgress] = useState(0);
+  const [threshold, setThreshold] = useState(DEFAULT_SALI_SIMILARITY);
+  const [cliffState, setCliffState] = useState<{ molecules: Molecule[]; activity: string; threshold: number; rows: SaliCliff[] } | null>(null);
+  const [cliffProgress, setCliffProgress] = useState(0);
 
-  // Extract scaffolds (re-run on theme change to regenerate SVGs)
+  const activities = useMemo(() => activityChoices(customPropNames, molecules), [customPropNames, molecules]);
+  const [activityChoice, setActivityChoice] = useState<string | null>(null);
+  const activity = activityChoice && activities.includes(activityChoice) ? activityChoice : (activities[0] ?? null);
+
   useEffect(() => {
-    if (molecules.length === 0) { setScaffolds([]); setSelectedScaffold(null); return; }
+    if (molecules.length === 0) return;
+    const key = seriesKey(molecules);
+    const cached = scaffoldCache.get(key);
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    extractScaffolds(molecules).then(infos => {
+    const start = setTimeout(() => {
       if (cancelled) return;
-      setScaffolds(infos);
-      if (infos.length > 0 && !selectedScaffold) setSelectedScaffold(infos[0].smiles);
-      setLoading(false);
-    }).catch(e => {
-      if (!cancelled) { setError(e instanceof Error ? e.message : 'Failed'); setLoading(false); }
-    });
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [molecules, themeVersion]);
-
-  const activeScaffold = scaffolds.find(s => s.smiles === selectedScaffold) ?? null;
-
-  const bestScaffold = useMemo(() => {
-    if (scaffolds.length === 0) return null;
-    return scaffolds.reduce((best, s) => (s.paretoFraction > best.paretoFraction || (s.paretoFraction === best.paretoFraction && s.count > best.count)) ? s : best);
-  }, [scaffolds]);
-
-  /* ─── ADMET/Safety computations ──────────────────── */
-
-  const availableEndpoints = useMemo(() => {
-    return (PRIMARY_ADMET_KEYS as unknown as string[]).filter(ep => {
-      let n = 0;
-      for (const mol of molecules) { if (getVal(mol, ep) !== null) n++; if (n >= 3) return true; }
-      return false;
-    });
+      if (cached) {
+        setAssigned(cached);
+        setProgress(molecules.length);
+        setError(null);
+        return;
+      }
+      setAssigned(null);
+      setProgress(0);
+      setError(null);
+      void (async () => {
+        try {
+          const RDKit = await initRDKitCache();
+          const out: Assigned[] = [];
+          const chunk = 8;
+          for (let i = 0; i < molecules.length; i += chunk) {
+            if (cancelled) return;
+            const end = Math.min(i + chunk, molecules.length);
+            for (let k = i; k < end; k++) {
+              const got = murckoScaffold(RDKit, molecules[k].smiles);
+              out.push({ index: k, scaffold: got.scaffold, generic: got.generic });
+            }
+            setProgress(end);
+            await new Promise((resolve) => setTimeout(resolve, 0));
+          }
+          if (cancelled) return;
+          scaffoldCache.set(key, out);
+          setAssigned(out);
+        } catch (e) {
+          if (!cancelled) setError(e instanceof Error ? e.message : 'Scaffold grouping failed');
+        }
+      })();
+    }, 0);
+    return () => { cancelled = true; clearTimeout(start); };
   }, [molecules]);
 
-  const heatmapKeys = useMemo(() => HEATMAP_KEYS.filter(k => availableEndpoints.includes(k)), [availableEndpoints]);
-  const hasAdmet = availableEndpoints.length > 0;
-
-  // Statistical reports (scaffolds with n>=3)
-  const reports = useMemo<ScaffoldReport[]>(() => {
-    if (scaffolds.length < 2 || availableEndpoints.length === 0) return [];
-    const eligible = scaffolds.filter(g => g.count >= 3);
-    if (eligible.length === 0) return [];
-    const nTests = eligible.length * availableEndpoints.length;
-    return eligible.map(scaffold => {
-      const scaffoldMols = scaffold.molIndices.map(i => molecules[i]);
-      const restSet = new Set(scaffold.molIndices);
-      const restMols = molecules.filter((_, i) => !restSet.has(i));
-      const endpoints = availableEndpoints.map(ep => {
-        const sv = scaffoldMols.map(m => getVal(m, ep)).filter((v): v is number => v !== null);
-        const rv = restMols.map(m => getVal(m, ep)).filter((v): v is number => v !== null);
-        const sm = sv.length ? sv.reduce((a, b) => a + b) / sv.length : 0;
-        const rm = rv.length ? rv.reduce((a, b) => a + b) / rv.length : 0;
-        const delta = sm - rm;
-        const meta = ADMET_AI_PROPERTY_META[ep];
-        const cat = meta?.category || 'toxicity';
-        if (sv.length < 2 || rv.length < 2) return { endpoint: ep, scaffoldMean: sm, restMean: rm, delta, p: 1, stars: '', fracAbove: 0, isLiability: false, category: cat };
-        const { p } = mannWhitneyU(sv, rv);
-        const cp = Math.min(p * nTests, 1);
-        const frac = sv.filter(v => v > 0.5).length / sv.length;
-        return { endpoint: ep, scaffoldMean: sm, restMean: rm, delta, p: cp, stars: sigStars(cp), fracAbove: frac, isLiability: frac >= 0.8 && cp < 0.05 && sm > rm, category: cat };
-      });
-      const liabs = endpoints.filter(e => e.isLiability);
-      return { scaffold, endpoints, liabilityCount: liabs.length, topLiabilities: liabs.sort((a, b) => a.p - b.p) };
-    });
-  }, [scaffolds, availableEndpoints, molecules]);
-
-  const totalAlerts = useMemo(() => reports.reduce((s, r) => s + r.liabilityCount, 0), [reports]);
-  const hasStats = reports.length > 0;
-
-  const activeReport = useMemo(() =>
-    selectedScaffold ? reports.find(r => r.scaffold.smiles === selectedScaffold) : null,
-    [selectedScaffold, reports]);
-
-  const maxDelta = useMemo(() => {
-    let m = 0;
-    for (const r of reports) for (const e of r.endpoints) m = Math.max(m, Math.abs(e.delta));
-    return m || 1;
-  }, [reports]);
-
-  const handleSelectScaffold = useCallback((smiles: string) => {
-    setSelectedScaffold(smiles);
-  }, []);
-
-  // Auto-switch to safety tab when ADMET data appears and alerts detected
   useEffect(() => {
-    if (totalAlerts > 0 && subTab === 'structure') {
-      // Don't auto-switch if user already interacted
+    if (section !== 'pairs' || molecules.length === 0) return;
+    const key = seriesKey(molecules);
+    const cached = cutCache.get(key);
+    let cancelled = false;
+    const start = setTimeout(() => {
+      if (cancelled) return;
+      if (cached) { setCutState({ key, cuts: cached }); setCutProgress(molecules.length); return; }
+      setCutState(null);
+      setCutProgress(0);
+      void (async () => {
+        try {
+          const RDKit = await initRDKitCache();
+          const out: MmpCut[] = [];
+          const chunk = 4;
+          for (let i = 0; i < molecules.length; i += chunk) {
+            if (cancelled) return;
+            const end = Math.min(i + chunk, molecules.length);
+            for (let k = i; k < end; k++) out.push(...singleCuts(RDKit, molecules[k].smiles, k));
+            setCutProgress(end);
+            await new Promise((resolve) => setTimeout(resolve, 0));
+          }
+          if (cancelled) return;
+          cutCache.set(key, out);
+          setCutState({ key, cuts: out });
+        } catch (e) {
+          if (!cancelled) setError(e instanceof Error ? e.message : 'Pair search failed');
+        }
+      })();
+    }, 0);
+    return () => { cancelled = true; clearTimeout(start); };
+  }, [section, molecules]);
+
+  const scaffoldRows = assigned && assigned.length === molecules.length ? assigned : null;
+
+  const groups = useMemo<Group[]>(() => {
+    if (!scaffoldRows) return [];
+    const map = new Map<string, number[]>();
+    for (const row of scaffoldRows) {
+      const smiles = generic ? row.generic : row.scaffold;
+      const list = map.get(smiles);
+      if (list) list.push(row.index);
+      else map.set(smiles, [row.index]);
     }
-  }, [totalAlerts, subTab]);
+    const infos: Group[] = [];
+    for (const [smiles, indices] of map) {
+      const mols = indices.map((i) => molecules[i]);
+      infos.push({
+        smiles,
+        indices,
+        avgMW: mols.reduce((s, m) => s + m.props.MW, 0) / mols.length,
+        avgLogP: mols.reduce((s, m) => s + m.props.LogP, 0) / mols.length,
+        paretoFraction: mols.filter((m) => m.paretoRank === 1).length / mols.length,
+      });
+    }
+    infos.sort((a, b) => b.indices.length - a.indices.length || (a.smiles || ' ').localeCompare(b.smiles || ' '));
+    return infos;
+  }, [scaffoldRows, generic, molecules]);
 
-  /* ─── Loading / Error / Empty ────────────────────── */
+  const selectedSmiles = groups.some((g) => g.smiles === selected) ? selected : (groups[0]?.smiles ?? null);
+  const active = groups.find((g) => g.smiles === selectedSmiles) ?? null;
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-40 gap-3 text-[var(--text2)] text-[13px]">
-        <div className="w-4 h-4 border-2 border-[#5F7367]/30 border-t-[#5F7367] rounded-full animate-spin" />
-        Computing Murcko scaffolds...
-      </div>
-    );
-  }
+  const pairKeys = useMemo(() => {
+    const keys = ['MW', 'LogP', 'TPSA'];
+    for (const k of activities) if (!keys.includes(k)) keys.push(k);
+    return keys;
+  }, [activities]);
 
-  if (error) {
-    return (
-      <div className="bg-[var(--surface)] border border-[var(--border-5)] rounded-lg p-8 text-center text-[#ef4444] text-[13px]">
-        {error}
-      </div>
-    );
-  }
+  const liveCuts = cutState && cutState.key === seriesKey(molecules) ? cutState.cuts : null;
+  const pairs = useMemo(() => {
+    if (!liveCuts) return null;
+    return pairCuts(liveCuts, molecules, pairKeys);
+  }, [liveCuts, molecules, pairKeys]);
 
-  if (scaffolds.length === 0) {
-    return (
-      <div className="bg-[var(--surface)] border border-[var(--border-5)] rounded-lg p-12 text-center">
-        <p className="text-[var(--text2)] text-[13px]">No molecules to analyse.</p>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (section !== 'cliffs' || !activity) return;
+    let cancelled = false;
+    const acc: SaliCliff[] = [];
+    const chunk = 30;
+    const step = (start: number) => {
+      if (cancelled) return;
+      const end = Math.min(start + chunk, molecules.length);
+      acc.push(...saliPairsInRange(molecules, activity, threshold, start, end));
+      setCliffProgress(end);
+      if (end < molecules.length) {
+        setTimeout(() => step(end), 0);
+        return;
+      }
+      acc.sort((a, b) => b.sali - a.sali);
+      setCliffState({ molecules, activity, threshold, rows: acc.slice(0, 50) });
+    };
+    const handle = setTimeout(() => {
+      if (cancelled) return;
+      setCliffState(null);
+      setCliffProgress(0);
+      step(0);
+    }, 0);
+    return () => { cancelled = true; clearTimeout(handle); };
+  }, [section, molecules, activity, threshold]);
 
-  /* ─── Render ─────────────────────────────────────── */
+  const cliffs = cliffState && cliffState.molecules === molecules && cliffState.activity === activity && cliffState.threshold === threshold
+    ? cliffState.rows
+    : null;
+  const deltaKeys = (row: MmpRow) => row.deltas.filter((d) => d.key === 'MW' || d.key === 'LogP' || isActivityColumn(d.key));
+
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-[14px] font-medium text-[var(--text-heading)]">Scaffold Analysis</h3>
-          <p className="text-[12px] text-[var(--text2)] mt-0.5">
-            {scaffolds.length} unique scaffold{scaffolds.length !== 1 ? 's' : ''} across {molecules.length} molecules
-            {scaffolds.length === 30 ? ' (top 30)' : ''}
-            {hasAdmet && <> · {availableEndpoints.length} ADMET endpoints</>}
-            {hasStats && <> · {reports.length} testable (n≥3)</>}
+    <div className="bg-[var(--surface)] border border-[var(--border-5)] rounded-lg p-4 sm:p-5">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1" role="group" aria-label="Series">
+        <Toggle pressed={section === 'scaffolds'} onClick={() => setSection('scaffolds')}>Scaffolds</Toggle>
+        <Toggle pressed={section === 'pairs'} onClick={() => setSection('pairs')}>Pairs</Toggle>
+        <Toggle pressed={section === 'cliffs'} onClick={() => setSection('cliffs')}>Cliffs</Toggle>
+      </div>
+
+      {error && <p className="mt-3 text-[13px] text-[var(--red)]">{error}</p>}
+
+      {section === 'scaffolds' && (
+        <div className="mt-4">
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <p className="text-[13px] text-[var(--text)]">
+              {scaffoldRows
+                ? `${groups.length} Murcko scaffold${groups.length === 1 ? '' : 's'} from ${molecules.length} molecule${molecules.length === 1 ? '' : 's'}.`
+                : `Grouping scaffolds. ${progress} of ${molecules.length}.`}
+            </p>
+            <Toggle pressed={generic} onClick={() => setGeneric((v) => !v)}>Generic</Toggle>
+          </div>
+          <p className="mt-1 text-[12px] text-[var(--text2)] leading-relaxed max-w-2xl">
+            {generic
+              ? 'Generic scaffolds turn every atom into carbon and every bond into a single bond. Acyclic molecules stay in the no-ring group.'
+              : 'Bemis-Murcko scaffolds keep the rings, the atoms that link them, and exocyclic double bonds. Side chains are removed. Acyclic molecules stay in the no-ring group.'}
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {bestScaffold && bestScaffold.count > 1 && (
-            <button
-              className="text-[11px] text-[var(--text2)] hover:text-[var(--text)] transition-colors"
-              onClick={() => { handleSelectScaffold(bestScaffold.smiles); setSubTab('detail'); }}
-            >
-              Best: {(bestScaffold.paretoFraction * 100).toFixed(0)}% Pareto, {bestScaffold.count} mols
-            </button>
-          )}
-          <button
-            className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded border border-[var(--border-10)] text-[var(--text2)] hover:text-[var(--text)] hover:border-[var(--border-20)] transition-colors"
-            title="Export scaffold summary as CSV"
-            onClick={() => {
-              const admetCols = availableEndpoints.slice(0, 10);
-              const header = ['scaffold_smiles','n_compounds','pareto_fraction','avg_MW','avg_LogP','avg_TPSA',
-                ...admetCols.map(k => `mean_${k}`)].join(',');
-              const rows = scaffolds.map(s => {
-                const rep = reports.find(r => r.scaffold.smiles === s.smiles);
-                const admetVals = admetCols.map(k => {
-                  const ep = rep?.endpoints.find(e => e.endpoint === k);
-                  return ep ? ep.scaffoldMean.toFixed(3) : '';
-                });
-                return [
-                  `"${s.smiles}"`,
-                  s.count,
-                  s.paretoFraction.toFixed(3),
-                  s.avgMW.toFixed(1),
-                  s.avgLogP.toFixed(2),
-                  s.avgTPSA.toFixed(1),
-                  ...admetVals,
-                ].join(',');
-              });
-              const csv = withCitationColumn(header, rows);
-              const blob = new Blob([csv], { type: 'text/csv' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url; a.download = 'scaffold_summary.csv'; a.click();
-              URL.revokeObjectURL(url);
-              track('export/csv');
-            }}
-          >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-            CSV
-          </button>
-        </div>
-      </div>
-
-      {/* Sub-tabs */}
-      <div className="flex items-center gap-1 border-b border-[var(--border-5)]">
-        {SUB_TABS.map(t => {
-          const showBadge = t.id === 'safety' && totalAlerts > 0;
-          return (
-            <button
-              key={t.id}
-              onClick={() => setSubTab(t.id)}
-              className={`px-3 py-1.5 text-[12px] font-medium transition-colors border-b-2 flex items-center gap-1.5 ${
-                subTab === t.id
-                  ? 'border-[var(--accent)] text-[var(--text-heading)]'
-                  : 'border-transparent text-[var(--text2)] hover:text-[var(--text)]'
-              }`}
-            >
-              {t.label}
-              {showBadge && (
-                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[#ef4444]/15 text-[#ef4444] leading-none">
-                  {totalAlerts}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Alerts banner (visible on all tabs when liabilities exist) */}
-      {hasStats && totalAlerts > 0 && (
-        <div className="p-3 bg-[#ef4444]/5 border border-[#ef4444]/20 rounded-lg space-y-2">
-          <div className="flex items-center gap-2 text-[12px]">
-            <span className="w-2 h-2 rounded-full bg-[#ef4444] shrink-0" />
-            <span className="font-semibold text-[#ef4444]">{totalAlerts} scaffold-level liabilit{totalAlerts === 1 ? 'y' : 'ies'}</span>
-            <span className="text-[var(--text2)]">across {reports.filter(r => r.liabilityCount > 0).length} scaffold{reports.filter(r => r.liabilityCount > 0).length !== 1 ? 's' : ''}</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {reports.filter(r => r.liabilityCount > 0).map(r => (
-              <button
-                key={r.scaffold.smiles}
-                onClick={() => { handleSelectScaffold(r.scaffold.smiles); setSubTab('detail'); }}
-                className={`flex items-center gap-2 px-2.5 py-1.5 bg-[var(--surface)] border rounded text-[11px] transition-colors ${
-                  selectedScaffold === r.scaffold.smiles
-                    ? 'border-[#ef4444]/40 ring-1 ring-[#ef4444]/20'
-                    : 'border-[#ef4444]/20 hover:border-[#ef4444]/40'
-                }`}
-              >
-                {r.scaffold.svg ? (
-                  <div className="w-8 h-6 shrink-0" dangerouslySetInnerHTML={{ __html: r.scaffold.svg }} />
-                ) : (
-                  <span className="text-[9px] text-[var(--text2)] w-8 shrink-0">{r.scaffold.smiles === '' ? 'acyc' : '...'}</span>
-                )}
-                <span className="text-[var(--text)] font-medium">{r.scaffold.count} mols</span>
-                <span className="text-[#ef4444] font-semibold">{r.liabilityCount}</span>
-              </button>
-            ))}
-          </div>
-          <p className="text-[10px] text-[var(--text2)]">≥80% of scaffold above 0.5 threshold, Bonferroni-corrected p &lt; 0.05</p>
-        </div>
-      )}
-
-      {/* ═══════════════════════════════════════════════
-           STRUCTURE tab — Pareto-focused scaffold grid
-         ═══════════════════════════════════════════════ */}
-      {subTab === 'structure' && (
-        <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">
-            {scaffolds.map((s, idx) => {
-              const isSelected = s.smiles === selectedScaffold;
-              const report = reports.find(r => r.scaffold.smiles === s.smiles);
-              const liabCount = report?.liabilityCount ?? 0;
-              return (
-                <button
-                  key={s.smiles || '__acyclic__'}
-                  onClick={() => { handleSelectScaffold(s.smiles); setSubTab('detail'); }}
-                  className={`relative text-left rounded-lg border p-2.5 transition-all ${
-                    isSelected
-                      ? 'bg-[#5F7367]/10 border-[#5F7367]/50 ring-1 ring-[#5F7367]/30'
-                      : liabCount > 0
-                        ? 'bg-[var(--surface)] border-[#ef4444]/15 hover:border-[#ef4444]/30'
-                        : 'bg-[var(--surface)] border-[var(--border-5)] hover:border-[var(--border-20)] hover:bg-[var(--bg)]'
-                  }`}
-                >
-                  <span className="absolute top-1.5 left-2 text-[9px] font-mono text-[var(--text2)]">#{idx + 1}</span>
-                  <span className="absolute top-1.5 right-2 text-[10px] font-semibold text-[var(--text-heading)]">{s.count}</span>
-
-                  <div className="w-full flex items-center justify-center mt-3 mb-2" style={{ height: 70 }}>
-                    {s.svg
-                      ? <span className="block w-full h-full" dangerouslySetInnerHTML={{ __html: s.svg }} style={{ lineHeight: 0 }} />
-                      : <span className="text-[11px] text-[var(--text2)] text-center leading-relaxed">{s.smiles === '' ? 'Acyclic' : s.smiles.slice(0, 16)}</span>
-                    }
-                  </div>
-
-                  {/* Pareto bar */}
-                  {s.paretoFraction > 0 && (
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <div className="flex-1 h-1 bg-[var(--border-5)] rounded-full overflow-hidden">
-                        <div className="h-full rounded-full bg-[#22c55e]/70" style={{ width: `${s.paretoFraction * 100}%` }} />
-                      </div>
-                      <span className="text-[9px] text-[#22c55e] shrink-0">{(s.paretoFraction * 100).toFixed(0)}%</span>
-                    </div>
-                  )}
-
-                  {/* Liability indicator */}
-                  {liabCount > 0 && (
-                    <div className="flex items-center gap-1 mt-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#ef4444]" />
-                      <span className="text-[9px] text-[#ef4444]">{liabCount} liabilit{liabCount === 1 ? 'y' : 'ies'}</span>
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Selected scaffold detail panel (structure mode) */}
-          {activeScaffold && (
-            <div className="bg-[var(--surface)] border border-[var(--border-5)] rounded-lg p-5">
-              <div className="flex items-center gap-6 mb-4 flex-wrap">
-                <div className="flex items-center gap-3 min-w-0">
-                  {activeScaffold.svg && (
-                    <div className="shrink-0 w-[80px] h-[60px] rounded border border-[var(--border-5)] overflow-hidden">
-                      <span className="block w-full h-full" dangerouslySetInnerHTML={{ __html: activeScaffold.svg }} style={{ lineHeight: 0 }} />
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <div className="text-[13px] font-medium text-[var(--text-heading)]">
-                      {activeScaffold.smiles ? 'Scaffold' : 'Acyclic'} ({activeScaffold.count} molecules)
-                    </div>
-                    {activeScaffold.smiles && (
-                      <div className="text-[10px] font-mono text-[var(--text2)] truncate mt-0.5" title={activeScaffold.smiles}>
-                        {activeScaffold.smiles}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 text-[12px]">
-                  {[
-                    { label: 'MW', value: activeScaffold.avgMW.toFixed(0) },
-                    { label: 'LogP', value: activeScaffold.avgLogP.toFixed(2) },
-                    { label: 'TPSA', value: activeScaffold.avgTPSA.toFixed(0) },
-                  ].map(stat => (
-                    <div key={stat.label} className="text-center">
-                      <div className="text-[10px] text-[var(--text2)]">{stat.label}</div>
-                      <div className="font-mono text-[var(--text-heading)]">{stat.value}</div>
-                    </div>
-                  ))}
-                  <div className="text-center">
-                    <div className="text-[10px] text-[var(--text2)]">Pareto</div>
-                    <div className={`font-mono font-semibold ${activeScaffold.paretoFraction > 0 ? 'text-[#22c55e]' : 'text-[var(--text2)]'}`}>
-                      {(activeScaffold.paretoFraction * 100).toFixed(0)}%
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[400px] overflow-y-auto custom-scrollbar">
-                {activeScaffold.molIndices.map(molIdx => (
-                  <MolCard
-                    key={molIdx}
-                    mol={molecules[molIdx]}
-                    isSelected={selectedMolIdx === molIdx}
-                    onClick={() => setSelectedMolIdx?.(selectedMolIdx === molIdx ? null : molIdx)}
-                  />
+          {scaffoldRows && groups.length > 0 && (
+            <div className="mt-4 grid gap-4 md:grid-cols-[240px_1fr]">
+              <div className="flex flex-col gap-1 max-h-[560px] overflow-y-auto" role="listbox" aria-label="Scaffolds">
+                {groups.map((g) => (
+                  <button
+                    key={g.smiles || 'none'}
+                    type="button"
+                    aria-pressed={g.smiles === selectedSmiles}
+                    onClick={() => setSelected(g.smiles)}
+                    className={`text-left px-2 py-1.5 rounded-md border ${g.smiles === selectedSmiles ? 'border-[var(--text)] text-[var(--text)]' : 'border-transparent text-[var(--text2)] hover:text-[var(--text)]'}`}
+                  >
+                    <span className="block text-[13px]">{g.smiles ? `${g.indices.length} molecules` : `No ring, ${g.indices.length}`}</span>
+                    <span className="block text-[11px] font-mono truncate">{g.smiles || 'acyclic'}</span>
+                  </button>
                 ))}
               </div>
+              {active && (
+                <div>
+                  <div className="h-36 max-w-xs border border-[var(--border-5)] rounded-md bg-[var(--bg)] flex items-center justify-center p-2">
+                    <Structure smiles={active.smiles} />
+                  </div>
+                  <p className="mt-2 text-[12px] text-[var(--text2)]">
+                    MW {active.avgMW.toFixed(0)} · LogP {active.avgLogP.toFixed(1)}
+                    {active.paretoFraction > 0 ? ` · ${Math.round(active.paretoFraction * active.indices.length)} on the front` : ''}
+                  </p>
+                  {active.smiles && <p className="mt-1 text-[12px] font-mono text-[var(--text)] break-all">{active.smiles}</p>}
+                  <ul className="mt-3 flex flex-col gap-1">
+                    {active.indices.map((idx) => (
+                      <li key={idx}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedMolIdx?.(idx)}
+                          className={idx === selectedMolIdx ? 'text-[13px] text-[var(--text)] font-medium' : 'text-[13px] text-[var(--text2)] hover:text-[var(--text)]'}
+                        >
+                          {molecules[idx].name}
+                          {molecules[idx].paretoRank === 1 ? ' · front' : ''}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
-        </>
+        </div>
       )}
 
-      {/* ═══════════════════════════════════════════════
-           SAFETY tab — ADMET heatmap + liability summary
-         ═══════════════════════════════════════════════ */}
-      {subTab === 'safety' && (
-        <>
-          {!hasAdmet && (
-            <div className="p-3 bg-[#f59e0b]/5 border border-[#f59e0b]/20 rounded-lg text-[12px] text-[#f59e0b]">
-              <span className="font-medium">ADMET predictions needed.</span>{' '}
-              <span className="opacity-80">Go to the ADMET tab (predictions run automatically), then return here.</span>
-            </div>
+      {section === 'pairs' && (
+        <div className="mt-4">
+          <p className="text-[13px] text-[var(--text)]">
+            {pairs
+              ? `${pairs.rows.length} matched pair${pairs.rows.length === 1 ? '' : 's'}.`
+              : `Cutting pairs. ${cutProgress} of ${molecules.length}.`}
+          </p>
+          <p className="mt-1 text-[12px] text-[var(--text2)] leading-relaxed max-w-2xl">
+            A pair is two molecules that share one side of a single bond cut. The variable part is at most {MMP_MAX_R_ATOMS} heavy atoms. Changes are the second molecule minus the first.
+            {pairs?.trimmed ? ' A large series was limited to the strongest changes.' : ''}
+          </p>
+          {pairs && pairs.rows.length === 0 && (
+            <p className="mt-4 text-[13px] text-[var(--text2)]">No single-cut pairs in this set.</p>
           )}
-
-          {hasAdmet && heatmapKeys.length > 0 && (
-            <div className="overflow-x-auto border border-[var(--border-5)] rounded-lg" style={{ maxWidth: '100%' }}>
-              <table className="min-w-full border-collapse" style={{ width: 'max-content' }}>
+          {pairs && pairs.rows.length > 0 && (
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-left text-[12px] border-collapse">
                 <thead>
-                  <tr className="bg-[var(--surface)]">
-                    <th className="sticky left-0 bg-[var(--surface)] z-10 px-3 py-2 text-left text-[10px] uppercase tracking-wider text-[var(--text2)] font-medium border-b border-[var(--border-5)] min-w-[130px]">Scaffold</th>
-                    <th className="px-2 py-2 text-center text-[10px] uppercase tracking-wider text-[var(--text2)] font-medium border-b border-[var(--border-5)] min-w-[32px]">n</th>
-                    {heatmapKeys.map(k => {
-                      const meta = ADMET_AI_PROPERTY_META[k];
-                      return (
-                        <th
-                          key={k}
-                          className="px-2 py-2 text-center text-[10px] uppercase tracking-wider font-medium border-b border-[var(--border-5)] min-w-[52px]"
-                          style={{ color: meta ? getAdmetAICategoryColor(meta.category) : 'var(--text2)' }}
-                          title={meta?.description}
-                        >
-                          {HEATMAP_SHORT[k] || k}
-                        </th>
-                      );
-                    })}
+                  <tr className="text-[var(--text2)] border-b border-[var(--border-5)]">
+                    <th className="py-1.5 pr-3 font-medium">Pair</th>
+                    <th className="py-1.5 pr-3 font-medium">Change</th>
+                    <th className="py-1.5 pr-3 font-medium">ΔMW</th>
+                    <th className="py-1.5 pr-3 font-medium">ΔLogP</th>
+                    {activities.map((k) => <th key={k} className="py-1.5 pr-3 font-medium">Δ{k}</th>)}
+                    <th className="py-1.5 font-medium" />
                   </tr>
                 </thead>
                 <tbody>
-                  {scaffolds.map(g => {
-                    const mols = g.molIndices.map(i => molecules[i]);
-                    const isSelected = selectedScaffold === g.smiles;
+                  {pairs.rows.map((row) => {
+                    const byKey = new Map(deltaKeys(row).map((d) => [d.key, d.delta]));
                     return (
-                      <tr
-                        key={g.smiles}
-                        onClick={() => { handleSelectScaffold(g.smiles); setSubTab('detail'); }}
-                        className={`cursor-pointer transition-colors border-b border-[var(--border-5)]/50 ${
-                          isSelected ? 'bg-[#5F7367]/10' : 'hover:bg-white/[0.02]'
-                        }`}
-                      >
-                        <td className="sticky left-0 bg-[var(--bg)] z-10 px-3 py-1.5 border-b border-[var(--border-5)]">
-                          <div className="flex items-center gap-2">
-                            <div className="shrink-0 w-10 h-8 rounded border border-[var(--border-5)] overflow-hidden flex items-center justify-center bg-[var(--surface)]">
-                              {g.svg
-                                ? <span className="block w-full h-full" dangerouslySetInnerHTML={{ __html: g.svg }} style={{ lineHeight: 0 }} />
-                                : <span className="text-[8px] text-[var(--text2)]">{g.smiles === '' ? 'acyc' : '?'}</span>
-                              }
-                            </div>
-                            <div className="min-w-0">
-                              {g.molIndices.length === 1
-                                ? <div className="text-[11px] font-medium text-[var(--text)] truncate max-w-[70px]">{molecules[g.molIndices[0]].name}</div>
-                                : <div className="text-[10px] font-mono text-[var(--text2)] truncate max-w-[70px]" title={g.smiles}>{g.smiles.slice(0, 14) || 'Acyclic'}</div>
-                              }
-                            </div>
-                          </div>
+                      <tr key={`${row.i}-${row.j}`} className="border-b border-[var(--border-5)] align-top">
+                        <td className="py-1.5 pr-3 text-[var(--text)]">
+                          <button type="button" className="hover:underline" onClick={() => setSelectedMolIdx?.(row.i)}>{molecules[row.i].name}</button>
+                          <span className="text-[var(--text2)]"> / </span>
+                          <button type="button" className="hover:underline" onClick={() => setSelectedMolIdx?.(row.j)}>{molecules[row.j].name}</button>
                         </td>
-                        <td className="px-2 py-1.5 text-center text-[11px] font-medium text-[var(--text2)] border-b border-[var(--border-5)]">{g.count}</td>
-                        {heatmapKeys.map(ep => {
-                          const vals = mols.map(m => getVal(m, ep)).filter((v): v is number => v !== null);
-                          if (!vals.length) return <td key={ep} className="px-2 py-1.5 text-center text-[11px] text-[var(--text2)]/40 border-b border-[var(--border-5)]">--</td>;
-                          const mean = vals.reduce((a, b) => a + b) / vals.length;
-                          const fmt = formatAdmetAIValue(ep, mean);
-                          return (
-                            <td key={ep} className="px-2 py-1.5 text-center text-[11px] font-mono border-b border-[var(--border-5)]" style={{ color: fmt.color }} title={`${ep}: ${vals.map(v => v.toFixed(3)).join(', ')}`}>
-                              {fmt.text}
-                            </td>
-                          );
-                        })}
+                        <td className="py-1.5 pr-3 font-mono text-[11px] text-[var(--text)]">
+                          <div>{row.fromGroup} to {row.toGroup}</div>
+                          <div className="text-[var(--text2)] truncate max-w-[220px]" title={row.context}>{row.context}</div>
+                        </td>
+                        <td className="py-1.5 pr-3 tabular-nums">{byKey.has('MW') ? fmt(byKey.get('MW')!) : ''}</td>
+                        <td className="py-1.5 pr-3 tabular-nums">{byKey.has('LogP') ? fmt(byKey.get('LogP')!) : ''}</td>
+                        {activities.map((k) => (
+                          <td key={k} className="py-1.5 pr-3 tabular-nums">{byKey.has(k) ? fmt(byKey.get(k)!) : ''}</td>
+                        ))}
+                        <td className="py-1.5">
+                          {onComparePair && (
+                            <button type="button" className="text-[var(--text2)] hover:text-[var(--text)]" onClick={() => onComparePair(row.i, row.j)}>Compare</button>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
-              <div className="flex items-center gap-4 px-3 py-2 border-t border-[var(--border-5)] text-[10px] text-[var(--text2)]">
-                <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-[#22c55e]" /> Safe</span>
-                <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-[#f59e0b]" /> Moderate</span>
-                <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-[#ef4444]" /> High risk</span>
-                <span className="text-[var(--text2)]/50 ml-1">Mean per scaffold. Computational (ADMET-AI D-MPNN).</span>
-              </div>
             </div>
           )}
-
-          {hasStats && totalAlerts === 0 && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-[#22c55e]/5 border border-[#22c55e]/20 rounded text-[12px] text-[#22c55e]">
-              No significant scaffold-level liabilities (Bonferroni p &lt; 0.05, n≥3 scaffolds).
-            </div>
-          )}
-          {hasAdmet && !hasStats && (
-            <div className="p-3 bg-[var(--surface)] border border-[var(--border-5)] rounded-lg text-[12px] text-[var(--text2)]">
-              All scaffolds have fewer than 3 compounds. Statistical testing requires n≥3 per scaffold.
-            </div>
-          )}
-        </>
+        </div>
       )}
 
-      {/* ═══════════════════════════════════════════════
-           DETAIL tab — deep-dive on selected scaffold
-         ═══════════════════════════════════════════════ */}
-      {subTab === 'detail' && activeScaffold && (
-        <div className="bg-[var(--surface)] border border-[var(--border-5)] rounded-lg overflow-hidden">
-          {/* Panel header */}
-          <div className="flex items-center gap-4 p-4 border-b border-[var(--border-5)]">
-            <div className="shrink-0 w-[72px] h-[54px] rounded border border-[var(--border-5)] bg-[var(--bg)] overflow-hidden flex items-center justify-center">
-              {activeScaffold.svg
-                ? <span className="block w-full h-full p-1" dangerouslySetInnerHTML={{ __html: activeScaffold.svg }} style={{ lineHeight: 0 }} />
-                : <span className="text-[11px] text-[var(--text2)]">{activeScaffold.smiles === '' ? 'Acyclic' : '?'}</span>
-              }
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[13px] font-semibold text-[var(--text-heading)]">{activeScaffold.count} compounds</span>
-                {/* Pareto */}
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${
-                  activeScaffold.paretoFraction > 0
-                    ? 'bg-[#22c55e]/10 border-[#22c55e]/20 text-[#22c55e]'
-                    : 'bg-[var(--surface2)] border-[var(--border-10)] text-[var(--text2)]'
-                }`}>
-                  {(activeScaffold.paretoFraction * 100).toFixed(0)}% Pareto
-                </span>
-                {/* Liability badge */}
-                {activeReport && activeReport.liabilityCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#ef4444]/10 border border-[#ef4444]/20 text-[#ef4444]">
-                    {activeReport.liabilityCount} liabilit{activeReport.liabilityCount === 1 ? 'y' : 'ies'}
-                  </span>
-                )}
-                {activeReport && activeReport.liabilityCount === 0 && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#22c55e]/10 border border-[#22c55e]/20 text-[#22c55e]">
-                    Safety clear
-                  </span>
-                )}
+      {section === 'cliffs' && (
+        <div className="mt-4">
+          {!activity && (
+            <p className="text-[13px] text-[var(--text)] max-w-xl">
+              No activity column yet. Import an IC50, Ki, or pIC50 column and cliffs will use that column only.
+            </p>
+          )}
+          {activity && (
+            <>
+              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1" role="group" aria-label="Activity column">
+                {activities.map((k) => (
+                  <Toggle key={k} pressed={k === activity} onClick={() => setActivityChoice(k)}>{k}</Toggle>
+                ))}
               </div>
-              <div className="text-[10px] font-mono text-[var(--text2)] truncate mt-0.5" title={activeScaffold.smiles}>
-                {activeScaffold.smiles || 'Acyclic (no ring system)'}
-              </div>
-            </div>
-            {/* Properties summary */}
-            <div className="hidden sm:flex items-center gap-4 text-[12px]">
-              {[
-                { label: 'MW', value: activeScaffold.avgMW.toFixed(0) },
-                { label: 'LogP', value: activeScaffold.avgLogP.toFixed(2) },
-                { label: 'TPSA', value: activeScaffold.avgTPSA.toFixed(0) },
-              ].map(stat => (
-                <div key={stat.label} className="text-center">
-                  <div className="text-[10px] text-[var(--text2)]">{stat.label}</div>
-                  <div className="font-mono text-[var(--text-heading)]">{stat.value}</div>
-                </div>
-              ))}
-            </div>
-            {/* Navigate between scaffolds */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => {
-                  const idx = scaffolds.findIndex(s => s.smiles === selectedScaffold);
-                  if (idx > 0) handleSelectScaffold(scaffolds[idx - 1].smiles);
-                }}
-                className="p-1.5 rounded hover:bg-[var(--bg)] text-[var(--text2)] hover:text-[var(--text)] transition-colors"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
-              </button>
-              <span className="text-[10px] text-[var(--text2)] px-1">
-                {scaffolds.findIndex(s => s.smiles === selectedScaffold) + 1}/{scaffolds.length}
-              </span>
-              <button
-                onClick={() => {
-                  const idx = scaffolds.findIndex(s => s.smiles === selectedScaffold);
-                  if (idx < scaffolds.length - 1) handleSelectScaffold(scaffolds[idx + 1].smiles);
-                }}
-                className="p-1.5 rounded hover:bg-[var(--bg)] text-[var(--text2)] hover:text-[var(--text)] transition-colors"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
-              </button>
-            </div>
-          </div>
-
-          {/* ADMET endpoint comparison (if stats available) */}
-          {activeReport && (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-[11px]">
-                <thead>
-                  <tr className="bg-[var(--bg)]">
-                    <th className="text-left px-4 py-2 font-medium text-[var(--text2)] text-[10px] uppercase tracking-wider">Endpoint</th>
-                    <th className="text-right px-3 py-2 font-medium text-[var(--text2)] text-[10px] uppercase tracking-wider">Scaffold</th>
-                    <th className="text-right px-3 py-2 font-medium text-[var(--text2)] text-[10px] uppercase tracking-wider">Rest</th>
-                    <th className="text-center px-3 py-2 font-medium text-[var(--text2)] text-[10px] uppercase tracking-wider w-[100px]">Δ</th>
-                    <th className="text-right px-3 py-2 font-medium text-[var(--text2)] text-[10px] uppercase tracking-wider">% &gt;0.5</th>
-                    <th className="text-right px-3 py-2 font-medium text-[var(--text2)] text-[10px] uppercase tracking-wider">p (corr.)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    const cats = ['toxicity', 'absorption', 'distribution', 'metabolism', 'excretion'];
-                    const sorted = [...activeReport.endpoints].sort((a, b) => {
-                      const ci = cats.indexOf(a.category); const cj = cats.indexOf(b.category);
-                      if (ci !== cj) return ci - cj;
-                      return a.p - b.p;
-                    });
-                    let lastCat = '';
-                    return sorted.map(ep => {
-                      const showCat = ep.category !== lastCat;
-                      lastCat = ep.category;
-                      const meta = ADMET_AI_PROPERTY_META[ep.endpoint];
-                      const catColor = meta ? getAdmetAICategoryColor(meta.category) : 'var(--text2)';
-                      return (
-                        <React.Fragment key={ep.endpoint}>
-                          {showCat && (
-                            <tr><td colSpan={6} className="px-4 pt-3 pb-1"><span className="text-[10px] uppercase tracking-wider font-medium" style={{ color: catColor }}>{ep.category}</span></td></tr>
-                          )}
-                          <tr className={`border-t border-[var(--border-5)]/50 ${ep.isLiability ? 'bg-[#ef4444]/[0.03]' : ''}`}>
-                            <td className="px-4 py-1.5 font-medium text-[var(--text)]">
-                              <span className="flex items-center gap-1.5">
-                                {meta?.label ?? ep.endpoint}
-                                {ep.isLiability && <span className="w-1.5 h-1.5 rounded-full bg-[#ef4444] shrink-0" />}
-                                {ep.stars && <span className="text-[#f59e0b] font-bold text-[10px]">{ep.stars}</span>}
-                              </span>
-                            </td>
-                            <td className="text-right px-3 py-1.5 font-mono">{ep.scaffoldMean.toFixed(3)}</td>
-                            <td className="text-right px-3 py-1.5 font-mono text-[var(--text2)]">{ep.restMean.toFixed(3)}</td>
-                            <td className="px-3 py-1.5">
-                              <div className="flex items-center gap-1">
-                                <span className={`text-right font-mono text-[10px] w-12 shrink-0 ${ep.delta > 0 ? 'text-[#ef4444]' : ep.delta < -0.01 ? 'text-[#22c55e]' : 'text-[var(--text2)]'}`}>
-                                  {ep.delta > 0 ? '+' : ''}{ep.delta.toFixed(3)}
-                                </span>
-                                <DeltaBar value={ep.delta} max={maxDelta} />
-                              </div>
-                            </td>
-                            <td className="text-right px-3 py-1.5 font-mono">{(ep.fracAbove * 100).toFixed(0)}%</td>
-                            <td className="text-right px-3 py-1.5 font-mono text-[var(--text2)]">{ep.p < 0.001 ? '<0.001' : ep.p.toFixed(3)}</td>
-                          </tr>
-                        </React.Fragment>
-                      );
-                    });
-                  })()}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* No ADMET data notice */}
-          {!activeReport && hasAdmet && activeScaffold.count < 3 && (
-            <div className="p-4 text-[12px] text-[var(--text2)]">
-              Statistical testing requires n≥3 compounds per scaffold. This scaffold has {activeScaffold.count}.
-            </div>
-          )}
-          {!activeReport && !hasAdmet && (
-            <div className="p-4 text-[12px] text-[var(--text2)]">
-              Run ADMET predictions (ADMET tab) to see safety analysis for this scaffold.
-            </div>
-          )}
-
-          {/* Members list */}
-          <div className="border-t border-[var(--border-5)] p-4">
-            <div className="text-[10px] uppercase tracking-wider text-[var(--text2)] font-medium mb-2">
-              Compounds ({activeScaffold.count})
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[300px] overflow-y-auto custom-scrollbar">
-              {activeScaffold.molIndices.map(idx => (
-                <MolCard
-                  key={idx}
-                  mol={molecules[idx]}
-                  isSelected={selectedMolIdx === idx}
-                  onClick={() => setSelectedMolIdx?.(selectedMolIdx === idx ? null : idx)}
+              <label className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-[var(--text2)]">
+                Similarity at least {threshold.toFixed(2)}
+                <input
+                  type="range"
+                  min={0.2}
+                  max={0.9}
+                  step={0.05}
+                  value={threshold}
+                  onChange={(e) => setThreshold(Number(e.target.value))}
+                  aria-label="Similarity threshold"
                 />
-              ))}
-            </div>
-          </div>
+              </label>
+              <p className="mt-1 text-[12px] text-[var(--text2)] leading-relaxed max-w-2xl">
+                SALI is the absolute change in {activity} divided by one minus the Morgan similarity.
+                Pairs below {threshold.toFixed(2)} are left out, and a similarity of 1 is left out.
+                {cliffs === null ? ` Scoring cliffs. ${cliffProgress} of ${molecules.length}.` : ''}
+              </p>
+              {cliffs && cliffs.length === 0 && (
+                <p className="mt-4 text-[13px] text-[var(--text2)]">No cliffs at this threshold.</p>
+              )}
+              {cliffs && cliffs.length > 0 && (
+                <div className="mt-3 overflow-x-auto">
+                  <table className="w-full text-left text-[12px] border-collapse">
+                    <thead>
+                      <tr className="text-[var(--text2)] border-b border-[var(--border-5)]">
+                        <th className="py-1.5 pr-3 font-medium">Pair</th>
+                        <th className="py-1.5 pr-3 font-medium">Similarity</th>
+                        <th className="py-1.5 pr-3 font-medium">Δ{activity}</th>
+                        <th className="py-1.5 pr-3 font-medium">SALI</th>
+                        <th className="py-1.5 font-medium" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cliffs.map((row) => (
+                        <tr key={`${row.i}-${row.j}`} className="border-b border-[var(--border-5)]">
+                          <td className="py-1.5 pr-3">
+                            <button type="button" className="hover:underline text-[var(--text)]" onClick={() => setSelectedMolIdx?.(row.i)}>{molecules[row.i].name}</button>
+                            <span className="text-[var(--text2)]"> / </span>
+                            <button type="button" className="hover:underline text-[var(--text)]" onClick={() => setSelectedMolIdx?.(row.j)}>{molecules[row.j].name}</button>
+                          </td>
+                          <td className="py-1.5 pr-3 tabular-nums">{row.similarity.toFixed(2)}</td>
+                          <td className="py-1.5 pr-3 tabular-nums">{fmt(row.activityDelta)}</td>
+                          <td className="py-1.5 pr-3 tabular-nums">{row.sali.toFixed(1)}</td>
+                          <td className="py-1.5">
+                            {onComparePair && (
+                              <button type="button" className="text-[var(--text2)] hover:text-[var(--text)]" onClick={() => onComparePair(row.i, row.j)}>Compare</button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
-
-      {subTab === 'detail' && !activeScaffold && (
-        <div className="text-center py-8 text-[var(--text2)] text-[13px]">
-          Select a scaffold from the grid to see details.
-        </div>
-      )}
-
-      {/* Methodology footnote */}
-      <div className="flex items-center gap-2 pt-2 border-t border-[var(--border-5)] text-[10px] text-[var(--text2)] leading-relaxed">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 opacity-50"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-        <span>
-          Murcko scaffold decomposition (RDKit.js).{' '}
-          {hasStats
-            ? `Two-tailed Mann-Whitney U, Bonferroni correction (${reports.length * availableEndpoints.length} tests). Liability: ≥80% above 0.5 AND corrected p < 0.05 (n≥3 only).`
-            : hasAdmet ? 'Statistical tests require n≥3 per scaffold.' : ''
-          }{' '}
-          {hasAdmet && 'All predictions computational (ADMET-AI D-MPNN).'}
-        </span>
-      </div>
     </div>
   );
 }
