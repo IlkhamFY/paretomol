@@ -1,16 +1,17 @@
-// Versioned scoring profiles. The JSON files in ../profiles are the source of
-// truth; each is identified by `id@version` and by a SHA-256 content hash of
-// its canonical JSON, so a decision record can cite exactly which thresholds
-// were applied. Any change to a profile's content must bump its version.
+// Versioned scoring profiles. The JSON files in ./profiles are the source of
+// truth and are published as data (`@paretomol/core/profiles/<id>@<version>.json`).
+// Pass one to loadProfile. Each is identified by `id@version` and by a SHA-256
+// content hash of its canonical JSON. Any change to a profile's content must
+// bump its version.
 
 import type { ParetoObjective } from './types.js';
 import type { PropDesirability } from './mpo.js';
 import { sha256Hex } from './sha256.js';
-import oral1 from '../profiles/oral@1.json' with { type: 'json' };
-import cns1 from '../profiles/cns@1.json' with { type: 'json' };
-import leadlike1 from '../profiles/leadlike@1.json' with { type: 'json' };
-import lipinski1 from '../profiles/lipinski@1.json' with { type: 'json' };
-import custom1 from '../profiles/custom@1.json' with { type: 'json' };
+import oral1 from './profiles/oral@1.json' with { type: 'json' };
+import cns1 from './profiles/cns@1.json' with { type: 'json' };
+import leadlike1 from './profiles/leadlike@1.json' with { type: 'json' };
+import lipinski1 from './profiles/lipinski@1.json' with { type: 'json' };
+import custom1 from './profiles/custom@1.json' with { type: 'json' };
 
 export interface ProfileFilterRule { key: string; op: '<=' | '>=' | '<' | '>'; val: number; }
 

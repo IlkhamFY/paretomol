@@ -1,7 +1,7 @@
 // Experimental MCP App payload: structures, ranks and an export that writes
 // the same paretomol.decision/0 review record as the web app.
 import {
-  buildDecisionRecord, computeParetoAndDominance, getMolValue, moleculeIds, mpoScore,
+  buildDecisionRecord, computeParetoAndDominance, descriptorTier, getMolValue, moleculeIds, mpoScore,
   reviewUrl, stringifyDecisionRecord, REVIEW_URL_SOFT_LIMIT,
 } from '@paretomol/core';
 import type { Molecule, ParetoObjective, ReviewVerdict } from '@paretomol/core';
@@ -73,7 +73,10 @@ export async function reviewShortlist(args: Record<string, unknown>) {
   const input = reviewInput(args, mols);
   const objectives: ParetoObjective[] = input.objectives ?? profile.objectives.map((o) => ({ key: o.key, direction: o.direction }));
   const RDKit = await loadRDKit();
-  const { molecules, invalid } = await analyze(mols);
+  const { molecules, invalid } = await analyze(mols, descriptorTier([
+    ...objectives.map((o) => o.key),
+    ...Object.keys(profile.desirability),
+  ]));
   computeParetoAndDominance(molecules, objectives);
   const suggested = new Set(input.suggested ?? []);
   const ids = moleculeIds(molecules.map((m) => m.name));
@@ -130,7 +133,10 @@ export async function exportReviewDecision(args: Record<string, unknown>) {
   const profile = profileOrThrow(input.profile ?? 'oral@1');
   const objectives = input.objectives ?? profile.objectives.map((o) => ({ key: o.key, direction: o.direction }));
   const RDKit = await loadRDKit();
-  const { molecules, invalid } = await analyze(mols);
+  const { molecules, invalid } = await analyze(mols, descriptorTier([
+    ...objectives.map((o) => o.key),
+    ...Object.keys(profile.desirability),
+  ]));
   if (invalid.length) throw new ToolError('invalid_input', `SMILES did not parse: ${invalid.map((x) => x.smiles).join(', ')}`);
   computeParetoAndDominance(molecules, objectives);
   const ids = moleculeIds(molecules.map((m) => m.name));

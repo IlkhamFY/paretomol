@@ -27,7 +27,7 @@ declare global {
 
 export async function initRDKitCache(): Promise<any> {
   if (window.RDKitModule) return window.RDKitModule;
-  if (!window.initRDKitModule) throw new Error("RDKit minimal JS not loaded via CDN");
+  if (!window.initRDKitModule) throw new Error("RDKit is not loaded");
   window.RDKitModule = await window.initRDKitModule();
   return window.RDKitModule;
 }

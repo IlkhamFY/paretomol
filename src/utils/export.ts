@@ -648,7 +648,7 @@ export function downloadSummaryReport(
 }
 
 // ─── Decision record ─────────────────────────────────────────────────────────
-// paretomol.decision/0, see docs/decision-record.md. Re-open it with
+// paretomol.decision/1, see docs/decision-record.md. Re-open it with
 // "Open record" in the header to restore the exact view.
 export function downloadDecisionRecord(rec: DecisionRecord, filename = 'paretomol_decision.json'): void {
   track('decision/exported');

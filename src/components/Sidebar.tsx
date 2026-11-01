@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { Molecule, ParetoObjective } from '@paretomol/core';
-import { EXAMPLES, DEFAULT_PARETO_OBJECTIVES, DRUG_FILTERS, MAX_MOLECULES } from '@paretomol/core';
+import { DEFAULT_PARETO_OBJECTIVES, DRUG_FILTERS, MAX_MOLECULES } from '@paretomol/core';
+import { EXAMPLES } from '../data/examples';
 import { initRDKitCache, parseAndAnalyze, parseAndAnalyzeChunked, parseSDFFile, fetchChEMBLBatch, computeParetoAndDominance, getMolSvg, filterBySubstructure, mergeAssayData, enrichMoleculeNames } from '../utils/chem';
 import { useTheme } from '../contexts/ThemeContext';
 import { inferObjectives, inferObjectiveDirection } from '@paretomol/core';

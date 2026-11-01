@@ -233,13 +233,34 @@ export function parseCSVData(csv: { headers: string[]; rows: string[][]; smilesC
   return { smilesLines, customPropNames: customCols.map(c => c.name), customPropValues };
 }
 
+/** What the descriptor path computes beyond the physicochemical properties.
+ *  Omit a flag (or leave it undefined) to compute it. Pass false to skip it.
+ *  Fingerprints are only needed for similarity. QED alerts are only needed for QED. */
+export interface AnalyzeOptions {
+  fingerprint?: boolean;
+  qed?: boolean;
+}
+
+function wants(opts: AnalyzeOptions | undefined, key: keyof AnalyzeOptions): boolean {
+  return opts?.[key] !== false;
+}
+
+/** Cheap tier: skip the Morgan fingerprint and the QED alert SMARTS unless `keys` asks for QED. */
+export function descriptorTier(keys: Iterable<string>): AnalyzeOptions {
+  let qed = false;
+  for (const key of keys) if (key === 'QED') qed = true;
+  return { fingerprint: false, qed };
+}
+
 /** Parse one resolved "SMILES name" line into a Molecule (no SVG: rendering is the caller's job).
- *  This is the single descriptor path shared by the web app and the CLI. */
+ *  This is the single descriptor path shared by the web app and the CLI.
+ *  The default computes fingerprints and QED. Pass `descriptorTier` to skip both. */
 export function analyzeMolecule(
   line: string,
   index: number,
   RDKit: RDKitLike,
-  customPropValues: Record<string, number>[]
+  customPropValues: Record<string, number>[],
+  opts?: AnalyzeOptions,
 ): Molecule | null {
   const parts = line.trim().split(/\s+/);
   const smiles = parts[0];
@@ -252,11 +273,15 @@ export function analyzeMolecule(
     const desc = JSON.parse(mol.get_descriptors());
     const numAtoms = (desc.NumHeavyAtoms || desc.HeavyAtomCount || 0) + (desc.NumHs || 0);
 
+    const doFp = wants(opts, 'fingerprint');
+    const doQed = wants(opts, 'qed');
     let fingerprint = '';
-    try { fingerprint = mol.get_morgan_fp(JSON.stringify({ radius: 2, nBits: 2048 })); } catch { /* fingerprint unavailable */ }
+    if (doFp) {
+      try { fingerprint = mol.get_morgan_fp(JSON.stringify({ radius: 2, nBits: 2048 })); } catch { /* fingerprint unavailable */ }
+    }
 
-    // Counted while the molecule is still alive — QED needs it below.
-    const nAlerts = countQEDAlerts(mol, RDKit);
+    // Counted while the molecule is still alive. QED's alert term needs it.
+    const nAlerts = doQed ? countQEDAlerts(mol, RDKit) : 0;
 
     mol.delete();
 
@@ -271,7 +296,9 @@ export function analyzeMolecule(
     const tpsa = desc.tpsa || 0;
     const rotBonds = desc.NumRotatableBonds || 0;
     const arom = desc.NumAromaticRings || 0;
-    const { qedWeighted } = computeQED({ MW: mw, ALOGP: logp, HBA: hba, HBD: hbd, PSA: tpsa, ROTB: rotBonds, AROM: arom, ALERTS: nAlerts });
+    const qedWeighted = doQed
+      ? computeQED({ MW: mw, ALOGP: logp, HBA: hba, HBD: hbd, PSA: tpsa, ROTB: rotBonds, AROM: arom, ALERTS: nAlerts }).qedWeighted
+      : Number.NaN;
     const sc = syntheticComplexityFromDescriptors(desc);
 
     const props: MolProps = {
@@ -287,7 +314,7 @@ export function analyzeMolecule(
       HeavyAtoms: desc.NumHeavyAtoms || desc.HeavyAtomCount || 0,
       MR: desc.CrippenMR || 0,
       NumAtoms: numAtoms > 0 ? numAtoms : (desc.NumHeavyAtoms || 0),
-      QED: Math.round(qedWeighted * 1000) / 1000,
+      QED: doQed ? Math.round(qedWeighted * 1000) / 1000 : Number.NaN,
       SC: Math.round(sc.score * 10) / 10,
     };
 
@@ -334,12 +361,12 @@ export function splitInput(input: string): { smilesLines: string[]; customPropNa
 
 /** Synchronous, offline analysis of raw input: no name resolution and no Pareto
  *  ranking (call computeParetoAndDominance with the objectives you want). */
-export function analyzeInput(input: string, RDKit: RDKitLike): AnalyzeResult {
+export function analyzeInput(input: string, RDKit: RDKitLike, opts?: AnalyzeOptions): AnalyzeResult {
   const { smilesLines, customPropNames, customPropValues } = splitInput(input);
   const molecules: Molecule[] = [];
   let errors = 0;
   for (let i = 0; i < smilesLines.length; i++) {
-    const m = analyzeMolecule(smilesLines[i], i, RDKit, customPropValues);
+    const m = analyzeMolecule(smilesLines[i], i, RDKit, customPropValues, opts);
     if (m) molecules.push(m); else errors++;
   }
   return { molecules, errors, customPropNames };

@@ -1,18 +1,24 @@
-// Decision record v0: a self-contained, hash-stable JSON account of one
-// multi-objective decision: which molecules went in, which profile and models
-// scored them, which objectives ranked them, what was picked and why.
-// Schema: docs/decision-record.md.
+// Decision record. Writers emit paretomol.decision/1. Readers still accept
+// paretomol.decision/0. Schema: docs/decision-record.md.
+//
+// A v1 record embeds the desirability windows and curve that scored it, names
+// the RDKit WASM by hash, and stores Pareto ranks and MPO that this module
+// computed. It does not copy a rank the caller already had.
 
 import type { Molecule, ParetoObjective, FormulaColumn } from './types.js';
 import { canonicalJSON, getProfile } from './profiles.js';
 import type { ResolvedProfile } from './profiles.js';
 import { mpoScore } from './mpo.js';
-import type { CurveType } from './mpo.js';
+import type { CurveType, PropDesirability } from './mpo.js';
+import { computeParetoAndDominance } from './pareto.js';
 import { sha256Hex } from './sha256.js';
+import { CORE_VERSION } from './version.js';
+import { RDKIT_WASM_SHA256 } from './rdkitBuild.js';
 
-export const DECISION_RECORD_SCHEMA = 'paretomol.decision/0' as const;
-/** Version of @paretomol/core that wrote the record. Keep in sync with package.json. */
-export const CORE_VERSION = '0.1.0';
+export const DECISION_RECORD_SCHEMA_V0 = 'paretomol.decision/0' as const;
+/** Schema written by buildDecisionRecord. */
+export const DECISION_RECORD_SCHEMA = 'paretomol.decision/1' as const;
+export { CORE_VERSION };
 export const DEFAULT_ADMET_ENDPOINT = 'https://ilkhamfy-admet-ai-api.hf.space';
 export const ADMET_MODEL = 'ADMET-AI v2.0.1 (Chemprop D-MPNN, TDC)';
 
@@ -27,7 +33,7 @@ export interface DecisionMolecule {
 export interface DecisionResult {
   id: string;
   paretoRank: number | null;
-  /** MPO score under `profile` and its curve (linear when the curve was not stored), rounded to 6 decimals. */
+  /** MPO under the embedded windows and curve, rounded to 6 decimals. */
   mpo: number;
 }
 
@@ -51,16 +57,32 @@ export interface DecisionReview {
   suggested?: string[];
 }
 
+/** RDKit.js build recorded on a v1 record. v0 stored only the version string. */
+export interface DecisionRdkit {
+  /** `RDKit.version()`. */
+  version: string;
+  /** `sha256:<hex>` of the pinned RDKit_minimal.wasm. */
+  sha256: string;
+}
+
+export interface DecisionProfile {
+  ref: string;
+  hash: string;
+  /** MPO curve used for `results.mpo`. Absent on older v0 records; readers treat that as linear. */
+  curve?: CurveType;
+  /** Desirability windows that were applied. Required on v1 so a custom profile can be scored again. */
+  windows?: Record<string, PropDesirability>;
+}
+
 export interface DecisionRecord {
-  schema: typeof DECISION_RECORD_SCHEMA;
+  schema: typeof DECISION_RECORD_SCHEMA | typeof DECISION_RECORD_SCHEMA_V0;
   input: { sha256: string; count: number; molecules: DecisionMolecule[] };
-  profile: {
-    ref: string;
-    hash: string;
-    /** MPO curve used for `results.mpo`. Absent on older records; readers treat that as linear. */
-    curve?: CurveType;
+  profile: DecisionProfile;
+  models: {
+    core: string;
+    rdkitjs: string | DecisionRdkit;
+    admet: { endpoint: string; model: string } | null;
   };
-  models: { core: string; rdkitjs: string; admet: { endpoint: string; model: string } | null };
   objectives: ParetoObjective[];
   results: DecisionResult[];
   selected: string[];
@@ -74,15 +96,36 @@ export interface DecisionRecord {
   recordHash: string;
 }
 
-/** Stable molecule ids: the name, with `~2`, `~3` ... appended to repeats. */
+/**
+ * Stable molecule ids. The first use of a name keeps that name. A repeat gets
+ * `~2`, `~3`, ... skipping any id already taken, including a later molecule
+ * whose name is itself `name~2`. Blank names become `mol`.
+ */
 export function moleculeIds(names: string[]): string[] {
-  const seen = new Map<string, number>();
-  return names.map((raw) => {
-    const n = raw.trim() || 'mol';
-    const k = (seen.get(n) ?? 0) + 1;
-    seen.set(n, k);
-    return k === 1 ? n : `${n}~${k}`;
-  });
+  const bases = names.map((raw) => raw.trim() || 'mol');
+  const first = new Map<string, number>();
+  bases.forEach((b, i) => { if (!first.has(b)) first.set(b, i); });
+  const used = new Set<string>();
+  const out = new Array<string>(bases.length);
+  for (const [base, i] of first) {
+    out[i] = base;
+    used.add(base);
+  }
+  const next = new Map<string, number>();
+  for (let i = 0; i < bases.length; i++) {
+    if (out[i] !== undefined) continue;
+    const base = bases[i];
+    let k = next.get(base) ?? 2;
+    let id = `${base}~${k}`;
+    while (used.has(id)) {
+      k += 1;
+      id = `${base}~${k}`;
+    }
+    next.set(base, k + 1);
+    used.add(id);
+    out[i] = id;
+  }
+  return out;
 }
 
 function cleanCustom(cp: Record<string, number> | undefined): Record<string, number> | undefined {
@@ -117,13 +160,63 @@ function buildReview(r: NonNullable<BuildDecisionOptions['review']>, ids: string
 
 const round6 = (x: number) => Math.round(x * 1e6) / 1e6;
 
+export function acceptedIds(decisions: Record<string, ReviewVerdict> | undefined): string[] {
+  return Object.entries(decisions ?? {}).filter(([, v]) => v === 'accept').map(([id]) => id).sort();
+}
+
+function sameIdSet(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  const as = [...a].sort();
+  const bs = [...b].sort();
+  return as.every((id, i) => id === bs[i]);
+}
+
+export function validWindows(w: unknown): w is Record<string, PropDesirability> {
+  if (!w || typeof w !== 'object' || Array.isArray(w)) return false;
+  for (const d of Object.values(w as Record<string, unknown>)) {
+    if (!d || typeof d !== 'object') return false;
+    const win = d as PropDesirability;
+    for (const k of ['idealMin', 'idealMax', 'acceptMin', 'acceptMax'] as const) {
+      if (typeof win[k] !== 'number' || !Number.isFinite(win[k])) return false;
+    }
+  }
+  return true;
+}
+
+function windowsMatch(a: Record<string, PropDesirability>, b: Record<string, PropDesirability>): boolean {
+  return canonicalJSON(a) === canonicalJSON(b);
+}
+
+/** Ranks and MPO from the molecules' descriptors and the stated objectives. Does not read `paretoRank`. */
+function scoreResults(
+  molecules: Molecule[],
+  objectives: ParetoObjective[],
+  windows: Record<string, PropDesirability>,
+  curve: CurveType,
+  ids: string[],
+): DecisionResult[] {
+  const working = molecules.map((m) => ({
+    ...m,
+    customProps: { ...(m.customProps ?? {}) },
+    dominates: [] as number[],
+    dominatedBy: [] as number[],
+    paretoRank: null as number | null,
+  }));
+  computeParetoAndDominance(working, objectives);
+  return working.map((m, i) => ({
+    id: ids[i],
+    paretoRank: m.paretoRank ?? null,
+    mpo: round6(mpoScore({ ...(m.props as unknown as Record<string, number>), ...m.customProps }, windows, curve).score),
+  }));
+}
+
 export interface BuildDecisionOptions {
   molecules: Molecule[];
   objectives: ParetoObjective[];
   profile?: string | ResolvedProfile;
   /** MPO curve the user applied. Default linear (CLI, and review export). */
   curve?: CurveType;
-  /** Indices into `molecules`. */
+  /** Indices into `molecules`. When `review` is set, these must be the accepted molecules. */
   selected?: number[];
   rationale?: string;
   rdkitVersion: string;
@@ -144,19 +237,20 @@ export function buildDecisionRecord(o: BuildDecisionOptions): DecisionRecord {
     const cp = cleanCustom(m.customProps);
     return cp ? { id: ids[i], name: m.name, smiles: m.smiles, customProps: cp } : { id: ids[i], name: m.name, smiles: m.smiles };
   });
-  const results: DecisionResult[] = o.molecules.map((m, i) => ({
-    id: ids[i],
-    paretoRank: m.paretoRank ?? null,
-    mpo: round6(mpoScore({ ...(m.props as unknown as Record<string, number>), ...m.customProps }, profile.desirability, curve).score),
-  }));
+  const windows = JSON.parse(JSON.stringify(profile.desirability)) as Record<string, PropDesirability>;
+  const results = scoreResults(o.molecules, o.objectives, windows, curve, ids);
   const selected = [...new Set(o.selected ?? [])].filter((i) => i >= 0 && i < ids.length).sort((a, b) => a - b).map((i) => ids[i]);
+  const review = o.review ? buildReview(o.review, ids) : undefined;
+  if (review && !sameIdSet(selected, acceptedIds(review.decisions))) {
+    throw new Error('Decision record: selected ids do not match accepted review decisions');
+  }
   const rec: Omit<DecisionRecord, 'recordHash'> = {
     schema: DECISION_RECORD_SCHEMA,
     input: { sha256: inputHash(inMols), count: inMols.length, molecules: inMols },
-    profile: { ref: profile.ref, hash: profile.hash, curve },
+    profile: { ref: profile.ref, hash: profile.hash, curve, windows },
     models: {
       core: CORE_VERSION,
-      rdkitjs: o.rdkitVersion,
+      rdkitjs: { version: o.rdkitVersion, sha256: RDKIT_WASM_SHA256 },
       admet: o.admetEndpoint ? { endpoint: o.admetEndpoint, model: ADMET_MODEL } : null,
     },
     objectives: o.objectives.map((x) => ({ key: x.key, direction: x.direction })),
@@ -164,7 +258,7 @@ export function buildDecisionRecord(o: BuildDecisionOptions): DecisionRecord {
     selected,
     rationale: o.rationale ?? '',
     ...(o.view ? { view: o.view } : {}),
-    ...(o.review ? { review: buildReview(o.review, ids) } : {}),
+    ...(review ? { review } : {}),
     timestamp: o.timestamp ?? new Date().toISOString(),
   };
   return { ...rec, recordHash: recordHash(rec) };
@@ -175,12 +269,20 @@ export function stringifyDecisionRecord(rec: DecisionRecord): string {
   return JSON.stringify(JSON.parse(canonicalJSON(rec)), null, 2) + '\n';
 }
 
+function isSchema(s: unknown): s is DecisionRecord['schema'] {
+  return s === DECISION_RECORD_SCHEMA || s === DECISION_RECORD_SCHEMA_V0;
+}
+
 /** Parse and verify a record. Throws on a wrong schema, a bad input hash,
  *  a tampered record hash, a profile hash that no longer matches the built-in
- *  profile, or selected ids that are not in the input. */
+ *  profile, or selected ids that are not in the input.
+ *  v1 also requires unique ids, embedded windows, the WASM hash of this build,
+ *  and `selected` equal to the accepted review ids. v0 records still open. */
 export function parseDecisionRecord(json: string | unknown): DecisionRecord {
   const rec = (typeof json === 'string' ? JSON.parse(json) : json) as DecisionRecord;
-  if (!rec || typeof rec !== 'object' || rec.schema !== DECISION_RECORD_SCHEMA) throw new Error('Not a ParetoMol decision record (schema paretomol.decision/0)');
+  if (!rec || typeof rec !== 'object' || !isSchema(rec.schema)) {
+    throw new Error('Not a ParetoMol decision record (schema paretomol.decision/0 or paretomol.decision/1)');
+  }
   if (!rec.input || !Array.isArray(rec.input.molecules)) throw new Error('Decision record: missing input.molecules');
   if (inputHash(rec.input.molecules) !== rec.input.sha256) throw new Error('Decision record: input hash mismatch');
   if (rec.input.count !== rec.input.molecules.length) throw new Error('Decision record: input count mismatch');
@@ -189,11 +291,34 @@ export function parseDecisionRecord(json: string | unknown): DecisionRecord {
   try { p = getProfile(rec.profile.ref); } catch { /* unknown profile: allowed, cannot be checked */ }
   if (p && p.hash !== rec.profile.hash) throw new Error(`Decision record: profile ${rec.profile.ref} hash differs from this version of ParetoMol`);
   if (rec.profile.curve !== undefined && rec.profile.curve !== 'linear' && rec.profile.curve !== 'sigmoid') throw new Error('Decision record: profile.curve must be linear or sigmoid');
-  const ids = new Set(rec.input.molecules.map((m) => m.id));
-  for (const s of rec.selected) if (!ids.has(s)) throw new Error(`Decision record: selected id not in input: ${s}`);
+  const ids = rec.input.molecules.map((m) => m.id);
+  const idSet = new Set(ids);
+  if (rec.schema === DECISION_RECORD_SCHEMA) {
+    if (idSet.size !== ids.length) {
+      const seen = new Set<string>();
+      for (const id of ids) {
+        if (seen.has(id)) throw new Error(`Decision record: duplicate input id: ${id}`);
+        seen.add(id);
+      }
+    }
+    if (!validWindows(rec.profile.windows)) throw new Error('Decision record: profile.windows must be desirability windows');
+    if (rec.profile.curve !== 'linear' && rec.profile.curve !== 'sigmoid') throw new Error('Decision record: profile.curve must be linear or sigmoid');
+    const rj = rec.models?.rdkitjs;
+    if (!rj || typeof rj === 'string' || typeof rj.version !== 'string' || typeof rj.sha256 !== 'string' || !/^sha256:[0-9a-f]{64}$/.test(rj.sha256)) {
+      throw new Error('Decision record: models.rdkitjs must include a version and a sha256 hash');
+    }
+    if (rj.sha256 !== RDKIT_WASM_SHA256) throw new Error('Decision record: rdkitjs hash does not match this build');
+    if (p && !windowsMatch(rec.profile.windows, p.desirability)) {
+      throw new Error(`Decision record: profile ${rec.profile.ref} windows differ from this version of ParetoMol`);
+    }
+    if (rec.review && !sameIdSet(rec.selected ?? [], acceptedIds(rec.review.decisions))) {
+      throw new Error('Decision record: selected ids do not match accepted review decisions');
+    }
+  }
+  for (const s of rec.selected ?? []) if (!idSet.has(s)) throw new Error(`Decision record: selected id not in input: ${s}`);
   if (rec.review) {
     for (const [id, v] of Object.entries(rec.review.decisions ?? {})) {
-      if (!ids.has(id)) throw new Error(`Decision record: review decision for unknown id: ${id}`);
+      if (!idSet.has(id)) throw new Error(`Decision record: review decision for unknown id: ${id}`);
       if (v !== 'accept' && v !== 'reject') throw new Error(`Decision record: review decision must be accept or reject: ${id}`);
     }
   }

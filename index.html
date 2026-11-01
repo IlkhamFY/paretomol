@@ -27,29 +27,17 @@
     <link rel="canonical" href="https://paretomol.com" />
     <link rel="alternate" type="text/plain" title="LLM guide" href="/llms.txt" />
     <title>ParetoMol — Multi-Objective Molecule Analysis</title>
-    <script>
-      // Restore theme preference before first paint to prevent flash
-      try { if (localStorage.getItem('paretomol-theme') === 'light') document.documentElement.classList.remove('dark'); } catch(e) {}
-    </script>
-    <style>
-      body { margin: 0; }
-      .dark body { background-color: #1A1918; color: #E8E6E3; }
-      body { background-color: #FAFAF9; color: #1A1918; }
-    </style>
-    <!-- RDKit WASM -->
-    <script src="https://unpkg.com/@rdkit/rdkit@2025.3.4-1.0.0/dist/RDKit_minimal.js"></script>
-    <!-- 3Dmol.js for interactive 3D molecular visualization -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/3Dmol/2.4.2/3Dmol-min.js"></script>
-    <script>
-      // Page and event counts only on the production hostname.
-      // Localhost and preview builds are skipped. no_onload keeps the library
-      // from sending location.search. Molecule payloads live in the fragment
-      // (#m= share, #r= review). Analytics strip those keys as well.
-      if (location.hostname === 'paretomol.com') {
-        window.goatcounter = { no_onload: true };
-        document.write('<script data-goatcounter="https://paretomol.goatcounter.com/count" async src="//gc.zgo.at/count.js"><\/script>');
-      }
-    </script>
+    <!--
+      RDKit's loader uses new Function, so script-src needs unsafe-eval.
+      wasm-unsafe-eval covers compiling the vendored WASM. 3Dmol is loaded
+      from this origin only when a 3D view opens. connect-src is the ADMET
+      Space plus the opt-in services named in llms.txt, and GoatCounter.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' https://gc.zgo.at; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://*.hf.space https://huggingface.co https://pubchem.ncbi.nlm.nih.gov https://www.ebi.ac.uk https://cartblanche22.docking.org https://api.openai.com https://api.anthropic.com https://generativelanguage.googleapis.com https://paretomol.goatcounter.com https://gc.zgo.at; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <link rel="stylesheet" href="/boot.css" />
+    <script src="/theme-init.js"></script>
+    <script src="/rdkit/RDKit_minimal.js"></script>
+    <script src="/goatcounter.js"></script>
 
     <!-- Structured Data (JSON-LD) -->
     <script type="application/ld+json">

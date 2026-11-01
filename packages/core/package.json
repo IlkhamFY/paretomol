@@ -5,26 +5,29 @@
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
-  "main": "./dist/src/index.js",
-  "types": "./dist/src/index.d.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "source": "./src/index.ts",
-      "types": "./dist/src/index.d.ts",
-      "default": "./dist/src/index.js"
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./verify": {
       "source": "./src/verify.ts",
-      "types": "./dist/src/verify.d.ts",
-      "default": "./dist/src/verify.js"
+      "types": "./dist/verify.d.ts",
+      "default": "./dist/verify.js"
     },
     "./node": {
       "source": "./src/node.ts",
-      "types": "./dist/src/node.d.ts",
-      "default": "./dist/src/node.js"
+      "types": "./dist/node.d.ts",
+      "default": "./dist/node.js"
     },
-    "./profiles/*.json": "./profiles/*.json",
+    "./profiles/*.json": "./dist/profiles/*.json",
     "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@rdkit/rdkit": "2025.3.4-1.0.0",
@@ -33,7 +36,6 @@
   },
   "files": [
     "dist",
-    "profiles",
     "README.md"
   ],
   "scripts": {

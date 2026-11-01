@@ -86,10 +86,28 @@ function isFlat(sdf: string): boolean {
   return zRange < 0.1; // less than 0.1 Å range = flat
 }
 
+let threeDmol: Promise<void> | null = null;
+
+/** Load 3Dmol from this origin the first time a 3D view opens. */
+function load3Dmol(): Promise<void> {
+  if (window.$3Dmol) return Promise.resolve();
+  if (!threeDmol) {
+    threeDmol = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = '/vendor/3Dmol-min.js';
+      s.async = true;
+      s.onload = () => (window.$3Dmol ? resolve() : reject(new Error('3D view did not start')));
+      s.onerror = () => reject(new Error('3D view did not load'));
+      document.head.appendChild(s);
+    });
+  }
+  return threeDmol;
+}
+
 /**
- * Fetches a 3D conformer from PubChem PUG REST and renders it
- * with 3Dmol.js (loaded via CDN). Falls back to a message if
- * PubChem doesn't have a 3D conformer or 3Dmol isn't loaded.
+ * Fetches a 3D conformer from PubChem and renders it. 3Dmol loads only when
+ * this view opens. Falls back to a message if the structure or the viewer
+ * is unavailable.
  */
 export default function Mol3DViewer({ smiles, height = 120, className = '' }: Mol3DViewerProps) {
   const { theme } = useTheme();
@@ -102,13 +120,6 @@ export default function Mol3DViewer({ smiles, height = 120, className = '' }: Mo
   useEffect(() => {
     if (!containerRef.current || !smiles) return;
 
-    // Check 3Dmol availability
-    if (!window.$3Dmol) {
-      setStatus('error');
-      setErrorMsg('3Dmol not loaded');
-      return;
-    }
-
     let cancelled = false;
 
     async function load() {
@@ -116,6 +127,8 @@ export default function Mol3DViewer({ smiles, height = 120, className = '' }: Mo
       setErrorMsg('');
 
       try {
+        await load3Dmol();
+        if (cancelled) return;
         // Canonicalize to clean up SMILES for PubChem
         const canonical = canonicalizeSmiles(smiles);
 
@@ -157,10 +170,10 @@ export default function Mol3DViewer({ smiles, height = 120, className = '' }: Mo
         if (cancelled) return;
         setIs3D(true);
         render(sdf);
-      } catch {
+      } catch (e) {
         if (cancelled) return;
         setStatus('error');
-        setErrorMsg('Network error');
+        setErrorMsg(e instanceof Error && e.message.startsWith('3D view') ? e.message : 'Could not fetch a 3D structure');
       }
     }
 
@@ -192,7 +205,7 @@ export default function Mol3DViewer({ smiles, height = 120, className = '' }: Mo
         setStatus('ready');
       } catch {
         setStatus('error');
-        setErrorMsg('Render failed');
+        setErrorMsg('Could not draw the 3D view');
       }
     }
 

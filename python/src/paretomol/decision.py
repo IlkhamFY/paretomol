@@ -1,39 +1,63 @@
-"""Decision records, schema ``paretomol.decision/0``.
+"""Decision records. Writers emit ``paretomol.decision/1``. Readers still accept
+``paretomol.decision/0``.
 
-A record is a hash-stable JSON account of one multi-objective decision: which
-molecules went in, which profile scored them, which objectives ranked them,
-and what was picked. ``recordHash`` covers the canonical JSON of every field
-except itself. ``input.sha256`` covers only the molecules.
+A v1 record embeds the desirability windows and curve, names the RDKit WASM
+by hash, and stores ranks and MPO computed here. ``recordHash`` covers the
+canonical JSON of every field except itself. ``input.sha256`` covers only
+the molecules.
 """
 
 from __future__ import annotations
 
+import copy
 from datetime import datetime, timezone
 from typing import Any, Mapping, Optional, Sequence
 
 from .canonical import canonical_json, js_stringify, round6, sha256_hex
 from .mpo import mpo_score
-from .pareto import Molecule, coerce_molecules, normalize_objectives, plain_number
+from .pareto import Molecule, coerce_molecules, compute_pareto, normalize_objectives, plain_number
 from .profiles import ResolvedProfile, get_profile
 
-DECISION_RECORD_SCHEMA = "paretomol.decision/0"
-# Version of @paretomol/core that defines this record. Kept identical so a
+DECISION_RECORD_SCHEMA_V0 = "paretomol.decision/0"
+DECISION_RECORD_SCHEMA = "paretomol.decision/1"
+# Version of @paretomol/core. Must match packages/core/package.json so a
 # record built here hashes the same as one built in the TypeScript core.
 CORE_VERSION = "0.1.0"
+# SHA-256 of @rdkit/rdkit 2025.3.4-1.0.0 dist/RDKit_minimal.wasm.
+RDKIT_WASM_SHA256 = "sha256:e0967d44fed59e44a2d07bfc08f3a86821c54a14c95bb7e6e392fe867333b8c8"
 DEFAULT_ADMET_ENDPOINT = "https://ilkhamfy-admet-ai-api.hf.space"
 ADMET_MODEL = "ADMET-AI v2.0.1 (Chemprop D-MPNN, TDC)"
 
 
 def molecule_ids(names: Sequence[str]) -> list[str]:
-    """Stable ids: the name, with ``~2``, ``~3`` appended to repeats. Blank names become ``mol``."""
-    seen: dict[str, int] = {}
-    out: list[str] = []
-    for raw in names:
-        n = (raw or "").strip() or "mol"
-        k = seen.get(n, 0) + 1
-        seen[n] = k
-        out.append(n if k == 1 else f"{n}~{k}")
-    return out
+    """Stable ids. The first use of a name keeps it. Repeats get ``~2``, ``~3``, skipping ids already taken.
+
+    A name that is itself ``a~2`` does not collide with the second ``a``.
+    Blank names become ``mol``.
+    """
+    bases = [(raw or "").strip() or "mol" for raw in names]
+    first: dict[str, int] = {}
+    for i, base in enumerate(bases):
+        if base not in first:
+            first[base] = i
+    used: set[str] = set()
+    out: list[Optional[str]] = [None] * len(bases)
+    for base, i in first.items():
+        out[i] = base
+        used.add(base)
+    nxt: dict[str, int] = {}
+    for i, base in enumerate(bases):
+        if out[i] is not None:
+            continue
+        k = nxt.get(base, 2)
+        ident = f"{base}~{k}"
+        while ident in used:
+            k += 1
+            ident = f"{base}~{k}"
+        nxt[base] = k + 1
+        used.add(ident)
+        out[i] = ident
+    return [ident or "mol" for ident in out]
 
 
 def clean_custom(custom: Optional[Mapping[str, Any]]) -> Optional[dict[str, Any]]:
@@ -143,7 +167,11 @@ def build_decision_record(
     timestamp: Optional[str] = None,
     curve: str = "linear",
 ) -> dict[str, Any]:
-    """Build a ``paretomol.decision/0`` record, including ``recordHash``."""
+    """Build a ``paretomol.decision/1`` record, including ``recordHash``.
+
+    Ranks and MPO are computed here. A review block requires ``selected`` to be
+    the accepted molecules.
+    """
     if curve not in ("linear", "sigmoid"):
         raise ValueError("Decision record: curve must be linear or sigmoid")
     if isinstance(profile, str) or profile is None:
@@ -162,33 +190,40 @@ def build_decision_record(
         if custom:
             item["customProps"] = custom
         in_mols.append(item)
+    working = [Molecule(m.name, m.smiles, dict(m.props), dict(m.custom_props)) for m in mols]
+    compute_pareto(working, objs)
+    windows = copy.deepcopy(resolved.desirability)
     results: list[dict[str, Any]] = []
-    for mol, mid in zip(mols, ids):
+    for mol, mid in zip(working, ids):
         merged = {**mol.props, **mol.custom_props}
-        score = mpo_score(merged, resolved.desirability, curve)["score"]
+        score = mpo_score(merged, windows, curve)["score"]
         results.append({
             "id": mid,
             "paretoRank": mol.pareto_rank if mol.pareto_rank is not None else None,
             "mpo": round6(score),
         })
+    chosen = _selected_ids(selected, ids)
+    built_review = _build_review(review, ids) if review is not None else None
+    if built_review is not None and sorted(mid for mid, verdict in built_review["decisions"].items() if verdict == "accept") != sorted(chosen):
+        raise ValueError("Decision record: selected ids do not match accepted review decisions")
     rec: dict[str, Any] = {
         "schema": DECISION_RECORD_SCHEMA,
         "input": {"sha256": input_hash(in_mols), "count": len(in_mols), "molecules": in_mols},
-        "profile": {"ref": resolved.ref, "hash": resolved.hash, "curve": curve},
+        "profile": {"ref": resolved.ref, "hash": resolved.hash, "curve": curve, "windows": windows},
         "models": {
             "core": CORE_VERSION,
-            "rdkitjs": rdkit_version,
+            "rdkitjs": {"version": rdkit_version, "sha256": RDKIT_WASM_SHA256},
             "admet": {"endpoint": admet_endpoint, "model": ADMET_MODEL} if admet_endpoint else None,
         },
         "objectives": [{"key": o["key"], "direction": o["direction"]} for o in objs],
         "results": results,
-        "selected": _selected_ids(selected, ids),
+        "selected": chosen,
         "rationale": "" if rationale is None else rationale,
     }
     if view is not None:
         rec["view"] = dict(view)
-    if review is not None:
-        rec["review"] = _build_review(review, ids)
+    if built_review is not None:
+        rec["review"] = built_review
     rec["timestamp"] = timestamp if timestamp is not None else _now_iso()
     rec["recordHash"] = record_hash(rec)
     return rec
@@ -206,11 +241,26 @@ def _parse_canonical(text: str) -> Any:
     return json.loads(text)
 
 
+def _windows_ok(windows: Any) -> bool:
+    if not isinstance(windows, dict):
+        return False
+    for win in windows.values():
+        if not isinstance(win, dict):
+            return False
+        for key in ("idealMin", "idealMax", "acceptMin", "acceptMax"):
+            value = win.get(key)
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                return False
+    return True
+
+
 def parse_decision_record(data: Any) -> dict[str, Any]:
     """Parse and verify a record.
 
     Raises when the schema is wrong, a hash does not match, a built-in profile
     hash differs from this package, or a selected id is not in the input.
+    v1 also requires unique ids, embedded windows, this build's WASM hash,
+    and ``selected`` equal to the accepted review ids. v0 records still open.
     """
     import json
     if isinstance(data, str):
@@ -218,9 +268,10 @@ def parse_decision_record(data: Any) -> dict[str, Any]:
     elif isinstance(data, dict):
         rec = data
     else:
-        raise ValueError("Not a ParetoMol decision record (schema paretomol.decision/0)")
-    if not isinstance(rec, dict) or rec.get("schema") != DECISION_RECORD_SCHEMA:
-        raise ValueError("Not a ParetoMol decision record (schema paretomol.decision/0)")
+        raise ValueError("Not a ParetoMol decision record (schema paretomol.decision/0 or paretomol.decision/1)")
+    schema = rec.get("schema") if isinstance(rec, dict) else None
+    if schema not in (DECISION_RECORD_SCHEMA, DECISION_RECORD_SCHEMA_V0):
+        raise ValueError("Not a ParetoMol decision record (schema paretomol.decision/0 or paretomol.decision/1)")
     inp = rec.get("input")
     if not isinstance(inp, dict) or not isinstance(inp.get("molecules"), list):
         raise ValueError("Decision record: missing input.molecules")
@@ -230,17 +281,44 @@ def parse_decision_record(data: Any) -> dict[str, Any]:
         raise ValueError("Decision record: input count mismatch")
     if record_hash(rec) != rec.get("recordHash"):
         raise ValueError("Decision record: record hash mismatch (edited after export?)")
-    pref = (rec.get("profile") or {}).get("ref")
+    profile = rec.get("profile") or {}
+    pref = profile.get("ref")
     try:
         known = get_profile(pref) if isinstance(pref, str) else None
     except ValueError:
         known = None
-    if known is not None and known.hash != (rec.get("profile") or {}).get("hash"):
+    if known is not None and known.hash != profile.get("hash"):
         raise ValueError(f"Decision record: profile {pref} hash differs from this version of ParetoMol")
-    stored_curve = (rec.get("profile") or {}).get("curve")
+    stored_curve = profile.get("curve")
     if stored_curve is not None and stored_curve not in ("linear", "sigmoid"):
         raise ValueError("Decision record: profile.curve must be linear or sigmoid")
-    ids = {m.get("id") for m in inp["molecules"]}
+    id_list = [m.get("id") for m in inp["molecules"]]
+    ids = set(id_list)
+    if schema == DECISION_RECORD_SCHEMA:
+        if len(ids) != len(id_list):
+            seen_ids: set[Any] = set()
+            for mid in id_list:
+                if mid in seen_ids:
+                    raise ValueError(f"Decision record: duplicate input id: {mid}")
+                seen_ids.add(mid)
+        if not _windows_ok(profile.get("windows")):
+            raise ValueError("Decision record: profile.windows must be desirability windows")
+        if stored_curve not in ("linear", "sigmoid"):
+            raise ValueError("Decision record: profile.curve must be linear or sigmoid")
+        rdkit = (rec.get("models") or {}).get("rdkitjs")
+        sha = rdkit.get("sha256") if isinstance(rdkit, dict) else None
+        version = rdkit.get("version") if isinstance(rdkit, dict) else None
+        if not isinstance(version, str) or not isinstance(sha, str) or not sha.startswith("sha256:") or len(sha) != 71:
+            raise ValueError("Decision record: models.rdkitjs must include a version and a sha256 hash")
+        if sha != RDKIT_WASM_SHA256:
+            raise ValueError("Decision record: rdkitjs hash does not match this build")
+        if known is not None and canonical_json(profile["windows"]) != canonical_json(known.desirability):
+            raise ValueError(f"Decision record: profile {pref} windows differ from this version of ParetoMol")
+        review_block = rec.get("review")
+        if review_block:
+            accepted = sorted(mid for mid, verdict in (review_block.get("decisions") or {}).items() if verdict == "accept")
+            if accepted != sorted(rec.get("selected") or []):
+                raise ValueError("Decision record: selected ids do not match accepted review decisions")
     for sid in rec.get("selected") or []:
         if sid not in ids:
             raise ValueError(f"Decision record: selected id not in input: {sid}")

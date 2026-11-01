@@ -1,6 +1,6 @@
 # paretomol
 
-Python port of the headless ParetoMol core: Pareto ranks, objective directions, versioned scoring profiles, `paretomol.decision/0` records, claim checks, and `paretomol.com/#r=` review links.
+Python port of the headless ParetoMol core: Pareto ranks, objective directions, versioned scoring profiles, `paretomol.decision/1` records (readers still open `/0`), claim checks, and `paretomol.com/#r=` review links.
 
 The same inputs produce the same ranks, the same MPO scores, and the same `sha256:` hashes as [`@paretomol/core`](../packages/core). Profile JSON lives in `src/paretomol/profiles/` and is hashed with the same canonical JSON.
 
@@ -35,7 +35,7 @@ print(review_url(ranked, profile="oral@1", source="notebook"))
 
 ## Decision records
 
-`build_decision_record` / `parse_decision_record` / `stringify_decision_record` read and write `paretomol.decision/0`. The profile block includes `curve` (`linear` or `sigmoid`), which is the curve used for `results.mpo`. `models.core` stays `0.1.0`, the `@paretomol/core` version that defines the schema, so a record built here verifies in the app.
+`build_decision_record` writes `paretomol.decision/1`. `parse_decision_record` also opens `paretomol.decision/0`. A v1 profile block includes `curve` (`linear` or `sigmoid`) and `windows` (the desirability that scored the MPO). Ranks are computed in `build_decision_record`, not copied from the caller. `models.rdkitjs` is `{version, sha256}` of the pinned WASM. `models.core` stays `0.1.0`, the `@paretomol/core` version, so a record built here verifies in the app. When a review is present, `selected` must be the accepted ids.
 
 ## Claims
 

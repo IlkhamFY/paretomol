@@ -67,7 +67,7 @@ Lists are capped at 2,000 molecules (the same cap as the web app) and each SMILE
 | `explain_tradeoff` | Front size, sharpest anti-correlated pair, optional head-to-head. |
 | `open_review_url` | A `https://paretomol.com/#r=` link. Over ~32,000 characters the tool returns `review_url_too_long` and no URL. Write a decision record file instead. |
 | `verify_claims` | Claimed descriptors and objective directions. |
-| `verify_decision` | Hashes plus a recomputed Pareto and MPO diff for a `paretomol.decision/0` record. |
+| `verify_decision` | Hashes plus a recomputed Pareto and MPO diff for a `paretomol.decision/1` or `/0` record. |
 | `review_shortlist` | Experimental MCP App. See below. |
 
 `export_review_decision` is visible to the review UI only (`visibility: ["app"]`).
@@ -76,7 +76,7 @@ Lists are capped at 2,000 molecules (the same cap as the web app) and each SMILE
 
 `review_shortlist` registers an MCP App resource at `ui://paretomol/review.html` (`text/html;profile=mcp-app`). A host that supports the MCP Apps extension renders it: each molecule shows its structure, objective values and Pareto rank, with Accept and Reject, and an export.
 
-Export calls `export_review_decision`, which writes the same `paretomol.decision/0` record as the web app's review mode, including the `review` block. `selected` is the accepted ids.
+Export calls `export_review_decision`, which writes the same `paretomol.decision/1` record as the web app's review mode, including the `review` block. `selected` is the accepted ids.
 
 Hosts without MCP Apps still get a normal tool result. It includes the review link when that link fits. When the link would be too long, the result says so and does not include a broken URL. The interactive panel is the part that needs a host with MCP Apps. Treat the panel as experimental.
 

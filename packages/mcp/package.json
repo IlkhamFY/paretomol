@@ -8,20 +8,23 @@
   "bin": {
     "paretomol-mcp": "./bin/paretomol-mcp.js"
   },
-  "main": "./dist/src/server.js",
-  "types": "./dist/src/server.d.ts",
+  "main": "./dist/server.js",
+  "types": "./dist/server.d.ts",
   "exports": {
     ".": {
       "source": "./src/server.ts",
-      "types": "./dist/src/server.d.ts",
-      "default": "./dist/src/server.js"
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
     },
     "./tools": {
       "source": "./src/tools.ts",
-      "types": "./dist/src/tools.d.ts",
-      "default": "./dist/src/tools.js"
+      "types": "./dist/tools.d.ts",
+      "default": "./dist/tools.js"
     },
     "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "files": [
     "bin",

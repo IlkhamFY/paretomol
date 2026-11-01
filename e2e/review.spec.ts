@@ -46,7 +46,7 @@ test('review link opens in review mode and exports the verdicts as a decision re
 
   expect(rec.selected).toEqual(['aspirin', 'ibuprofen']);
   expect(rec.rationale).toBe('Best potency at acceptable MW.');
-  expect(rec.profile).toEqual({ ref: 'cns@1', hash: getProfile('cns@1').hash, curve: 'linear' });
+  expect(rec.profile).toEqual({ ref: 'cns@1', hash: getProfile('cns@1').hash, curve: 'linear', windows: getProfile('cns@1').desirability });
   expect(new URL(page.url()).hash).toContain('r=');
   await page.getByRole('button', { name: 'Table', exact: true }).click();
   await expect.poll(() => new URL(page.url()).searchParams.get('tab')).toBe('table');

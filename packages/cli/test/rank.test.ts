@@ -3,6 +3,7 @@ import { readFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseDecisionRecord, getProfile } from '@paretomol/core';
+import { RDKIT_WASM_SHA256 } from '../../core/src/rdkitBuild';
 import { rank, parseObjectives, loadRDKit } from '../src/rank';
 import { main } from '../src/main';
 
@@ -19,8 +20,8 @@ describe('paretomol rank', () => {
     expect(errors).toBe(1);
     expect(record.input.count).toBe(3);
     expect(record.selected).toEqual(['benzene']);
-    expect(record.profile).toEqual({ ref: 'oral@1', hash: getProfile('oral@1').hash, curve: 'linear' });
-    expect(record.models.rdkitjs).toMatch(/^2025\.03\.4/);
+    expect(record.profile).toEqual({ ref: 'oral@1', hash: getProfile('oral@1').hash, curve: 'linear', windows: getProfile('oral@1').desirability });
+    expect(record.models.rdkitjs).toEqual({ version: expect.stringMatching(/^2025\.03\.4/), sha256: RDKIT_WASM_SHA256 });
     expect(parseDecisionRecord(JSON.parse(JSON.stringify(record)))).toEqual(record);
     expect(record.results.every((r) => r.paretoRank !== null)).toBe(true);
   });

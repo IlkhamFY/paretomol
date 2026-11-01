@@ -1,6 +1,6 @@
 import {
-  analyzeInput, buildDecisionRecord, computeParetoAndDominance, inferObjectives,
-  DEFAULT_PARETO_OBJECTIVES, getProfile, moleculeIds,
+  analyzeInput, buildDecisionRecord, descriptorTier, inferObjectives,
+  DEFAULT_PARETO_OBJECTIVES, getProfile, moleculeIds, splitInput,
 } from '@paretomol/core';
 import { loadRDKit } from '@paretomol/core/node';
 import type { DecisionRecord, ParetoObjective } from '@paretomol/core';
@@ -25,9 +25,10 @@ export interface RankResult { record: DecisionRecord; errors: number }
 export async function rank(input: string, opts: RankOptions = {}): Promise<RankResult> {
   const RDKit = await loadRDKit();
   const profile = getProfile(opts.profile ?? 'oral@1');
-  const { molecules, errors, customPropNames } = analyzeInput(input, RDKit);
-  const objectives = opts.objectives ?? [...DEFAULT_PARETO_OBJECTIVES, ...inferObjectives(customPropNames)];
-  computeParetoAndDominance(molecules, objectives);
+  const preview = splitInput(input);
+  const objectives = opts.objectives ?? [...DEFAULT_PARETO_OBJECTIVES, ...inferObjectives(preview.customPropNames)];
+  const tier = descriptorTier([...objectives.map((o) => o.key), ...Object.keys(profile.desirability)]);
+  const { molecules, errors } = analyzeInput(input, RDKit, tier);
   const want = new Set(opts.select ?? []);
   const ids = moleculeIds(molecules.map((m) => m.name));
   const selected = ids.flatMap((id, i) => (want.has(id) || want.has(molecules[i].name) ? [i] : []));

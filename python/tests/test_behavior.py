@@ -50,6 +50,8 @@ def test_rank_is_idempotent_and_clears_edges():
 
 def test_molecule_ids_and_zero_width_window():
     assert molecule_ids(["a", "b", "a", "  ", "a"]) == ["a", "b", "a~2", "mol", "a~3"]
+    assert molecule_ids(["a", "a", "a~2"]) == ["a", "a~3", "a~2"]
+    assert molecule_ids(["", "mol"]) == ["mol", "mol~2"]
     window = {"acceptMin": 0, "idealMin": 0, "idealMax": 3, "acceptMax": 3}
     for curve in ("linear", "sigmoid"):
         assert mpo_score({"HBD": 0}, {"HBD": window}, curve)["per_prop"]["HBD"] == 1

@@ -1,12 +1,15 @@
 // Recompute a decision record: hashes first (the same checks as
-// parseDecisionRecord), then Pareto rank and linear MPO with RDKit.
+// parseDecisionRecord), then Pareto rank and MPO with RDKit.
 // A hash failure still produces a rank/MPO diff when the molecules parse.
+// v1 scores from the embedded windows and curve. v0 uses the built-in profile
+// and treats a missing curve as linear.
 
-import { analyzeMolecule, type RDKitLike } from './analyze.js';
+import { analyzeMolecule, descriptorTier, type RDKitLike } from './analyze.js';
 import {
-  DECISION_RECORD_SCHEMA, parseDecisionRecord, type DecisionRecord, type DecisionResult,
+  DECISION_RECORD_SCHEMA, DECISION_RECORD_SCHEMA_V0, parseDecisionRecord, validWindows,
+  type DecisionRecord, type DecisionResult,
 } from './decision.js';
-import { mpoScore } from './mpo.js';
+import { mpoScore, type CurveType, type PropDesirability } from './mpo.js';
 import { computeParetoAndDominance } from './pareto.js';
 import { getProfile } from './profiles.js';
 import type { Molecule, ParetoObjective } from './types.js';
@@ -49,7 +52,7 @@ const round6 = (x: number) => Math.round(x * 1e6) / 1e6;
 
 function classify(message: string): DecisionIssue {
   if (message.includes('hash')) return { code: 'hash', message };
-  if (message.includes('count')) return { code: 'count', message };
+  if (message.includes('duplicate') || message.includes('count')) return { code: 'count', message };
   if (message.includes('selected') || message.includes('review decision')) return { code: 'selection', message };
   if (message.includes('profile') && !message.includes('hash')) return { code: 'profile', message };
   return { code: 'schema', message };
@@ -57,11 +60,15 @@ function classify(message: string): DecisionIssue {
 
 function usable(rec: DecisionRecord): boolean {
   return !!rec
-    && rec.schema === DECISION_RECORD_SCHEMA
+    && (rec.schema === DECISION_RECORD_SCHEMA || rec.schema === DECISION_RECORD_SCHEMA_V0)
     && !!rec.input && Array.isArray(rec.input.molecules)
     && Array.isArray(rec.results)
     && Array.isArray(rec.objectives)
     && rec.objectives.every((o) => o && typeof o.key === 'string' && (o.direction === 'min' || o.direction === 'max'));
+}
+
+function curveOf(rec: DecisionRecord): CurveType {
+  return rec.profile?.curve === 'sigmoid' ? 'sigmoid' : 'linear';
 }
 
 /** Check a decision record and recompute its front and MPO. Does not throw. */
@@ -79,20 +86,27 @@ export function verifyDecision(json: string | unknown, RDKit: RDKitLike): Decisi
 
   const rec = raw as DecisionRecord;
   if (!usable(rec)) {
-    if (!issues.some((i) => i.code === 'schema')) issues.push({ code: 'schema', message: 'Not a ParetoMol decision record (schema paretomol.decision/0)' });
+    if (!issues.some((i) => i.code === 'schema')) issues.push({ code: 'schema', message: 'Not a ParetoMol decision record (schema paretomol.decision/0 or paretomol.decision/1)' });
     return { ok: false, issues, recomputed: [], rdkitVersion };
   }
   if (issues.some((i) => i.code === 'schema')) return { ok: false, issues, recomputed: [], rdkitVersion };
 
-  let profile: ReturnType<typeof getProfile> | null = null;
-  try { profile = getProfile(rec.profile.ref); }
-  catch (e) {
-    issues.push({ code: 'profile', message: e instanceof Error ? e.message : String(e) });
+  let windows: Record<string, PropDesirability> | null = validWindows(rec.profile?.windows) ? rec.profile.windows : null;
+  if (!windows) {
+    try { windows = getProfile(rec.profile.ref).desirability; }
+    catch (e) {
+      issues.push({ code: 'profile', message: e instanceof Error ? e.message : String(e) });
+    }
   }
+  const curve = curveOf(rec);
+  const tier = descriptorTier([
+    ...rec.objectives.map((o) => o.key),
+    ...Object.keys(windows ?? {}),
+  ]);
 
   const molecules: Molecule[] = [];
   rec.input.molecules.forEach((row, i) => {
-    const mol = analyzeMolecule(row.smiles, 0, RDKit, [row.customProps ?? {}]);
+    const mol = analyzeMolecule(row.smiles, 0, RDKit, [row.customProps ?? {}], tier);
     if (!mol) {
       issues.push({ code: 'invalid_smiles', id: row.id, message: `${row.id || i}: SMILES does not parse` });
       return;
@@ -109,8 +123,8 @@ export function verifyDecision(json: string | unknown, RDKit: RDKitLike): Decisi
   const recomputed: RecomputedRow[] = molecules.map((m, i) => ({
     id: rec.input.molecules[i].id,
     paretoRank: m.paretoRank ?? null,
-    mpo: profile
-      ? round6(mpoScore({ ...(m.props as unknown as Record<string, number>), ...m.customProps }, profile.desirability, 'linear').score)
+    mpo: windows
+      ? round6(mpoScore({ ...(m.props as unknown as Record<string, number>), ...m.customProps }, windows, curve).score)
       : null,
   }));
 

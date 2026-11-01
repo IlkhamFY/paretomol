@@ -1,11 +1,11 @@
 // ParetoMol MCP tools. Each tool is a plain function over @paretomol/core so the
 // same logic serves the SDK server, tests and the agent benchmark.
 import {
-  analyzeInput, analyzeMolecule, checkInputLimits, computeParetoAndDominance, getMolValue, getProfile, inferObjectives,
+  analyzeInput, analyzeMolecule, checkInputLimits, computeParetoAndDominance, descriptorTier, getMolValue, getProfile, inferObjectives, splitInput,
   listProfiles, moleculeIds, mpoScore, readFront, reviewUrl, verifyClaims, verifyDecision,
   DEFAULT_PARETO_OBJECTIVES, REVIEW_URL_SOFT_LIMIT,
 } from '@paretomol/core';
-import type { Claim, Molecule, ParetoObjective, ResolvedProfile, ReviewInput } from '@paretomol/core';
+import type { AnalyzeOptions, Claim, Molecule, ParetoObjective, ResolvedProfile, ReviewInput } from '@paretomol/core';
 import { loadRDKit } from '@paretomol/core/node';
 import { ToolError } from './errors.js';
 
@@ -53,13 +53,14 @@ export function profileOrThrow(ref: string): ResolvedProfile {
   catch (e) { throw new ToolError('unknown_profile', e instanceof Error ? e.message : String(e)); }
 }
 
-/** Analyse molecules with RDKit.js. Returns parsed molecules and the indices that failed. */
-export async function analyze(mols: MolIn[]): Promise<{ molecules: Molecule[]; invalid: { index: number; smiles: string }[] }> {
+/** Analyse molecules with RDKit.js. Returns parsed molecules and the indices that failed.
+ *  Pass a descriptor tier to skip fingerprints and QED alerts. */
+export async function analyze(mols: MolIn[], opts?: AnalyzeOptions): Promise<{ molecules: Molecule[]; invalid: { index: number; smiles: string }[] }> {
   const RDKit = await loadRDKit();
   const molecules: Molecule[] = [];
   const invalid: { index: number; smiles: string }[] = [];
   mols.forEach((m, i) => {
-    const mol = analyzeMolecule(m.smiles, i, RDKit, [m.props ?? {}]);
+    const mol = analyzeMolecule(m.smiles, i, RDKit, [m.props ?? {}], opts);
     if (!mol) { invalid.push({ index: i, smiles: m.smiles }); return; }
     mol.name = m.name?.trim() || `mol_${i + 1}`;
     mol.customProps = { ...(m.props ?? {}) };
@@ -81,13 +82,13 @@ function take(args: Record<string, unknown>): MolIn[] {
 }
 
 export async function scoreMolecules(args: Record<string, unknown>) {
-  const { molecules, invalid } = await analyze(take(args));
+  const { molecules, invalid } = await analyze(take(args), { fingerprint: false, qed: true });
   return { molecules: molecules.map(row), invalid };
 }
 
 export async function paretoFront(args: Record<string, unknown>) {
-  const { molecules, invalid } = await analyze(take(args));
   const objectives = asObjectives(args.objectives, DEFAULT_PARETO_OBJECTIVES);
+  const { molecules, invalid } = await analyze(take(args), descriptorTier(objectives.map((o) => o.key)));
   const edges = args.edges === true;
   if (args.edges !== undefined && typeof args.edges !== 'boolean') throw new ToolError('invalid_input', 'edges must be a boolean');
   computeParetoAndDominance(molecules, objectives);
@@ -141,7 +142,10 @@ export function listProfilesTool() {
 export async function applyProfile(args: Record<string, unknown>) {
   const ref = typeof args.profile === 'string' ? args.profile : 'oral@1';
   const profile = profileOrThrow(ref);
-  const { molecules, invalid } = await analyze(take(args));
+  const { molecules, invalid } = await analyze(take(args), descriptorTier([
+    ...profile.objectives.map((o) => o.key),
+    ...Object.keys(profile.desirability),
+  ]));
   computeParetoAndDominance(molecules, profile.objectives);
   const rows = molecules.map((m) => {
     const all: Record<string, number> = { ...(m.props as unknown as Record<string, number>), ...m.customProps };
@@ -159,8 +163,8 @@ export async function applyProfile(args: Record<string, unknown>) {
 }
 
 export async function explainTradeoff(args: Record<string, unknown>) {
-  const { molecules } = await analyze(take(args));
   const objectives = asObjectives(args.objectives, DEFAULT_PARETO_OBJECTIVES);
+  const { molecules } = await analyze(take(args), descriptorTier(objectives.map((o) => o.key)));
   computeParetoAndDominance(molecules, objectives);
   const reading = readFront(molecules, objectives);
   const names = Array.isArray(args.compare) ? (args.compare as string[]) : [];
@@ -233,8 +237,8 @@ export async function verifyDecisionTool(args: Record<string, unknown>) {
 
 function asDecisionRecord(args: Record<string, unknown>): unknown {
   if (args.record && typeof args.record === 'object') return args.record;
-  if (args.schema === 'paretomol.decision/0') return args;
-  throw new ToolError('invalid_input', 'Pass a paretomol.decision/0 record as { record } or as the record itself.');
+  if (args.schema === 'paretomol.decision/0' || args.schema === 'paretomol.decision/1') return args;
+  throw new ToolError('invalid_input', 'Pass a paretomol.decision/0 or paretomol.decision/1 record as { record } or as the record itself.');
 }
 
 /** Rank a CSV, TSV or SMILES-lines string the way the CLI does, and return decision-record ids.
@@ -242,10 +246,11 @@ function asDecisionRecord(args: Record<string, unknown>): unknown {
 export async function rankInput(args: Record<string, unknown>) {
   if (typeof args.text !== 'string' || !args.text.trim()) throw new ToolError('invalid_input', 'text must be a non-empty CSV, TSV or SMILES string');
   const RDKit = await loadRDKit();
-  const { molecules, errors, customPropNames } = analyzeInput(args.text, RDKit);
+  const preview = splitInput(args.text);
+  const objectives = asObjectives(args.objectives, [...DEFAULT_PARETO_OBJECTIVES, ...inferObjectives(preview.customPropNames)]);
+  const { molecules, errors } = analyzeInput(args.text, RDKit, descriptorTier(objectives.map((o) => o.key)));
   if (molecules.length === 0) throw new ToolError('invalid_input', 'no molecules parsed');
   assertLimits(molecules.map((m) => ({ smiles: m.smiles })), args);
-  const objectives = asObjectives(args.objectives, [...DEFAULT_PARETO_OBJECTIVES, ...inferObjectives(customPropNames)]);
   computeParetoAndDominance(molecules, objectives);
   const ids = moleculeIds(molecules.map((m) => m.name));
   const rows = molecules.map((m, i) => ({

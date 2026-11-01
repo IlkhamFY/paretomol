@@ -65,6 +65,17 @@ interface Measurement {
 
 const measurements: Measurement[] = [];
 
+/** Fail when a load is many times slower than the deposited Chromium run.
+ *  The numbers are wide on purpose: CI machines vary, and this catches a large
+ *  slowdown rather than a noisy second. */
+const BUDGET_SECONDS: Record<number, number> = {
+  100: 60,
+  500: 120,
+  1000: 180,
+  2000: 240,
+  2500: 300,
+};
+
 // Chromium only, and deliberately so. The heap figure comes from
 // performance.memory, which no other engine implements, and this file writes a
 // single tracked artefact: run under three projects with one worker, the last
@@ -102,6 +113,7 @@ for (const n of SIZES) {
     await expect(page.getByText(new RegExp(`\\b${n} molecules loaded`)).first())
       .toBeVisible({ timeout: 300_000 });
     const seconds = (Date.now() - started) / 1000;
+    expect(seconds, `${n} molecules exceeded the time budget`).toBeLessThan(BUDGET_SECONDS[n]);
 
     const after = await page.evaluate(() =>
       (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize ?? null,
@@ -170,6 +182,7 @@ test('degrades rather than failing beyond the soft limit', async ({ page }) => {
   await expect(page.getByText(/\b2500 molecules loaded/).first())
     .toBeVisible({ timeout: 360_000 });
   const seconds = (Date.now() - started) / 1000;
+  expect(seconds, '2500 molecules exceeded the time budget').toBeLessThan(BUDGET_SECONDS[2500]);
 
   const after = await page.evaluate(() =>
     (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize ?? null,

@@ -17,7 +17,7 @@ Use ParetoMol when you need to compare molecules on several objectives at once (
 
 ## Scoring profiles
 
-- Built in: `oral@1`, `cns@1`, `leadlike@1`, `lipinski@1`, `custom@1` (template). JSON in packages/core/profiles, each with a `sha256:` content hash. A profile id@version never changes meaning; changes get a new version.
+- Built in: `oral@1`, `cns@1`, `leadlike@1`, `lipinski@1`, `custom@1` (template). JSON data files in packages/core/src/profiles, also published as `@paretomol/core/profiles/<file>`. Pass a file to `loadProfile`. Each has a `sha256:` content hash. A profile id@version never changes meaning; changes get a new version.
 - A value exactly on a window edge (e.g. HBD = 0 under oral@1) scores as inside the window.
 
 ## CLI (@paretomol/cli, command `paretomol`)
@@ -37,9 +37,9 @@ Use ParetoMol when you need to compare molecules on several objectives at once (
 - `open_review_url` refuses a link over ~32000 characters (`review_url_too_long`) and does not return the URL. Write a decision record instead.
 - Experimental: `review_shortlist` is an MCP App (`ui://paretomol/review.html`) with structures, Pareto rank, Accept or Reject, and an export of the same decision record as the web app. Without MCP Apps, use `fallbackUrl`. Spec: [docs/mcp.md](https://github.com/IlkhamFY/paretomol/blob/main/docs/mcp.md).
 
-## Decision record (paretomol.decision/0)
+## Decision record (paretomol.decision/1)
 
-- [Spec](https://github.com/IlkhamFY/paretomol/blob/main/docs/decision-record.md): input molecules and their SHA-256, profile id@version and hash, model versions (core, RDKit.js, ADMET-AI endpoint or null), objectives, Pareto rank and MPO per molecule, selected ids, rationale, optional view, timestamp, record hash. Canonical JSON (sorted keys), SHA-256. Readers reject a wrong schema, bad hashes, or unknown selected ids.
+- [Spec](https://github.com/IlkhamFY/paretomol/blob/main/docs/decision-record.md): input molecules and their SHA-256, the resolved profile (id@version, hash, desirability windows, curve), model versions (core, RDKit.js version and WASM sha256, ADMET-AI endpoint or null), objectives, Pareto rank and MPO computed by core, selected ids, rationale, optional view, timestamp, record hash. `selected` equals the accepted review ids when a review is present. Canonical JSON (sorted keys), SHA-256. Readers still open `paretomol.decision/0`. `verify_decision` recomputes the front and MPO and returns a diff.
 
 ## Open review URL (paretomol.review/0)
 

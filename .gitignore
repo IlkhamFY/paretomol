@@ -20,6 +20,9 @@ dist-ssr
 # Playwright fetches the RDKit WebAssembly bundle on demand (7 MB build input)
 e2e/fixtures/
 
+# Copied from node_modules/@rdkit/rdkit when the app starts or builds
+public/rdkit/
+
 # Bytecode left by the analysis scripts
 __pycache__/
 *.pyc

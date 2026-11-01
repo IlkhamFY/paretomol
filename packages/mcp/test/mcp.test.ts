@@ -175,7 +175,9 @@ describe('paretomol mcp', () => {
     computeParetoAndDominance(molecules, OBJECTIVES);
     const again = buildDecisionRecord({
       molecules, objectives: OBJECTIVES, profile: 'cns@1', selected: [0],
-      rationale: args.rationale, rdkitVersion: out.record.models.rdkitjs, timestamp,
+      rationale: args.rationale,
+      rdkitVersion: typeof out.record.models.rdkitjs === 'string' ? out.record.models.rdkitjs : out.record.models.rdkitjs.version,
+      timestamp,
       admetEndpoint: null, view: out.record.view,
       review: { source: 'test-agent', decisions: { 0: 'accept', 1: 'reject' }, suggested: [1] },
     });

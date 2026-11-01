@@ -106,7 +106,8 @@ export function verifyClaims(claims: Claim[], RDKit: RDKitLike, opts: VerifyOpti
   claims.forEach((c, i) => {
     const id = c.id ?? `claim_${i + 1}`;
     const skip: string[] = [];
-    const m = analyzeMolecule(`${c.smiles} ${id.replace(/\s+/g, '_')}`, i, RDKit, []);
+    const wantsQed = Object.keys(c.properties ?? {}).some((key) => canonicalProperty(key) === 'QED');
+    const m = analyzeMolecule(`${c.smiles} ${id.replace(/\s+/g, '_')}`, i, RDKit, [], { fingerprint: false, qed: wantsQed });
     if (!m) {
       flags.push({ id, kind: 'invalid_smiles', message: `${id}: SMILES does not parse: ${c.smiles}` });
     } else {

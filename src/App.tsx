@@ -6,7 +6,8 @@ import DocsPage from './components/DocsPage';
 import CopilotPanel from './components/CopilotPanel';
 import KeyboardShortcuts from './components/KeyboardShortcuts';
 import type { Molecule, ParetoObjective, FormulaColumn } from '@paretomol/core';
-import { DEFAULT_PARETO_OBJECTIVES, EXAMPLES } from '@paretomol/core';
+import { DEFAULT_PARETO_OBJECTIVES } from '@paretomol/core';
+import { EXAMPLES } from './data/examples';
 import { parseFormula } from '@paretomol/core';
 import { autoSave, loadAutoSession, clearAutoSession, formatSessionTime, CURRENT_SCHEMA_VERSION } from './utils/session';
 import type { SerializedMolecule } from './utils/session';
@@ -14,7 +15,7 @@ import { packFingerprint, parseAndAnalyze, filterBySubstructure, computeParetoAn
 import { useTheme } from './contexts/ThemeContext';
 import { detectLocalServer } from './utils/admetTiers';
 import { warmupAdmetEndpoint, getAdmetAIEndpoint } from './utils/admetAI';
-import { buildDecisionRecord, parseDecisionRecord, selectedIndices, reviewTokenFromUrl, decodeReview, getProfile } from '@paretomol/core';
+import { buildDecisionRecord, parseDecisionRecord, selectedIndices, reviewTokenFromUrl, decodeReview, getProfile, verifyDecision } from '@paretomol/core';
 import type { CurveType, ReviewVerdict } from '@paretomol/core';
 import { decisionExportFields } from './utils/decisionExport';
 import ReviewPanel from './components/ReviewPanel';
@@ -26,7 +27,7 @@ import { fetchZincPrices } from './utils/zinc';
 import { getInitialPayloadFromUrl, getInitialTabFromUrl, getShareableUrl } from './utils/share';
 import { track } from './lib/track';
 import { downloadDecisionRecord, downloadCSV, downloadScoredCSV, downloadJSON, downloadSDF, downloadSDFPareto, downloadManifest, downloadSummaryReport, downloadCanvasPng } from './utils/export';
-import { openCitePanel } from '@paretomol/core';
+import { openCitePanel } from './lib/citePanel';
 import { clearSvgCache } from './utils/chem';
 import { applyPropertyFilters } from './components/PropertyFilters';
 
@@ -563,7 +564,7 @@ export default function App() {
     );
   };
 
-  // Decision record (paretomol.decision/0): export the current decision and
+  // Decision record (paretomol.decision/1): export the current decision and
   // re-open it later with the exact same view. See docs/decision-record.md.
   const handleExportDecisionRecord = async () => {
     if (molecules.length === 0) return;
@@ -594,7 +595,15 @@ export default function App() {
 
   const handleImportDecisionRecord = async (file: File) => {
     try {
-      const rec = parseDecisionRecord(await file.text());
+      const raw = await file.text();
+      const RDKit = await initRDKitCache();
+      const check = verifyDecision(raw, RDKit);
+      const blocking = check.issues.filter((i) => i.code !== 'rank' && i.code !== 'mpo');
+      if (blocking.length || check.recomputed.length === 0) {
+        setToast(`Could not open record: ${(blocking[0] ?? check.issues[0])?.message ?? 'unreadable record'}`);
+        return;
+      }
+      const rec = parseDecisionRecord(raw);
       const text = rec.input.molecules.map(m => `${m.smiles} ${m.name}`).join('\n');
       const { molecules: fresh } = await parseAndAnalyze(text);
       if (fresh.length !== rec.input.molecules.length) throw new Error(`${rec.input.molecules.length - fresh.length} structures did not parse`);
@@ -616,7 +625,11 @@ export default function App() {
       setSessionToast(null);
       if (v.activeTab) setActiveTab(v.activeTab);
       track('decision/imported');
-      setToast(`Opened decision record: ${restored.length} molecules, ${rec.selected.length} selected`);
+      if (check.issues.length) {
+        setToast(`Opened record with differences. ${check.issues.slice(0, 2).map((i) => i.message).join(' ')}`);
+      } else {
+        setToast(`Opened decision record: ${restored.length} molecules, ${rec.selected.length} selected`);
+      }
     } catch (e) {
       setToast(`Could not open record: ${e instanceof Error ? e.message : String(e)}`);
     }

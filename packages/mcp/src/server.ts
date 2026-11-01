@@ -155,9 +155,9 @@ export function createServer(): McpServer {
   }, async (args) => run(() => rankInput(args as Record<string, unknown>)));
 
   server.registerTool('verify_decision', {
-    description: 'Parse a paretomol.decision/0 record, check its hashes, and recompute the Pareto front and MPO with RDKit. Returns a diff. ok is false when anything does not match.',
+    description: 'Check a paretomol.decision/1 or /0 record: hashes, then a recomputed front and MPO. Returns a diff. ok is false when anything does not match.',
     inputSchema: z.object({
-      record: z.record(z.string(), z.unknown()).optional().describe('A paretomol.decision/0 object. You can also pass the record itself.'),
+      record: z.record(z.string(), z.unknown()).optional().describe('A paretomol.decision/1 or /0 object. You can also pass the record itself.'),
       schema: z.string().optional(),
       maxMolecules: maxMoleculesField,
       maxSmilesLength: maxSmilesLengthField,
@@ -166,7 +166,7 @@ export function createServer(): McpServer {
 
   registerAppTool(server, 'review_shortlist', {
     title: 'Review shortlist (experimental)',
-    description: 'Experimental. Interactive review of a shortlist: structures, objectives, Pareto rank, and Accept or Reject per molecule. Export writes a paretomol.decision/0 record with a review block, the same record the web app writes. Hosts without MCP Apps get a paretomol.com review link in the tool result. A link over the size limit is reported as an error and is not returned.',
+    description: 'Experimental. Interactive review of a shortlist: structures, objectives, Pareto rank, and Accept or Reject per molecule. Export writes a paretomol.decision/1 record with a review block, the same record the web app writes. Hosts without MCP Apps get a paretomol.com review link in the tool result. A link over the size limit is reported as an error and is not returned.',
     inputSchema: {
       molecules: moleculesField,
       objectives: objectivesField.optional(),
@@ -182,7 +182,7 @@ export function createServer(): McpServer {
 
   registerAppTool(server, 'export_review_decision', {
     title: 'Export review decision (experimental)',
-    description: 'Experimental. Called by the review UI. Builds a paretomol.decision/0 record from Accept and Reject verdicts. selected is the accepted ids. The review block records every verdict.',
+    description: 'Experimental. Called by the review UI. Builds a paretomol.decision/1 record from Accept and Reject verdicts. selected is the accepted ids. The review block records every verdict.',
     inputSchema: {
       molecules: moleculesField,
       objectives: objectivesField.optional(),

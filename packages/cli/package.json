@@ -5,15 +5,18 @@
   "license": "MIT",
   "type": "module",
   "bin": { "paretomol": "./bin/paretomol.js" },
-  "main": "./dist/src/rank.js",
-  "types": "./dist/src/rank.d.ts",
+  "main": "./dist/rank.js",
+  "types": "./dist/rank.d.ts",
   "exports": {
     ".": {
       "source": "./src/rank.ts",
-      "types": "./dist/src/rank.d.ts",
-      "default": "./dist/src/rank.js"
+      "types": "./dist/rank.d.ts",
+      "default": "./dist/rank.js"
     },
     "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "files": ["bin", "dist", "README.md"],
   "scripts": {

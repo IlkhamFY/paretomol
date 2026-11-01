@@ -12,11 +12,15 @@ The web app imports everything below from this package, so results match the app
 
 Descriptor calculation is not in the main entry; pass in `props` computed by RDKit or any other toolkit. Node scripts can load the same RDKit.js build as the app with `loadRDKit()` from `@paretomol/core/node`.
 
-`verifyDecision(record, RDKit)` checks a `paretomol.decision/0` file (schema and hashes) and recomputes Pareto rank and linear MPO. `checkInputLimits` enforces the web app's 2,000 molecule cap (`MAX_MOLECULES`) unless the caller passes a higher `maxMolecules`.
+`verifyDecision(record, RDKit)` checks a `paretomol.decision/1` file (and still reads `/0`): schema, hashes, then a recomputed Pareto rank and MPO from the embedded windows and curve. `checkInputLimits` enforces the web app's 2,000 molecule cap (`MAX_MOLECULES`) unless the caller passes a higher `maxMolecules`.
+
+`analyzeMolecule` computes physicochemical descriptors by default, including a Morgan fingerprint and QED alerts. `descriptorTier(keys)` skips both unless a key is `QED`.
+
+The package has no DOM, no cite panel, and no example molecule decks. `CORE_VERSION` is the `version` field of this package.json. `@paretomol/cli` and `@paretomol/mcp` use the same version.
 
 ## Scoring profiles
 
-Versioned JSON in `profiles/`: `oral@1`, `cns@1`, `leadlike@1`, `lipinski@1`, and `custom@1` as a template.
+Versioned JSON in `src/profiles/`, emitted to `dist/profiles/` and importable as `@paretomol/core/profiles/oral@1.json`. Pass that object to `loadProfile`. Built in: `oral@1`, `cns@1`, `leadlike@1`, `lipinski@1`, and `custom@1` as a template.
 
 ```ts
 import { getProfile, mpoScore } from '@paretomol/core';

@@ -55,7 +55,7 @@ Every call that takes molecules is capped at 2,000 molecules, the same cap the w
 | `explain_tradeoff` | Front size, the most anti-correlated objective pair, and an optional head-to-head of two named molecules. |
 | `open_review_url` | A `https://paretomol.com/#r=` link (see review-url.md). The token is deflate (`v1.`). Over the size limit the tool errors with `review_url_too_long` and tells the agent to write a decision record file. |
 | `verify_claims` | Claimed descriptor values and objective directions (see verify.md). |
-| `verify_decision` | A `paretomol.decision/0` record: hashes, then a recomputed front and MPO (see decision-record.md). Same function as `paretomol verify-decision`. |
+| `verify_decision` | A `paretomol.decision/1` or `/0` record: hashes, then a recomputed front and MPO (see decision-record.md). Same function as `paretomol verify-decision`. |
 | `rank_input` | Parses CSV, TSV or SMILES text, including quoted fields, and returns Pareto ranks and decision-record ids (`name`, then `name~2` for a repeated name). |
 | `review_shortlist` | Experimental MCP App. See below. |
 
@@ -65,7 +65,7 @@ Successful results are JSON text plus `structuredContent`.
 
 `review_shortlist` is an MCP App. The tool's `_meta.ui.resourceUri` is `ui://paretomol/review.html`, and `resources/read` returns that document as `text/html;profile=mcp-app`. A host that implements the MCP Apps extension (`io.modelcontextprotocol/ui`) renders the page.
 
-The page lists each molecule with its structure, Pareto rank, MPO and objective values. Accept and Reject are per molecule. Nothing starts accepted. Export asks the server for `export_review_decision` (hidden from the model, `visibility: ["app"]`) and shows the `paretomol.decision/0` file. That file matches the web app's review export: `selected` is the accepted ids, and `review` holds `source`, `decisions` and `suggested`. `view` is the fresh review session (Pareto tab, the custom columns, no filters).
+The page lists each molecule with its structure, Pareto rank, MPO and objective values. Accept and Reject are per molecule. Nothing starts accepted. Export asks the server for `export_review_decision` (hidden from the model, `visibility: ["app"]`) and shows the `paretomol.decision/1` file. That file matches the web app's review export: `selected` is the accepted ids, and `review` holds `source`, `decisions` and `suggested`. `view` is the fresh review session (Pareto tab, the custom columns, no filters).
 
 The tool result always includes a text fallback. When the review link fits, `fallbackUrl` is the `#r=` link. When it does not, `fallbackError.code` is `review_url_too_long` and there is no URL. Hosts that cannot render `ui://` resources should give the person the link, or the decision record, and ignore the HTML.
 
