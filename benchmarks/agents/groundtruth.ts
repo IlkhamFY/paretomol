@@ -1,6 +1,6 @@
 // Computes ground truth for TASKS with @paretomol/core through the MCP tool functions.
 import { paretoFront, applyProfile, scoreMolecules, explainTradeoff, verifyClaimsTool } from '@paretomol/mcp/tools';
-import { TASKS, type Task } from './tasks';
+import { TASKS, type Task } from './tasks.js';
 
 export type Answer = string | number | string[];
 

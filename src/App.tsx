@@ -14,7 +14,7 @@ import { packFingerprint, parseAndAnalyze, filterBySubstructure, computeParetoAn
 import { useTheme } from './contexts/ThemeContext';
 import { detectLocalServer } from './utils/admetTiers';
 import { warmupAdmetEndpoint, getAdmetAIEndpoint } from './utils/admetAI';
-import { buildDecisionRecord, parseDecisionRecord, selectedIndices, reviewTokenFromUrl, decodeReview, getProfile } from '@paretomol/core';
+import { buildDecisionRecord, parseDecisionRecord, selectedIndices, reviewTokenFromUrl, decodeReview, getProfile, ensureReviewFragment, withoutReviewToken } from '@paretomol/core';
 import type { ReviewVerdict } from '@paretomol/core';
 import ReviewPanel from './components/ReviewPanel';
 import type { ReviewState } from './components/ReviewPanel';
@@ -62,6 +62,9 @@ export default function App() {
   const [review, setReview] = useState<ReviewState | null>(null);
   // Captured on first render, before any effect rewrites the URL.
   const [reviewToken] = useState(() => reviewTokenFromUrl(window.location.href));
+  // Scoring profile for a non-review decision record. The MPO tab changes it;
+  // the default matches the profile the export used to hardcode.
+  const [scoringProfile, setScoringProfile] = useState('oral@1');
   const [sessionToast, setSessionToast] = useState<{ molCount: number; time: string } | null>(null);
   const sessionRestoreRef = useRef(false);
 
@@ -241,6 +244,7 @@ export default function App() {
         setShortlist(new Set());
         setSessionToast(null);
         setReview({ payload, decisions: {} });
+        if (payload.profile) setScoringProfile(payload.profile);
         track('review/opened');
         setToast(`Review: ${mols.length} molecules${payload.source ? ` from ${payload.source}` : ''}`);
       } catch (e) {
@@ -248,6 +252,15 @@ export default function App() {
       }
     })();
   }, [reviewToken]);
+
+  // Tab sync rewrites the address bar and used to drop #r=, so a reload or a
+  // copied link lost the review. Put the token back while review mode is on.
+  // Analytics still strip `r` before any hit (see src/lib/track.ts).
+  useEffect(() => {
+    if (!review || !reviewToken) return;
+    const next = ensureReviewFragment(window.location.href, reviewToken);
+    if (next !== window.location.href) window.history.replaceState(null, '', next);
+  }, [review, reviewToken, activeTab]);
 
   const handleReviewDecide = useCallback((idx: number, v: ReviewVerdict | null) => {
     setReview(prev => {
@@ -368,6 +381,7 @@ export default function App() {
           setSubstructureFilter('');
           setPropertyFilters({});
           clearSvgCache();
+          setReview(null);
           window.history.replaceState(null, '', window.location.pathname);
         }
         return;
@@ -552,7 +566,7 @@ export default function App() {
     const rec = buildDecisionRecord({
       molecules,
       objectives: paretoObjectives,
-      profile: 'oral@1',
+      profile: scoringProfile,
       selected: Array.from(shortlist),
       rationale,
       rdkitVersion: typeof RDKit?.version === 'function' ? String(RDKit.version()) : 'unknown',
@@ -584,6 +598,7 @@ export default function App() {
       setCompareIndices([]);
       setSessionToast(null);
       if (v.activeTab) setActiveTab(v.activeTab);
+      try { getProfile(rec.profile.ref); setScoringProfile(rec.profile.ref); } catch { /* unknown profile: leave the current one */ }
       track('decision/imported');
       setToast(`Opened decision record: ${restored.length} molecules, ${rec.selected.length} selected`);
     } catch (e) {
@@ -791,6 +806,8 @@ export default function App() {
             toggleShortlist={toggleShortlist}
             formulaColumns={formulaColumns}
             setFormulaColumns={setFormulaColumns}
+            scoringProfile={scoringProfile}
+            onScoringProfile={setScoringProfile}
           />
         </div>
       </main>
@@ -829,7 +846,7 @@ export default function App() {
           objectives={paretoObjectives}
           onDecide={handleReviewDecide}
           onExport={(note) => { void handleReviewExport(note); }}
-          onExit={() => { setReview(null); window.history.replaceState(null, '', window.location.pathname + window.location.search.replace(/([?&])r=[^&]*&?/, '$1').replace(/[?&]$/, '')); }}
+          onExit={() => { setReview(null); window.history.replaceState(null, '', withoutReviewToken(window.location.href)); }}
           onSelect={setSelectedMolIdx}
         />
       )}

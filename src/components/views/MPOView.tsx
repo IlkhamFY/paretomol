@@ -51,6 +51,14 @@ const PROFILES: Record<string, { label: string; desc: string; profile: MPOProfil
   },
 };
 
+/** Tab key → versioned profile the decision record cites. */
+const PROFILE_REF: Record<keyof typeof PROFILES, string> = {
+  oral: 'oral@1',
+  cns: 'cns@1',
+  leadlike: 'leadlike@1',
+  custom: 'custom@1',
+};
+
 const PROP_META: Record<PropKey, { label: string; short: string; unit: string; step: number; min: number; max: number }> = {
   MW:       { label: 'Molecular Weight', short: 'MW',   unit: 'Da',  step: 10,  min: 50,  max: 1000 },
   LogP:     { label: 'LogP',             short: 'LogP', unit: '',    step: 0.5, min: -5,  max: 10   },
@@ -152,13 +160,18 @@ function MPOView({
   molecules,
   selectedMolIdx,
   setSelectedMolIdx,
+  scoringProfile = 'oral@1',
+  onScoringProfile,
 }: {
   molecules: Molecule[];
   selectedMolIdx?: number | null;
   setSelectedMolIdx?: (idx: number | null) => void;
+  /** Versioned profile ref (`oral@1`, `cns@1`, …) shared with decision-record export. */
+  scoringProfile?: string;
+  onScoringProfile?: (ref: string) => void;
 }) {
   useTheme(); // subscribe to theme changes
-  const [profileName, setProfileName] = useState<keyof typeof PROFILES>('oral');
+  const profileName = (Object.keys(PROFILE_REF) as (keyof typeof PROFILES)[]).find((k) => PROFILE_REF[k] === scoringProfile) ?? null;
   const [customProfile, setCustomProfile] = useState<MPOProfile>({ ...PROFILES.custom.profile });
   const [showRangeEditor, setShowRangeEditor] = useState(false);
   const [sortBy, setSortBy] = useState<'mpo' | PropKey>('mpo');
@@ -171,18 +184,25 @@ function MPOView({
   );
 
   const activeProfile: MPOProfile =
-    profileName === 'custom' ? customProfile : PROFILES[profileName].profile;
+    profileName === 'custom' ? customProfile
+    : profileName ? PROFILES[profileName].profile
+    : profileWindows(scoringProfile);
 
   const selectProfile = (name: keyof typeof PROFILES) => {
-    setProfileName(name);
+    onScoringProfile?.(PROFILE_REF[name]);
     if (name !== 'custom') setCustomProfile({ ...PROFILES[name].profile });
   };
 
   const updateBoundary = (prop: PropKey, field: keyof PropDesirability, raw: string) => {
     const val = parseFloat(raw);
     if (isNaN(val)) return;
-    setCustomProfile(prev => ({ ...prev, [prop]: { ...prev[prop], [field]: val } }));
-    setProfileName('custom');
+    // An edit leaves the built-in windows and becomes custom@1, starting from
+    // whichever profile was on screen so the first tweak does not jump.
+    setCustomProfile(prev => {
+      const base = profileName && profileName !== 'custom' ? PROFILES[profileName].profile : prev;
+      return { ...base, [prop]: { ...base[prop], [field]: val } };
+    });
+    onScoringProfile?.('custom@1');
   };
 
   const scored = useMemo(() => {
@@ -292,7 +312,7 @@ function MPOView({
         </div>
       </div>
 
-      <p className="text-[11px] text-[var(--text2)]/70 -mt-3 italic">{PROFILES[profileName].desc}</p>
+      <p className="text-[11px] text-[var(--text2)]/70 -mt-3 italic">{profileName ? PROFILES[profileName].desc : scoringProfile}</p>
 
       {/* Range editor */}
       {showRangeEditor && (

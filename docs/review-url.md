@@ -18,8 +18,16 @@ path or referrer.
 
 ## Token
 
-`token = LZString.compressToEncodedURIComponent(JSON.stringify(payload))`
-(lz-string 1.5, the same scheme as ParetoMol share links).
+New links use a versioned token:
+
+`token = "1." + base64url(deflate(JSON.stringify(payload)))`
+
+`deflate` is raw DEFLATE (RFC 1951). `base64url` is unpadded. The `1.` prefix is the version, so a reader can tell this apart from older tokens.
+
+Older links still open:
+
+- lz-string 1.5 `compressToEncodedURIComponent` of the same JSON, with no prefix (the original scheme, also used by share links);
+- the raw JSON payload itself, when the token starts with `{`.
 
 ```json
 {
@@ -55,9 +63,13 @@ path or referrer.
 ## Limits
 
 Links above about 32 000 characters (`REVIEW_URL_SOFT_LIMIT`) may be cut by
-chat apps or browsers; roughly 300 to 600 drug-like molecules fit, depending on
-SMILES length and custom columns. For larger sets use a decision record file or
-the CLI.
+chat apps or browsers. Deflate keeps a 500-molecule shortlist under that line;
+how many fit depends on SMILES length and custom columns. For larger sets use a
+decision record file or the CLI.
+
+The fragment stays in the address bar while review mode is open, so a reload or
+a copied link opens the same review. Leaving review removes `r`. Analytics
+strip `r` from any path or referrer before a hit is sent.
 
 The link is a request for review, not a decision: nothing is accepted until the
 reviewer clicks. The structures are re-parsed with RDKit.js in the browser and

@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
-import { TASKS } from '../tasks';
-import { computeTruth } from '../groundtruth';
-// @ts-expect-error plain JS scorer
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { TASKS } from '../tasks.js';
+import { computeTruth } from '../groundtruth.js';
+// @ts-expect-error plain JS scorer, no declaration file
 import { scoreAll, scoreAnswer } from '../score.mjs';
 
-const FILE = join(__dirname, '..', 'tasks.json');
+const FILE = join(dirname(fileURLToPath(import.meta.url)), '..', 'tasks.json');
 
 describe('agent benchmark', () => {
   it('has 20 unique tasks', () => {

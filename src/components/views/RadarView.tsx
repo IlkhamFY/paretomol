@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Radar } from 'react-chartjs-2';
 import type { Molecule } from '@paretomol/core';
@@ -34,7 +34,7 @@ function DownloadIcon({ size = 12 }: { size?: number }) {
 type FilterMode = 'all' | 'pareto' | 'starred';
 
 function RadarView({ molecules, selectedMolIdx, setSelectedMolIdx, shortlist }: { molecules: Molecule[], selectedMolIdx: number | null, setSelectedMolIdx?: (idx: number | null) => void, shortlist?: Set<number> }) {
-  const { themeVersion } = useTheme();
+  useTheme(); // re-render when the theme changes; downloads read CSS variables at click time
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chartRef = useRef<any>(null);
@@ -47,7 +47,7 @@ function RadarView({ molecules, selectedMolIdx, setSelectedMolIdx, shortlist }: 
   // Keep original indices for color consistency
   const visibleWithIdx = visibleMolecules.map(m => ({ m, origIdx: molecules.indexOf(m) }));
 
-  const labels = ['MW', 'LogP', 'HBD', 'HBA', 'TPSA', 'RotBonds', 'FrCSP3'];
+  const labels = useMemo(() => ['MW', 'LogP', 'HBD', 'HBA', 'TPSA', 'RotBonds', 'FrCSP3'], []);
 
   const maxVals: Record<string, number> = {};
   labels.forEach(k => {
@@ -152,7 +152,7 @@ function RadarView({ molecules, selectedMolIdx, setSelectedMolIdx, shortlist }: 
         tempChart.destroy();
       });
     });
-  }, [datasets, labels, themeVersion]);
+  }, [datasets, labels]);
 
   return (
     <div className="bg-[var(--surface)] border border-[var(--border-5)] rounded-lg p-5">

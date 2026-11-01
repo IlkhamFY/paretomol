@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "../../node_modules/.tmp/mcp-test",
+    "rootDir": ".",
+    "declaration": true,
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "tsBuildInfoFile": "../../node_modules/.tmp/mcp-test.tsbuildinfo"
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "references": [
+    { "path": "../core" },
+    { "path": "../cli" }
+  ]
+}

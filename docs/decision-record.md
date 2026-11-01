@@ -42,7 +42,7 @@ Code: `packages/core/src/decision.ts` (`buildDecisionRecord`,
 | `input.molecules[]` | Ordered input: `id`, `name`, `smiles`, and `customProps` (imported, measured or ADMET-predicted numbers). RDKit descriptors are not stored; they are recomputed. |
 | `input.count` | Number of molecules. |
 | `input.sha256` | `sha256:<hex>` of the canonical JSON of the molecules (id, name, smiles, finite customProps). |
-| `profile.ref` / `profile.hash` | Scoring profile as `id@version` and its content hash. The app's Export menu writes `oral@1`; a review link exports the link's profile. |
+| `profile.ref` / `profile.hash` | Scoring profile as `id@version` and its content hash. The app's Export menu writes the profile selected on the MPO tab (`oral@1` until you pick another). A review link exports the link's profile. |
 | `models.core` | `@paretomol/core` version. |
 | `models.rdkitjs` | RDKit.js version that computed descriptors (`RDKit.version()`). |
 | `models.admet` | `{endpoint, model}` when any column came from ADMET-AI, else `null`. |

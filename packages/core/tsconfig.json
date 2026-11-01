@@ -13,7 +13,9 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "skipLibCheck": true,
-    "types": []
+    "types": [],
+    "composite": true,
+    "tsBuildInfoFile": "../../node_modules/.tmp/core.tsbuildinfo"
   },
-  "include": ["src"]
+  "include": ["src", "profiles/*.json"]
 }

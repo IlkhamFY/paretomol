@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseDecisionRecord, stringifyDecisionRecord, recordHash } from '../packages/core/src/index';
+import { parseDecisionRecord, stringifyDecisionRecord, recordHash, getProfile } from '../packages/core/src/index';
 import type { DecisionRecord } from '../packages/core/src/index';
 
 /**
@@ -72,4 +72,14 @@ test('decision record round-trips to the exact same view', async ({ page }) => {
   expect(viewB.replace(/Opened decision record[^\n]*/g, '')).toBe(viewA.replace(/Opened decision record[^\n]*/g, ''));
   const c = await exportRecord(page, 'lowest MW pair');
   expect(strip(c)).toEqual(strip(b));
+});
+
+test('decision record uses the scoring profile selected on the MPO tab', async ({ page }) => {
+  await page.goto('/');
+  await waitForRDKit(page);
+  await analyse(page, DRUGS);
+  await page.getByRole('button', { name: 'MPO', exact: true }).click();
+  await page.getByRole('button', { name: 'CNS Drug' }).click();
+  const rec = await exportRecord(page, 'cns pass');
+  expect(rec.profile).toEqual({ ref: 'cns@1', hash: getProfile('cns@1').hash });
 });

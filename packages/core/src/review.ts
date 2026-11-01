@@ -4,6 +4,7 @@
 // fragment (#r=...), which browsers never send to the server.
 // Spec: docs/review-url.md.
 
+import { deflateSync, inflateSync, strFromU8, strToU8 } from 'fflate';
 import LZString from 'lz-string';
 import type { ParetoObjective } from './types.js';
 import { getProfile } from './profiles.js';
@@ -12,6 +13,11 @@ export const REVIEW_SCHEMA = 'paretomol.review/0' as const;
 export const REVIEW_BASE_URL = 'https://paretomol.com/';
 /** Browsers and chat apps handle links up to roughly this size reliably. */
 export const REVIEW_URL_SOFT_LIMIT = 32000;
+/**
+ * Current token prefix: raw DEFLATE (RFC 1951) then base64url, no padding.
+ * Tokens without this prefix are the original lz-string form, or raw JSON.
+ */
+export const REVIEW_TOKEN_PREFIX = '1.';
 
 export interface ReviewMolecule {
   name: string;
@@ -81,16 +87,73 @@ export function validateReview(input: unknown): ReviewPayload {
   return out;
 }
 
-/** Compressed, URL-safe token for a payload. */
-export function encodeReview(input: ReviewInput): string {
-  return LZString.compressToEncodedURIComponent(JSON.stringify(validateReview(input)));
+const B64URL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+
+function bytesToB64url(bytes: Uint8Array): string {
+  let out = '';
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = bytes[i];
+    const b = i + 1 < bytes.length ? bytes[i + 1] : 0;
+    const c = i + 2 < bytes.length ? bytes[i + 2] : 0;
+    const v = (a << 16) | (b << 8) | c;
+    out += B64URL[(v >> 18) & 63] + B64URL[(v >> 12) & 63];
+    if (i + 1 < bytes.length) out += B64URL[(v >> 6) & 63];
+    if (i + 2 < bytes.length) out += B64URL[v & 63];
+  }
+  return out;
 }
 
-/** Inverse of encodeReview. Throws on a corrupt or invalid token. */
-export function decodeReview(token: string): ReviewPayload {
+function b64urlToBytes(s: string): Uint8Array {
+  if (!s || /[^A-Za-z0-9_-]/.test(s)) throw new Error('bad base64url');
+  const pad = s.length % 4 === 0 ? '' : '='.repeat(4 - (s.length % 4));
+  const b64 = s.replace(/-/g, '+').replace(/_/g, '/') + pad;
+  const outLen = (b64.length / 4) * 3 - (b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0);
+  const out = new Uint8Array(outLen);
+  const dec = new Uint8Array(128);
+  dec.fill(255);
+  for (let i = 0; i < B64URL.length; i++) dec[B64URL.charCodeAt(i)] = i;
+  dec['+'.charCodeAt(0)] = 62;
+  dec['/'.charCodeAt(0)] = 63;
+  let j = 0;
+  for (let i = 0; i < b64.length; i += 4) {
+    const c0 = dec[b64.charCodeAt(i)];
+    const c1 = dec[b64.charCodeAt(i + 1)];
+    const c2 = b64[i + 2] === '=' ? 0 : dec[b64.charCodeAt(i + 2)];
+    const c3 = b64[i + 3] === '=' ? 0 : dec[b64.charCodeAt(i + 3)];
+    if (c0 === 255 || c1 === 255 || c2 === 255 || c3 === 255) throw new Error('bad base64url');
+    const n = (c0 << 18) | (c1 << 12) | (c2 << 6) | c3;
+    out[j++] = (n >> 16) & 255;
+    if (b64[i + 2] !== '=') out[j++] = (n >> 8) & 255;
+    if (b64[i + 3] !== '=') out[j++] = n & 255;
+  }
+  return out;
+}
+
+function inflateToken(body: string): string {
+  try {
+    return strFromU8(inflateSync(b64urlToBytes(body)));
+  } catch {
+    throw new Error('Review link is corrupt (could not decompress)');
+  }
+}
+
+function legacyJson(token: string): string {
+  if (token.startsWith('{')) return token;
   let json: string | null = null;
   try { json = LZString.decompressFromEncodedURIComponent(token); } catch { json = null; }
   if (!json) throw new Error('Review link is corrupt (could not decompress)');
+  return json;
+}
+
+/** Compressed, URL-safe token for a payload. Prefix `1.` is deflate + base64url. */
+export function encodeReview(input: ReviewInput): string {
+  const json = JSON.stringify(validateReview(input));
+  return REVIEW_TOKEN_PREFIX + bytesToB64url(deflateSync(strToU8(json), { level: 9 }));
+}
+
+/** Inverse of encodeReview. Also accepts legacy lz-string tokens and raw JSON. */
+export function decodeReview(token: string): ReviewPayload {
+  const json = token.startsWith(REVIEW_TOKEN_PREFIX) ? inflateToken(token.slice(REVIEW_TOKEN_PREFIX.length)) : legacyJson(token);
   let obj: unknown;
   try { obj = JSON.parse(json); } catch { throw new Error('Review link is corrupt (not JSON)'); }
   return validateReview(obj);
@@ -120,4 +183,32 @@ export function reviewTokenFromUrl(url: string): string | null {
   const before = hashAt >= 0 ? url.slice(0, hashAt) : url;
   const q = before.indexOf('?');
   return param(hash, 'r') ?? (q >= 0 ? param(before.slice(q + 1), 'r') : null);
+}
+
+function dropParam(part: string, key: string): string {
+  return part.split('&').filter((kv) => {
+    if (!kv) return false;
+    const eq = kv.indexOf('=');
+    return (eq < 0 ? kv : kv.slice(0, eq)) !== key;
+  }).join('&');
+}
+
+/** Put `token` in the fragment when a navigation dropped it. Leaves a URL that already carries it unchanged. */
+export function ensureReviewFragment(href: string, token: string): string {
+  if (!token || reviewTokenFromUrl(href) === token) return href;
+  const hashAt = href.indexOf('#');
+  const before = hashAt >= 0 ? href.slice(0, hashAt) : href;
+  const hash = hashAt >= 0 ? dropParam(href.slice(hashAt + 1), 'r') : '';
+  return `${before}#${hash ? `${hash}&` : ''}r=${token}`;
+}
+
+/** Remove the review token from the query and the fragment. The rest of the URL stays. */
+export function withoutReviewToken(href: string): string {
+  const hashAt = href.indexOf('#');
+  const hash = hashAt >= 0 ? dropParam(href.slice(hashAt + 1), 'r') : '';
+  const before = hashAt >= 0 ? href.slice(0, hashAt) : href;
+  const q = before.indexOf('?');
+  const path = q < 0 ? before : before.slice(0, q);
+  const query = q < 0 ? '' : dropParam(before.slice(q + 1), 'r');
+  return path + (query ? `?${query}` : '') + (hash ? `#${hash}` : '');
 }

@@ -355,8 +355,6 @@ function getMolPropValue(m: Molecule, key: string): number {
 function ScatterChart({ molecules, xKey, yKey, activeFilter, onSelectMolecule, selectedMolIdx, fdaData }: { molecules: Molecule[]; xKey: string; yKey: string; activeFilter: string | null; onSelectMolecule?: (idx: number) => void; selectedMolIdx?: number | null; fdaData?: FDADrug[] }) {
   useTheme(); // subscribe so CSS variables and annotations re-read on theme toggle
   const chartRef = useRef<any>(null);
-  const selectedMolIdxRef = useRef(selectedMolIdx);
-  selectedMolIdxRef.current = selectedMolIdx;
   const [isZoomed, setIsZoomed] = useState(false);
   const data = useMemo(() => {
     const passData: PointData[] = [];
@@ -439,20 +437,21 @@ function ScatterChart({ molecules, xKey, yKey, activeFilter, onSelectMolecule, s
 
   const tooltipRef = useRef<HTMLDivElement>(null);
 
-  // Force chart redraw when selection changes
+  // Force chart redraw when selection changes. The plugin instance stays
+  // stable; the selection is written onto the chart before that redraw.
   useEffect(() => {
-    if (chartRef.current) {
-      chartRef.current.update('none'); // 'none' = no animation
-    }
+    const chart = chartRef.current;
+    if (!chart) return;
+    chart.$paretoSelected = selectedMolIdx ?? null;
+    chart.update('none');
   }, [selectedMolIdx]);
 
-  // Custom plugin: gold ring for Pareto-optimal + teal pulse for selected
-  // Uses ref so the plugin instance is stable but always reads latest selection
+  // Custom plugin: gold ring for Pareto-optimal + teal pulse for selected.
   const customPlugin = useMemo(() => ({
     id: 'paretoRing',
     afterDatasetsDraw(chart: any) {
       const ctx = chart.ctx as CanvasRenderingContext2D;
-      const selIdx = selectedMolIdxRef.current;
+      const selIdx = chart.$paretoSelected as number | null | undefined;
       const { left, top, width, height } = chart.chartArea;
       ctx.save();
       ctx.beginPath();
@@ -492,7 +491,6 @@ function ScatterChart({ molecules, xKey, yKey, activeFilter, onSelectMolecule, s
 
       ctx.restore();
     },
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }), []);
 
   return (

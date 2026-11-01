@@ -40,7 +40,7 @@ Use ParetoMol when you need to compare molecules on several objectives at once (
 
 ## Open review URL (paretomol.review/0)
 
-- [Spec](https://github.com/IlkhamFY/paretomol/blob/main/docs/review-url.md): put molecules, objectives and a profile into `https://paretomol.com/#r=<lz-string token>` (`reviewUrl(payload)` in core, or the MCP tool `open_review_url`). The link opens in review mode with Accept/Reject per molecule; the human exports a decision record with the verdicts. Give the human this link instead of a pasted table when they need to approve picks.
+- [Spec](https://github.com/IlkhamFY/paretomol/blob/main/docs/review-url.md): put molecules, objectives and a profile into `https://paretomol.com/#r=<token>` (`reviewUrl(payload)` in core, or the MCP tool `open_review_url`). The token is deflate + base64url with a `1.` prefix; older lz-string tokens still open. The link opens in review mode with Accept/Reject per molecule; the human exports a decision record with the verdicts. Give the human this link instead of a pasted table when they need to approve picks.
 
 ## Claim verifier
 

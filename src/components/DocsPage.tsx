@@ -337,7 +337,7 @@ score = 1 + 9 · (1 − exp(−(raw − 1) / 6.6))   → clamped to 1–10`}</pr
       {
         id: 'decision-record',
         q: 'What is a decision record?',
-        a: <p>One JSON file with the input molecules and their SHA-256, the scoring profile and its hash, the software versions, the objectives, each molecule&apos;s Pareto rank and MPO score, the molecules you picked and why. <strong>Export &gt; Decision record (JSON)</strong> writes it; <strong>Open record</strong> restores the exact view. A record edited after export is rejected. The app writes profile <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">oral@1</code>.</p>,
+        a: <p>One JSON file with the input molecules and their SHA-256, the scoring profile and its hash, the software versions, the objectives, each molecule&apos;s Pareto rank and MPO score, the molecules you picked and why. <strong>Export &gt; Decision record (JSON)</strong> writes it; <strong>Open record</strong> restores the exact view. A record edited after export is rejected. The profile is the one selected on the MPO tab, <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">oral@1</code> until you pick another.</p>,
       },
       {
         id: 'review-url',

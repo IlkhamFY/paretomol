@@ -12,7 +12,10 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": ["node"],
+    "composite": true,
+    "tsBuildInfoFile": "../../node_modules/.tmp/cli.tsbuildinfo"
   },
-  "include": ["src"]
+  "include": ["src"],
+  "references": [{ "path": "../core" }]
 }
