@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   LIPINSKI_CONSTRAINTS,
   buildDecisionRecord,
+  computeParetoAndDominance,
   parseDecisionRecord,
   pruneSummary,
   rankUnder,
@@ -52,5 +53,16 @@ describe('constraints', () => {
     const parsed = parseDecisionRecord(JSON.parse(JSON.stringify(rec)));
     expect(parsed.constraints).toEqual(constraints);
     expect(LIPINSKI_CONSTRAINTS.map((c) => c.key)).toEqual(['MW', 'LogP', 'HBD', 'HBA']);
+  });
+
+  it('treats a predicted gap inside epsilon as a tie', () => {
+    const low = mol('low', {}, { hERG: 0.48 });
+    const high = mol('high', {}, { hERG: 0.52 });
+    computeParetoAndDominance(
+      [low, high],
+      [{ key: 'hERG', direction: 'min', epsilon: 0.05 }],
+    );
+    expect(low.paretoRank).toBe(1);
+    expect(high.paretoRank).toBe(1);
   });
 });

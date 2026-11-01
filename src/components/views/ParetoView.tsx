@@ -75,7 +75,7 @@ const FILTER_COLORS: Record<string, string> = {
   leadlike: '#22c55e',
 };
 
-function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, customPropNames = [], paretoObjectives = [], scoringPreset = 'oral@1', onScoringPreset }: { molecules: Molecule[]; onSelectMolecule?: (idx: number) => void; selectedMolIdx?: number | null; fdaData?: FDADrug[]; customPropNames?: string[]; paretoObjectives?: ParetoObjective[]; scoringPreset?: ScoringPreset; onScoringPreset?: (preset: ScoringPreset) => void }) {
+function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, customPropNames = [], paretoObjectives = [], scoringPreset = 'oral@1', onScoringPreset, robustFront = false, onRobustFront }: { molecules: Molecule[]; onSelectMolecule?: (idx: number) => void; selectedMolIdx?: number | null; fdaData?: FDADrug[]; customPropNames?: string[]; paretoObjectives?: ParetoObjective[]; scoringPreset?: ScoringPreset; onScoringPreset?: (preset: ScoringPreset) => void; robustFront?: boolean; onRobustFront?: (on: boolean) => void }) {
   // Best-compromise ("knee") molecule across the active objectives — the one to pick.
   const knee = useMemo(() => findBestCompromise(molecules, paretoObjectives), [molecules, paretoObjectives]);
   // Deterministic "reading" of the front: size, objectives, sharpest trade-off.
@@ -200,7 +200,11 @@ function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, cust
           </button>
         ))}
         {scoringPreset === 'custom' && <span className="text-[var(--text)] font-medium">Custom windows</span>}
+        <button type="button" aria-pressed={robustFront} onClick={() => onRobustFront?.(!robustFront)} className={robustFront ? 'text-[var(--text)] font-medium' : 'text-[var(--text2)] hover:text-[var(--text)]'}>
+          Robust front
+        </button>
       </div>
+      {robustFront && <p className="text-[12px] text-[var(--text2)] leading-relaxed">Predicted probabilities within 0.05 do not change dominance. 0.05 is the gap used in the paper. It is not a confidence interval for one compound.</p>}
       <p className="text-[12px] text-[var(--text2)] leading-relaxed">{presetBlurb(scoringPreset)}</p>
       {pruneSummary(molecules) && <p className="text-[12px] text-[var(--text)] leading-relaxed">{pruneSummary(molecules)}</p>}
 

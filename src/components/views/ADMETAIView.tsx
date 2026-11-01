@@ -997,6 +997,10 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
       </div>
       )}
 
+      {predictions.size > 0 && (
+        <p className="text-[12px] text-[var(--text2)] leading-relaxed">Classification values are probabilities. The robust front treats a gap of 0.05 as a tie. That gap is not a confidence interval for one compound.</p>
+      )}
+
       {/* Applicability domain — reliability cue for the predictions */}
       {predictions.size > 0 && <ApplicabilityDomain molecules={molecules} />}
 

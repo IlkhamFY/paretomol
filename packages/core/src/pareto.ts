@@ -108,7 +108,7 @@ export function computeParetoAndDominance(molecules: Molecule[], objectives?: Pa
       let iBetter = 0, jBetter = 0;
       for (let o = 0; o < k; o++) {
         const x = vi[o], y = vj[o];
-        if (x === y) continue;
+        if (x === y || Math.abs(x - y) <= (objs[o].epsilon ?? 0)) continue;
         if (minimise[o] ? x < y : x > y) iBetter++;
         else jBetter++;
       }

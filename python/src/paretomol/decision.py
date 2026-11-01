@@ -166,6 +166,9 @@ def _public_objective(obj: Mapping[str, Any]) -> dict[str, Any]:
             "idealMax": window["idealMax"],
             "idealMin": window["idealMin"],
         }
+    eps = obj.get("epsilon")
+    if isinstance(eps, (int, float)) and not isinstance(eps, bool) and eps > 0:
+        item["epsilon"] = eps
     return item
 
 

@@ -139,6 +139,9 @@ def normalize_objectives(objectives: Optional[Sequence[Any]]) -> list[dict[str, 
         entry: dict[str, Any] = {"key": str(key), "direction": "max" if window else direction}
         if window:
             entry["window"] = window
+        eps = item.get("epsilon") if isinstance(item, Mapping) else None
+        if isinstance(eps, (int, float)) and not isinstance(eps, bool) and eps > 0:
+            entry["epsilon"] = float(eps)
         out.append(entry)
     return out
 
@@ -208,7 +211,8 @@ def compute_pareto(
             j_better = 0
             for o in range(k):
                 x, y = vi[o], vj[o]
-                if x == y:
+                eps = objs[o].get("epsilon") or 0
+                if x == y or abs(x - y) <= eps:
                     continue
                 if (x < y) if minimise[o] else (x > y):
                     i_better += 1

@@ -235,14 +235,13 @@ export function formatAdmetAIValue(
     const pct = (value * 100).toFixed(0);
     if (meta.safeDir === 'low') {
       // High probability = bad (toxicity, inhibition)
-      if (value >= 0.7) return { text: `${pct}%`, color: '#ef4444', riskLevel: 'bad' };
-      if (value >= 0.4) return { text: `${pct}%`, color: '#f59e0b', riskLevel: 'warn' };
-      return { text: `${pct}%`, color: '#22c55e', riskLevel: 'ok' };
+      if (value >= 0.7) return { text: `${pct}%`, color: 'var(--red)', riskLevel: 'bad' };
+      if (value >= 0.4) return { text: `${pct}%`, color: 'var(--text)', riskLevel: 'warn' };
+      return { text: `${pct}%`, color: 'var(--green)', riskLevel: 'ok' };
     } else if (meta.safeDir === 'high') {
-      // High probability = good (absorption, bioavailability)
-      if (value >= 0.7) return { text: `${pct}%`, color: '#22c55e', riskLevel: 'ok' };
-      if (value >= 0.4) return { text: `${pct}%`, color: '#f59e0b', riskLevel: 'warn' };
-      return { text: `${pct}%`, color: '#ef4444', riskLevel: 'bad' };
+      if (value >= 0.7) return { text: `${pct}%`, color: 'var(--green)', riskLevel: 'ok' };
+      if (value >= 0.4) return { text: `${pct}%`, color: 'var(--text)', riskLevel: 'warn' };
+      return { text: `${pct}%`, color: 'var(--red)', riskLevel: 'bad' };
     }
     return { text: `${pct}%`, color: 'var(--text2)', riskLevel: 'neutral' };
   }

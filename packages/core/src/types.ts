@@ -36,6 +36,8 @@ export interface ParetoObjective {
    * `key` (higher is better) instead of the raw number. `direction` is `max`.
    */
   window?: ObjectiveWindow;
+  /** Differences at or below this size do not count as better. 0 when omitted. */
+  epsilon?: number;
 }
 
 export interface FormulaColumn {

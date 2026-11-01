@@ -265,13 +265,12 @@ export function buildDecisionRecord(o: BuildDecisionOptions): DecisionRecord {
     },
     ...(constraints.length ? { constraints } : {}),
     objectives: o.objectives.map((x) => {
-      if (!x.window) return { key: x.key, direction: x.direction };
       const w = x.window;
-      return {
-        key: x.key,
-        direction: 'max' as const,
-        window: { acceptMax: w.acceptMax, acceptMin: w.acceptMin, idealMax: w.idealMax, idealMin: w.idealMin },
-      };
+      const base: ParetoObjective = w
+        ? { key: x.key, direction: 'max', window: { acceptMax: w.acceptMax, acceptMin: w.acceptMin, idealMax: w.idealMax, idealMin: w.idealMin } }
+        : { key: x.key, direction: x.direction };
+      if (x.epsilon && x.epsilon > 0) base.epsilon = x.epsilon;
+      return base;
     }),
     results,
     selected,

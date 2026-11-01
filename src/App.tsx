@@ -47,8 +47,14 @@ export default function App() {
   const [paretoObjectives, setParetoObjectives] = useState<ParetoObjective[]>(() => objectivesForPreset('oral@1'));
   const [mpoCurve, setMpoCurve] = useState<CurveType>('linear');
   const [constraints, setConstraints] = useState<Constraint[]>([]);
+  const [robustFront, setRobustFront] = useState(false);
   const scoringProfileRef = scoringPreset === 'paper' || scoringPreset === 'custom' ? 'oral@1' : scoringPreset;
   const [admetPropNames, setAdmetPropNames] = useState<string[]>([]);
+  const rankObjectives = useMemo(() => {
+    if (!robustFront) return paretoObjectives;
+    const predicted = new Set(admetPropNames);
+    return paretoObjectives.map((o) => predicted.has(o.key) ? { ...o, epsilon: 0.05 } : o);
+  }, [paretoObjectives, robustFront, admetPropNames]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(() => window.location.search.includes('docs'));
   const [sidebarWidth, setSidebarWidth] = useState(380);
@@ -293,7 +299,7 @@ export default function App() {
     });
     const rec = buildDecisionRecord({
       molecules,
-      objectives: paretoObjectives,
+      objectives: rankObjectives,
       constraints,
       profile: scoring.profile,
       curve: scoring.curve,
@@ -327,17 +333,17 @@ export default function App() {
     }
   }, [paretoObjectives, constraints]);
 
-  const objectiveKey = JSON.stringify(paretoObjectives);
+  const rankKey = JSON.stringify(rankObjectives);
   const constraintKey = JSON.stringify(constraints);
   useEffect(() => {
     setMolecules((prev) => {
       if (prev.length === 0) return prev;
-      rankUnder(prev, paretoObjectives, constraints);
+      rankUnder(prev, rankObjectives, constraints);
       return [...prev];
     });
     // Recompute when the objective list or the constraints change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [objectiveKey, constraintKey]);
+  }, [rankKey, constraintKey]);
 
   const applyScoringPreset = useCallback((preset: ScoringPreset, windows?: Record<string, ObjectiveWindow> | null) => {
     setScoringPreset(preset);
@@ -610,7 +616,7 @@ export default function App() {
     });
     const rec = buildDecisionRecord({
       molecules,
-      objectives: paretoObjectives,
+      objectives: rankObjectives,
       constraints,
       profile: scoring.profile,
       curve: scoring.curve,
@@ -898,6 +904,8 @@ export default function App() {
             onScoringProfileRef={(ref) => applyScoringPreset(ref === 'custom@1' ? 'custom' : ref as ScoringPreset)}
             mpoCurve={mpoCurve}
             onMpoCurve={setMpoCurve}
+            robustFront={robustFront}
+            onRobustFront={setRobustFront}
           />
         </div>
       </main>
