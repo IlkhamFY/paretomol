@@ -10,6 +10,7 @@ All notable changes to ParetoMol. Dates are release dates; unreleased work is li
 - Privacy wording in the page metadata and docs no longer says "no data leaves your browser". It now matches the README's "What leaves the browser" list (ADMET predictions, name lookups, features you invoke).
 
 ### Added
+- Python package `paretomol` (`python/`, not published to PyPI): Pareto ranking, objective directions, scoring profiles `oral@1`, `cns@1`, `leadlike@1`, `lipinski@1` and `custom@1` with the same `sha256:` hashes as `@paretomol/core`, `paretomol.decision/0` records, `verify_claims`, and a `paretomol.com/#r=` review link from a DataFrame or list. RDKit descriptors are the optional extra `paretomol[rdkit]`.
 - `@paretomol/core`: headless TypeScript core (Pareto ranking, objective inference, MPO, QED, filters, similarity, SHA-256) shared by the app, CLI and MCP server.
 - Versioned scoring profiles `oral@1`, `cns@1`, `leadlike@1`, `lipinski@1`, `custom@1`, each with a pinned `sha256:` hash.
 - Decision record (`paretomol.decision/0`): Export > Decision record (JSON) and Open record. See docs/decision-record.md.

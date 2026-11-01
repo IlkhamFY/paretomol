@@ -43,6 +43,19 @@ jobs:
       - run: npm ci
       - run: npm run lint
 
+  pytest:
+    name: python package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install paretomol, RDKit and pytest
+        run: pip install -e "./python[rdkit]" pytest pandas
+      - name: Pytest
+        run: pytest python/tests
+
   reproduce:
     name: reproduce reported values
     runs-on: ubuntu-latest

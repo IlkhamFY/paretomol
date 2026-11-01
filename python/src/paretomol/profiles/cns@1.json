@@ -1,0 +1,59 @@
+{
+  "schema": "paretomol.profile/1",
+  "id": "cns",
+  "version": 1,
+  "label": "CNS Drug",
+  "description": "BBB-penetrant window (MW <= 400, LogP 1-4, TPSA <= 90).",
+  "objectives": [
+    {
+      "key": "MW",
+      "direction": "min"
+    },
+    {
+      "key": "LogP",
+      "direction": "min"
+    },
+    {
+      "key": "TPSA",
+      "direction": "min"
+    }
+  ],
+  "desirability": {
+    "MW": {
+      "idealMin": 150,
+      "idealMax": 330,
+      "acceptMin": 100,
+      "acceptMax": 400
+    },
+    "LogP": {
+      "idealMin": 1,
+      "idealMax": 3.5,
+      "acceptMin": 0,
+      "acceptMax": 5
+    },
+    "HBD": {
+      "idealMin": 0,
+      "idealMax": 2,
+      "acceptMin": 0,
+      "acceptMax": 3
+    },
+    "HBA": {
+      "idealMin": 0,
+      "idealMax": 5,
+      "acceptMin": 0,
+      "acceptMax": 7
+    },
+    "TPSA": {
+      "idealMin": 20,
+      "idealMax": 70,
+      "acceptMin": 0,
+      "acceptMax": 90
+    },
+    "RotBonds": {
+      "idealMin": 0,
+      "idealMax": 4,
+      "acceptMin": 0,
+      "acceptMax": 8
+    }
+  }
+}

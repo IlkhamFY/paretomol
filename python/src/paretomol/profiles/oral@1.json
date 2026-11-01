@@ -1,0 +1,59 @@
+{
+  "schema": "paretomol.profile/1",
+  "id": "oral",
+  "version": 1,
+  "label": "Oral Drug",
+  "description": "Lipinski Ro5-based oral drug window (MW <= 500, LogP <= 5, HBD <= 5, HBA <= 10).",
+  "objectives": [
+    {
+      "key": "MW",
+      "direction": "min"
+    },
+    {
+      "key": "LogP",
+      "direction": "min"
+    },
+    {
+      "key": "TPSA",
+      "direction": "min"
+    }
+  ],
+  "desirability": {
+    "MW": {
+      "idealMin": 150,
+      "idealMax": 400,
+      "acceptMin": 100,
+      "acceptMax": 500
+    },
+    "LogP": {
+      "idealMin": 0,
+      "idealMax": 3.5,
+      "acceptMin": -1,
+      "acceptMax": 5
+    },
+    "HBD": {
+      "idealMin": 0,
+      "idealMax": 3,
+      "acceptMin": 0,
+      "acceptMax": 5
+    },
+    "HBA": {
+      "idealMin": 0,
+      "idealMax": 7,
+      "acceptMin": 0,
+      "acceptMax": 10
+    },
+    "TPSA": {
+      "idealMin": 40,
+      "idealMax": 100,
+      "acceptMin": 20,
+      "acceptMax": 140
+    },
+    "RotBonds": {
+      "idealMin": 0,
+      "idealMax": 5,
+      "acceptMin": 0,
+      "acceptMax": 10
+    }
+  }
+}
