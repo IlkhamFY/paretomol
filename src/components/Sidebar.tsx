@@ -173,7 +173,7 @@ export default function Sidebar({
             },
           })
         : await parseAndAnalyze(input);
-      const { molecules: newMols, errors, failedLookups, customPropNames: newCustomProps } = result;
+      const { molecules: newMols, errors, failedLookups, customPropNames: newCustomProps, notes } = result;
       setCustomPropNames(newCustomProps);
       // Reset objectives: keep defaults + add new custom props as maximize
       // Loaded columns are made available, not silently optimised. Only those
@@ -195,6 +195,7 @@ export default function Sidebar({
       enrichMoleculeNames(newMols, (enriched) => setMolecules(enriched));
 
       let finalMsg = `${newMols.length} molecules analyzed`;
+      if (notes?.length) finalMsg += `. ${notes.join(' ')}`;
       if (newCustomProps.length > 0) finalMsg += ` · ${newCustomProps.length} custom props`;
       if (errors > 0 || failedLookups > 0) {
         finalMsg += ` (${errors} errors, ${failedLookups} lookup failures)`;
@@ -340,7 +341,7 @@ export default function Sidebar({
         // CSV/TSV — paste the raw text into input and trigger analyze
         setInput(text);
         const result = await parseAndAnalyze(text);
-        const { molecules: newMols, errors, failedLookups, customPropNames: newCustomProps } = result;
+        const { molecules: newMols, errors, failedLookups, customPropNames: newCustomProps, notes } = result;
         setCustomPropNames(newCustomProps);
         // See the note above: columns are offered, not silently optimised.
         const objs = objectivesForPreset(scoringPreset, newCustomProps, objectiveWindows);
@@ -350,6 +351,7 @@ export default function Sidebar({
         setCompareIndices([]);
         setSelectedMolIdx(null);
         let finalMsg = `Loaded ${newMols.length} molecules from ${file.name}`;
+        if (notes?.length) finalMsg += `. ${notes.join(' ')}`;
         if (newCustomProps.length > 0) finalMsg += ` + ${newCustomProps.length} custom properties`;
         if (errors > 0 || failedLookups > 0) finalMsg += ` (${errors} errors)`;
         setStatus({ msg: finalMsg, type: errors + failedLookups > 0 ? 'error' : 'success' });
@@ -466,18 +468,24 @@ export default function Sidebar({
         .join(' · ');
 
       // Deduplicate by SMILES, keep best pChEMBL
-      const molMap = new Map<string, { smiles: string; name: string; pchembl: number; ic50: number }>();
+      const molMap = new Map<string, { smiles: string; name: string; pchembl: number; value: number; column: string }>();
+      const types = new Set<string>();
       for (const act of data.activities) {
         if (!act.canonical_smiles) continue;
         const existing = molMap.get(act.canonical_smiles);
         const pchembl = parseFloat(act.pchembl_value) || 0;
-        const ic50 = parseFloat(act.standard_value) || 0;
+        const standardType = String(act.standard_type || 'activity').replace(/\s+/g, '');
+        const standardUnits = String(act.standard_units || '').replace(/\s+/g, '');
+        const column = standardUnits ? `${standardType}_${standardUnits}` : standardType;
+        types.add(standardType);
+        const value = parseFloat(act.standard_value) || 0;
         if (!existing || pchembl > existing.pchembl) {
           molMap.set(act.canonical_smiles, {
             smiles: act.canonical_smiles,
             name: act.molecule_chembl_id || act.canonical_smiles.slice(0, 20),
             pchembl,
-            ic50,
+            value,
+            column,
           });
         }
       }
@@ -495,12 +503,14 @@ export default function Sidebar({
         if (entry) {
           mol.customProps = mol.customProps || {};
           mol.customProps['pChEMBL'] = entry.pchembl;
-          if (entry.ic50 > 0) mol.customProps['IC50_nM'] = entry.ic50;
+          if (entry.value > 0) mol.customProps[entry.column] = entry.value;
         }
       }
 
       const customProps = ['pChEMBL'];
-      if (entries.some(e => e.ic50 > 0)) customProps.push('IC50_nM');
+      for (const entry of entries) {
+        if (entry.value > 0 && !customProps.includes(entry.column)) customProps.push(entry.column);
+      }
 
       setCustomPropNames([...result.customPropNames, ...customProps]);
       const ranked = objectivesForPreset(scoringPreset, customProps, objectiveWindows);
@@ -511,7 +521,8 @@ export default function Sidebar({
       setSelectedMolIdx(null);
       setInput(lines);
       const fmtLabel = assayFormat === 'B' ? 'binding' : assayFormat === 'F' ? 'functional' : 'all formats';
-      setStatus({ msg: `Loaded ${result.molecules.length} compounds from ${targetId} (${data.activities.length} ${fmtLabel} activities) — assays: ${baoSummary}`, type: 'success' });
+      const typeNote = [...types].join(', ') || 'activity';
+      setStatus({ msg: `Loaded ${result.molecules.length} compounds from ${targetId} (${data.activities.length} ${fmtLabel} activities). pChEMBL is the objective. Raw values keep the ChEMBL type and units (${typeNote}). Assays: ${baoSummary}`, type: 'success' });
       onToast?.(`${result.molecules.length} compounds from ${targetId} (${fmtLabel})`);
       if (result.molecules.length > 0) track('molecules/chembl');
     } catch (e: unknown) {

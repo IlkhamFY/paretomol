@@ -101,6 +101,98 @@ export function aggregate(values: AssayValue[]): { value: number; n: number; cen
  * Do repeated measurements disagree enough to be worth reporting?
  * Relative spread against the median, so the test is scale-free.
  */
+const TO_NM: Record<string, number> = {
+  nm: 1, um: 1e3, mm: 1e6, m: 1e9,
+};
+
+/** Factor from a concentration unit to nM, or null when the unit is not a concentration. */
+export function nanomolarFactor(unit: string | null): number | null {
+  if (!unit) return null;
+  const key = normaliseUnit(unit).toLowerCase().replace(/[^a-z]/g, '');
+  return TO_NM[key] ?? null;
+}
+
+/** p-scale from a concentration in nM. 1 nM is 9, 1 uM is 6. Non-positive values are not a concentration. */
+export function pFromNanomolar(nM: number): number | null {
+  if (!(nM > 0) || !Number.isFinite(nM)) return null;
+  return 9 - Math.log10(nM);
+}
+
+export interface ActivityHeader {
+  kind: string;
+  /** Unit declared by the header, if any. */
+  unit: string | null;
+  /** The column is already on a p-scale. */
+  alreadyP: boolean;
+}
+
+/** IC50, Ki, Kd and the p-scaled forms. Other headers are left alone. */
+export function activityHeader(header: string): ActivityHeader | null {
+  const compact = header.trim().replace(/[^a-z0-9]+/gi, '').toLowerCase();
+  if (/^p(ic50|ec50|ki|kd|gi50|mic|chembl)$/.test(compact)) {
+    return { kind: header.trim(), unit: null, alreadyP: true };
+  }
+  const m = header.trim().match(/^(ic50|ec50|ki|kd|gi50|mic)(?:[\s_\-(]+(nM|uM|µM|μM|mM|M))?/i);
+  if (!m) return null;
+  const kindMap: Record<string, string> = { ic50: 'IC50', ec50: 'EC50', ki: 'Ki', kd: 'Kd', gi50: 'GI50', mic: 'MIC' };
+  return { kind: kindMap[m[1].toLowerCase()], unit: m[2] ? normaliseUnit(m[2]) : null, alreadyP: false };
+}
+
+export interface ActivityColumns {
+  rawName: string;
+  pName: string;
+  raw: (number | null)[];
+  p: (number | null)[];
+  note: string;
+}
+
+/**
+ * Turn an activity column into a nM display column and a p-scale objective.
+ * Returns null when the header is not an activity, or when it is already on a p-scale.
+ * Mixed units are refused: both value lists stay empty and the note says why.
+ */
+export function activityColumns(header: string, cells: string[]): ActivityColumns | null {
+  const spec = activityHeader(header);
+  if (!spec || spec.alreadyP) return null;
+  const parsed = cells.map((cell) => parseAssayValue(cell));
+  const units = new Set<string>();
+  if (spec.unit && nanomolarFactor(spec.unit) !== null) units.add(normaliseUnit(spec.unit).toLowerCase());
+  for (const v of parsed) {
+    if (v?.unit && nanomolarFactor(v.unit) !== null) units.add(normaliseUnit(v.unit).toLowerCase());
+  }
+  if (units.size === 0) {
+    return null;
+  }
+  if (units.size > 1) {
+    return { rawName: `${spec.kind}_nM`, pName: `p${spec.kind}`, raw: [], p: [], note: `${header} has mixed units, so it was not used as an objective.` };
+  }
+  const unit = [...units][0];
+  const factor = nanomolarFactor(unit)!;
+  let censored = 0;
+  const raw: (number | null)[] = [];
+  const p: (number | null)[] = [];
+  for (const v of parsed) {
+    if (!v || isCensored(v)) {
+      if (v && isCensored(v)) censored++;
+      raw.push(null); p.push(null);
+      continue;
+    }
+    const nM = v.value * (v.unit && nanomolarFactor(v.unit) !== null ? nanomolarFactor(v.unit)! : factor);
+    const pValue = pFromNanomolar(nM);
+    raw.push(nM);
+    p.push(pValue);
+  }
+  const from = unit === 'nm' ? 'nM' : unit === 'um' ? 'uM' : unit === 'mm' ? 'mM' : 'M';
+  const censoredNote = censored ? ` ${censored} censored value${censored === 1 ? '' : 's'} left out.` : '';
+  return {
+    rawName: `${spec.kind}_nM`,
+    pName: `p${spec.kind}`,
+    raw,
+    p,
+    note: `${spec.kind} was read in ${from} and added as p${spec.kind}. ${spec.kind}_nM is kept for display.${censoredNote}`,
+  };
+}
+
 export function isConflicting(values: number[], relativeTolerance = 0.5): boolean {
   if (values.length < 2) return false;
   const sorted = [...values].sort((a, b) => a - b);

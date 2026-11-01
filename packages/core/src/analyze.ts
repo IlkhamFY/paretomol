@@ -8,6 +8,7 @@ import { computeQED } from './qed.js';
 import { QED_ALERT_SMARTS } from './qedAlerts.js';
 import { packFingerprint } from './similarity.js';
 import { syntheticComplexityFromDescriptors } from './synth.js';
+import { activityColumns, activityHeader } from './assayValue.js';
 
 /** The subset of an RDKit.js molecule this module uses. */
 export interface RDKitMolLike {
@@ -186,51 +187,71 @@ export function parseNumericCell(raw: string | undefined | null): number | null 
 }
 
 /** Extract SMILES lines and custom properties from CSV data. */
-export function parseCSVData(csv: { headers: string[]; rows: string[][]; smilesCol: number }): { smilesLines: string[]; customPropNames: string[]; customPropValues: Record<string, number>[] } {
+export function parseCSVData(csv: { headers: string[]; rows: string[][]; smilesCol: number }): { smilesLines: string[]; customPropNames: string[]; customPropValues: Record<string, number>[]; notes: string[] } {
   const { headers, rows, smilesCol } = csv;
   const NAME_HEADERS = ['name', 'id', 'molecule', 'compound', 'compound id', 'compound_id', 'mol_name', 'title'];
   let nameIdx = -1;
-  const customCols: { idx: number; name: string }[] = [];
+  type PlainCol = { kind: 'plain'; idx: number; name: string };
+  type ActCol = { kind: 'activity'; interpreted: ReturnType<typeof activityColumns> & object };
+  const customCols: Array<PlainCol | ActCol> = [];
+  const notes: string[] = [];
 
   for (let i = 0; i < headers.length; i++) {
-    if (i === smilesCol) continue; // skip the SMILES column
+    if (i === smilesCol) continue;
     const h = headers[i].toLowerCase();
     if (nameIdx === -1 && NAME_HEADERS.includes(h)) {
       nameIdx = i;
-    } else {
-      // Check if this column has numeric data (check first few data rows)
-      let numericCount = 0;
-      const checkRows = Math.min(3, rows.length);
-      for (let r = 0; r < checkRows; r++) {
-        if (parseNumericCell(rows[r]?.[i]) !== null) numericCount++;
+      continue;
+    }
+    const header = activityHeader(headers[i]);
+    if (header && !header.alreadyP) {
+      const interpreted = activityColumns(headers[i], rows.map((r) => r[i] ?? ''));
+      if (interpreted) {
+        notes.push(interpreted.note);
+        if (interpreted.raw.some((v) => v !== null)) customCols.push({ kind: 'activity', interpreted });
+      } else {
+        notes.push(`${headers[i]} has no unit, so it was not converted to a p-scale.`);
       }
-      if (numericCount > 0) {
-        customCols.push({ idx: i, name: headers[i] });
-      } else if (nameIdx === -1) {
-        // First non-numeric, non-SMILES column becomes name
-        nameIdx = i;
-      }
+      continue;
+    }
+    let numericCount = 0;
+    const checkRows = Math.min(3, rows.length);
+    for (let r = 0; r < checkRows; r++) {
+      if (parseNumericCell(rows[r]?.[i]) !== null) numericCount++;
+    }
+    if (numericCount > 0) {
+      customCols.push({ kind: 'plain', idx: i, name: headers[i] });
+    } else if (nameIdx === -1) {
+      nameIdx = i;
     }
   }
 
   const smilesLines: string[] = [];
   const customPropValues: Record<string, number>[] = [];
+  const names = new Set<string>();
 
-  for (const row of rows) {
+  rows.forEach((row, rowIndex) => {
     const smiles = row[smilesCol];
-    if (!smiles) continue;
+    if (!smiles) return;
     const name = nameIdx >= 0 ? row[nameIdx] || '' : '';
     smilesLines.push(name ? `${smiles} ${name}` : smiles);
 
     const props: Record<string, number> = {};
     for (const col of customCols) {
-      const val = parseNumericCell(row[col.idx]);
-      if (val !== null) props[col.name] = val;
+      if (col.kind === 'plain') {
+        const val = parseNumericCell(row[col.idx]);
+        if (val !== null) { props[col.name] = val; names.add(col.name); }
+      } else {
+        const raw = col.interpreted.raw[rowIndex];
+        const p = col.interpreted.p[rowIndex];
+        if (raw !== null) { props[col.interpreted.rawName] = raw; names.add(col.interpreted.rawName); }
+        if (p !== null) { props[col.interpreted.pName] = p; names.add(col.interpreted.pName); }
+      }
     }
     customPropValues.push(props);
-  }
+  });
 
-  return { smilesLines, customPropNames: customCols.map(c => c.name), customPropValues };
+  return { smilesLines, customPropNames: [...names], customPropValues, notes };
 }
 
 /** What the descriptor path computes beyond the physicochemical properties.
@@ -350,24 +371,26 @@ export interface AnalyzeResult {
   /** Input lines that did not parse as SMILES. */
   errors: number;
   customPropNames: string[];
+  /** Notes about assay units and p-scale columns. Empty for SMILES text. */
+  notes: string[];
 }
 
 /** Split raw input (CSV/TSV with a SMILES column, or "SMILES name" lines). */
-export function splitInput(input: string): { smilesLines: string[]; customPropNames: string[]; customPropValues: Record<string, number>[] } {
+export function splitInput(input: string): { smilesLines: string[]; customPropNames: string[]; customPropValues: Record<string, number>[]; notes: string[] } {
   const csv = detectCSV(input);
   if (csv) return parseCSVData(csv);
-  return { smilesLines: input.split('\n').filter(l => l.trim()), customPropNames: [], customPropValues: [] };
+  return { smilesLines: input.split('\n').filter(l => l.trim()), customPropNames: [], customPropValues: [], notes: [] };
 }
 
 /** Synchronous, offline analysis of raw input: no name resolution and no Pareto
  *  ranking (call computeParetoAndDominance with the objectives you want). */
 export function analyzeInput(input: string, RDKit: RDKitLike, opts?: AnalyzeOptions): AnalyzeResult {
-  const { smilesLines, customPropNames, customPropValues } = splitInput(input);
+  const { smilesLines, customPropNames, customPropValues, notes } = splitInput(input);
   const molecules: Molecule[] = [];
   let errors = 0;
   for (let i = 0; i < smilesLines.length; i++) {
     const m = analyzeMolecule(smilesLines[i], i, RDKit, customPropValues, opts);
     if (m) molecules.push(m); else errors++;
   }
-  return { molecules, errors, customPropNames };
+  return { molecules, errors, customPropNames, notes };
 }

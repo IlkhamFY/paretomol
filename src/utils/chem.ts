@@ -735,6 +735,7 @@ export interface ParseResult {
   errors: number;
   failedLookups: number;
   customPropNames: string[];
+  notes: string[];
 }
 
 /** Batch PubChem lookups with concurrency limit for speed. */
@@ -807,12 +808,14 @@ export async function parseAndAnalyze(input: string): Promise<ParseResult> {
   let smilesLines: string[];
   let customPropNames: string[] = [];
   let customPropValues: Record<string, number>[] = [];
+  let notes: string[] = [];
 
   if (csv) {
     const parsed = parseCSVData(csv);
     smilesLines = parsed.smilesLines;
     customPropNames = parsed.customPropNames;
     customPropValues = parsed.customPropValues;
+    notes = parsed.notes;
   } else {
     smilesLines = input.split('\n').filter(l => l.trim());
   }
@@ -836,7 +839,7 @@ export async function parseAndAnalyze(input: string): Promise<ParseResult> {
   // 3. Compute Pareto ranks & Dominance (single pass)
   computeParetoAndDominance(newMolecules);
 
-  return { molecules: newMolecules, errors, failedLookups, customPropNames };
+  return { molecules: newMolecules, errors, failedLookups, customPropNames, notes };
 }
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -856,12 +859,14 @@ export async function parseAndAnalyzeChunked(
   let smilesLines: string[];
   let customPropNames: string[] = [];
   let customPropValues: Record<string, number>[] = [];
+  let notes: string[] = [];
 
   if (csv) {
     const parsed = parseCSVData(csv);
     smilesLines = parsed.smilesLines;
     customPropNames = parsed.customPropNames;
     customPropValues = parsed.customPropValues;
+    notes = parsed.notes;
   } else {
     smilesLines = input.split('\n').filter((l) => l.trim());
   }
@@ -890,7 +895,7 @@ export async function parseAndAnalyzeChunked(
   }
 
   computeParetoAndDominance(newMolecules);
-  return { molecules: newMolecules, errors, failedLookups, customPropNames };
+  return { molecules: newMolecules, errors, failedLookups, customPropNames, notes };
 }
 
 /** Non-dominated fronts + dominance edges. The algorithm lives in
