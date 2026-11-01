@@ -142,6 +142,29 @@ def test_dataframe_rank_and_review_link():
     assert "pareto_rank" not in decode_review(via_frame.split("#r=", 1)[1])["molecules"][0].get("customProps", {})
 
 
+def test_constraints_prune_before_the_front():
+    from paretomol import Molecule, build_decision_record, compute_pareto, parse_decision_record
+    from paretomol.constraints import explain_constraints
+
+    big = Molecule("big", "C", {"MW": 600, "LogP": 1})
+    small = Molecule("small", "CC", {"MW": 200, "LogP": 1})
+    gates = [{"key": "MW", "op": "<=", "value": 500}]
+    assert explain_constraints([big, small], gates) == [False, True]
+    compute_pareto([big, small], [{"key": "MW", "direction": "min"}, {"key": "LogP", "direction": "min"}], [False, True])
+    assert big.pareto_rank is None
+    assert small.pareto_rank == 1
+    rec = build_decision_record(
+        [big, small],
+        [{"key": "MW", "direction": "min"}],
+        timestamp="2026-11-01T00:00:00.000Z",
+        rdkit_version="2025.03.4",
+        constraints=[{"key": "MW", "op": "<=", "value": 500, "predicted": True}],
+    )
+    assert rec["constraints"] == [{"key": "MW", "op": "<=", "value": 500, "predicted": True}]
+    assert [row["paretoRank"] for row in rec["results"]] == [None, 1]
+    assert parse_decision_record(rec)["recordHash"] == rec["recordHash"]
+
+
 def test_verify_claims_with_rdkit():
     pytest.importorskip("rdkit")
     from paretomol import verify_claims

@@ -57,7 +57,7 @@ function defaultObjectives(): ParetoObjective[] {
  *  flag, so every `paretoRank === 1` consumer is unaffected. Layering reuses
  *  the dominance edges materialised by the pairwise pass and costs O(n + |E|).
  */
-export function computeParetoAndDominance(molecules: Molecule[], objectives?: ParetoObjective[]) {
+export function computeParetoAndDominance(molecules: Molecule[], objectives?: ParetoObjective[], eligible?: readonly boolean[]) {
   const objs = objectives ?? defaultObjectives();
   const n = molecules.length;
   const k = objs.length;
@@ -71,6 +71,12 @@ export function computeParetoAndDominance(molecules: Molecule[], objectives?: Pa
     const m = molecules[i];
     m.dominates = [];
     m.dominatedBy = [];
+    if (eligible && eligible[i] === false) {
+      vals[i] = null;
+      m.paretoRank = null;
+      delete m.missingObjectives;
+      continue;
+    }
     const row: number[] = [];
     const missing: string[] = [];
     for (const obj of objs) {

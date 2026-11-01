@@ -11,6 +11,7 @@ import {
 } from './decision.js';
 import { mpoScore, type CurveType, type PropDesirability } from './mpo.js';
 import { computeParetoAndDominance } from './pareto.js';
+import { explainConstraints, isConstraint } from './constraints.js';
 import { getProfile } from './profiles.js';
 import type { Molecule, ParetoObjective } from './types.js';
 
@@ -119,7 +120,9 @@ export function verifyDecision(json: string | unknown, RDKit: RDKitLike): Decisi
     return { ok: false, issues, recomputed: [], rdkitVersion };
   }
 
-  computeParetoAndDominance(molecules, rec.objectives as ParetoObjective[]);
+  const constraints = Array.isArray(rec.constraints) ? rec.constraints.filter(isConstraint) : [];
+  const eligible = constraints.length ? explainConstraints(molecules, constraints).eligible : undefined;
+  computeParetoAndDominance(molecules, rec.objectives as ParetoObjective[], eligible);
   const recomputed: RecomputedRow[] = molecules.map((m, i) => ({
     id: rec.input.molecules[i].id,
     paretoRank: m.paretoRank ?? null,

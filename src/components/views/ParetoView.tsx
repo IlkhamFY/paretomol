@@ -15,7 +15,7 @@ import {
   Title
 } from 'chart.js';
 import type { Molecule, ParetoObjective, ScoringPreset } from '@paretomol/core';
-import { DRUG_FILTERS, findBestCompromise, presetBlurb, readFront } from '@paretomol/core';
+import { DRUG_FILTERS, findBestCompromise, presetBlurb, pruneSummary, readFront } from '@paretomol/core';
 import { nearestBetterAnalog } from '../../utils/designHint';
 import type { FDADrug } from '../../utils/fda_reference';
 import { PROP_TO_FDA } from '../../utils/fda_reference';
@@ -202,6 +202,7 @@ function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, cust
         {scoringPreset === 'custom' && <span className="text-[var(--text)] font-medium">Custom windows</span>}
       </div>
       <p className="text-[12px] text-[var(--text2)] leading-relaxed">{presetBlurb(scoringPreset)}</p>
+      {pruneSummary(molecules) && <p className="text-[12px] text-[var(--text)] leading-relaxed">{pruneSummary(molecules)}</p>}
 
       {/* Reading: a deterministic narration of the front */}
       {reading && (

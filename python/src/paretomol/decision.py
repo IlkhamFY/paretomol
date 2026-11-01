@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from typing import Any, Mapping, Optional, Sequence
 
 from .canonical import canonical_json, js_stringify, round6, sha256_hex
+from .constraints import explain_constraints, is_constraint, public_constraint
 from .mpo import mpo_score
 from .pareto import Molecule, coerce_molecules, compute_pareto, normalize_objectives, plain_number
 from .profiles import ResolvedProfile, get_profile
@@ -180,6 +181,7 @@ def build_decision_record(
     review: Optional[Mapping[str, Any]] = None,
     timestamp: Optional[str] = None,
     curve: str = "linear",
+    constraints: Optional[Sequence[Mapping[str, Any]]] = None,
 ) -> dict[str, Any]:
     """Build a ``paretomol.decision/1`` record, including ``recordHash``.
 
@@ -205,7 +207,9 @@ def build_decision_record(
             item["customProps"] = custom
         in_mols.append(item)
     working = [Molecule(m.name, m.smiles, dict(m.props), dict(m.custom_props)) for m in mols]
-    compute_pareto(working, objs)
+    gates = [public_constraint(c) for c in (constraints or []) if is_constraint(c)]
+    eligible = explain_constraints(working, gates) if gates else None
+    compute_pareto(working, objs, eligible)
     windows = copy.deepcopy(resolved.desirability)
     results: list[dict[str, Any]] = []
     for mol, mid in zip(working, ids):
@@ -230,6 +234,7 @@ def build_decision_record(
             "admet": {"endpoint": admet_endpoint, "model": ADMET_MODEL} if admet_endpoint else None,
         },
         "objectives": [_public_objective(o) for o in objs],
+        **({"constraints": gates} if gates else {}),
         "results": results,
         "selected": chosen,
         "rationale": "" if rationale is None else rationale,
@@ -306,6 +311,8 @@ def parse_decision_record(data: Any) -> dict[str, Any]:
     stored_curve = profile.get("curve")
     if stored_curve is not None and stored_curve not in ("linear", "sigmoid"):
         raise ValueError("Decision record: profile.curve must be linear or sigmoid")
+    if "constraints" in rec and (not isinstance(rec["constraints"], list) or any(not is_constraint(c) for c in rec["constraints"])):
+        raise ValueError("Decision record: constraints must be {key, op, value}")
     id_list = [m.get("id") for m in inp["molecules"]]
     ids = set(id_list)
     if schema == DECISION_RECORD_SCHEMA:

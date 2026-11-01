@@ -11,6 +11,7 @@ import type { ResolvedProfile } from './profiles.js';
 import { mpoScore } from './mpo.js';
 import type { CurveType, PropDesirability } from './mpo.js';
 import { computeParetoAndDominance } from './pareto.js';
+import { explainConstraints, isConstraint, type Constraint } from './constraints.js';
 import { sha256Hex } from './sha256.js';
 import { CORE_VERSION } from './version.js';
 import { RDKIT_WASM_SHA256 } from './rdkitBuild.js';
@@ -84,6 +85,8 @@ export interface DecisionRecord {
     admet: { endpoint: string; model: string } | null;
   };
   objectives: ParetoObjective[];
+  /** Hard gates applied before the front was ranked. Absent when none were set. */
+  constraints?: Constraint[];
   results: DecisionResult[];
   selected: string[];
   rationale: string;
@@ -194,6 +197,7 @@ function scoreResults(
   windows: Record<string, PropDesirability>,
   curve: CurveType,
   ids: string[],
+  constraints: Constraint[] = [],
 ): DecisionResult[] {
   const working = molecules.map((m) => ({
     ...m,
@@ -202,7 +206,8 @@ function scoreResults(
     dominatedBy: [] as number[],
     paretoRank: null as number | null,
   }));
-  computeParetoAndDominance(working, objectives);
+  const eligible = constraints.length ? explainConstraints(working, constraints).eligible : undefined;
+  computeParetoAndDominance(working, objectives, eligible);
   return working.map((m, i) => ({
     id: ids[i],
     paretoRank: m.paretoRank ?? null,
@@ -216,6 +221,8 @@ export interface BuildDecisionOptions {
   profile?: string | ResolvedProfile;
   /** MPO curve the user applied. Default linear (CLI, and review export). */
   curve?: CurveType;
+  /** Hard gates. Omitted from the file when empty. */
+  constraints?: Constraint[];
   /** Indices into `molecules`. When `review` is set, these must be the accepted molecules. */
   selected?: number[];
   rationale?: string;
@@ -238,7 +245,10 @@ export function buildDecisionRecord(o: BuildDecisionOptions): DecisionRecord {
     return cp ? { id: ids[i], name: m.name, smiles: m.smiles, customProps: cp } : { id: ids[i], name: m.name, smiles: m.smiles };
   });
   const windows = JSON.parse(JSON.stringify(profile.desirability)) as Record<string, PropDesirability>;
-  const results = scoreResults(o.molecules, o.objectives, windows, curve, ids);
+  const constraints = (o.constraints ?? []).filter(isConstraint).map((c) => (
+    c.predicted ? { key: c.key, op: c.op, value: c.value, predicted: true as const } : { key: c.key, op: c.op, value: c.value }
+  ));
+  const results = scoreResults(o.molecules, o.objectives, windows, curve, ids, constraints);
   const selected = [...new Set(o.selected ?? [])].filter((i) => i >= 0 && i < ids.length).sort((a, b) => a - b).map((i) => ids[i]);
   const review = o.review ? buildReview(o.review, ids) : undefined;
   if (review && !sameIdSet(selected, acceptedIds(review.decisions))) {
@@ -253,6 +263,7 @@ export function buildDecisionRecord(o: BuildDecisionOptions): DecisionRecord {
       rdkitjs: { version: o.rdkitVersion, sha256: RDKIT_WASM_SHA256 },
       admet: o.admetEndpoint ? { endpoint: o.admetEndpoint, model: ADMET_MODEL } : null,
     },
+    ...(constraints.length ? { constraints } : {}),
     objectives: o.objectives.map((x) => {
       if (!x.window) return { key: x.key, direction: x.direction };
       const w = x.window;
@@ -321,6 +332,11 @@ export function parseDecisionRecord(json: string | unknown): DecisionRecord {
     }
     if (rec.review && !sameIdSet(rec.selected ?? [], acceptedIds(rec.review.decisions))) {
       throw new Error('Decision record: selected ids do not match accepted review decisions');
+    }
+  }
+  if (rec.constraints !== undefined) {
+    if (!Array.isArray(rec.constraints) || rec.constraints.some((c) => !isConstraint(c))) {
+      throw new Error('Decision record: constraints must be {key, op, value}');
     }
   }
   for (const s of rec.selected ?? []) if (!idSet.has(s)) throw new Error(`Decision record: selected id not in input: ${s}`);

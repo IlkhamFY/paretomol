@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { Molecule, ParetoObjective } from '@paretomol/core';
-import { DRUG_FILTERS, MAX_MOLECULES, objectivesForPreset, potencyObjectives, cycleObjective, directionWord, checkedObjective } from '@paretomol/core';
-import type { ObjectiveWindow, ScoringPreset } from '@paretomol/core';
+import { DRUG_FILTERS, LIPINSKI_CONSTRAINTS, MAX_MOLECULES, objectivesForPreset, potencyObjectives, cycleObjective, directionWord, checkedObjective, pruneSummary, rankUnder } from '@paretomol/core';
+import type { Constraint, ObjectiveWindow, ScoringPreset } from '@paretomol/core';
 import { EXAMPLES } from '../data/examples';
-import { initRDKitCache, parseAndAnalyze, parseAndAnalyzeChunked, parseSDFFile, fetchChEMBLBatch, computeParetoAndDominance, getMolSvg, filterBySubstructure, mergeAssayData, enrichMoleculeNames } from '../utils/chem';
+import { initRDKitCache, parseAndAnalyze, parseAndAnalyzeChunked, parseSDFFile, fetchChEMBLBatch, getMolSvg, filterBySubstructure, mergeAssayData, enrichMoleculeNames } from '../utils/chem';
 import { useTheme } from '../contexts/ThemeContext';
 import { inferObjectiveDirection } from '@paretomol/core';
 import { ADMET_AI_PROPERTY_META } from '../utils/admetAI';
@@ -40,6 +40,8 @@ interface SidebarProps {
   scoringPreset?: ScoringPreset;
   onScoringPreset?: (preset: ScoringPreset, windows?: Record<string, ObjectiveWindow> | null) => void;
   objectiveWindows?: Record<string, ObjectiveWindow> | null;
+  constraints?: Constraint[];
+  onConstraints?: (constraints: Constraint[]) => void;
 }
 
 export default function Sidebar({
@@ -68,6 +70,8 @@ export default function Sidebar({
   scoringPreset = 'oral@1',
   onScoringPreset,
   objectiveWindows = null,
+  constraints = [],
+  onConstraints,
 }: SidebarProps) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -79,7 +83,7 @@ export default function Sidebar({
   const [targetInput, setTargetInput] = useState('');
   const [targetOpen, setTargetOpen] = useState(false);
   // Which tool panel is open in the single-row tool strip (null = none); the cards lead.
-  const [openTool, setOpenTool] = useState<'props' | 'substr' | 'range' | null>(null);
+  const [openTool, setOpenTool] = useState<'props' | 'substr' | 'range' | 'constraints' | null>(null);
   // ChEMBL assay-format filter: avoid mixing biochemical binding/functional with
   // cellular readouts (BAO_LABEL). Defaults to binding (single-protein) assays.
   const [assayFormat, setAssayFormat] = useState<'B' | 'F' | 'all'>('B');
@@ -180,7 +184,7 @@ export default function Sidebar({
       // Rank under the objectives being shown: parseAndAnalyze ranks under the
       // defaults only, so inferred columns (e.g. pIC50) were listed as active
       // objectives but ignored by the front until the user toggled something.
-      computeParetoAndDominance(newMols, objs);
+      rankUnder(newMols, objs, constraints);
       setParetoObjectives(objs);
       setMolecules(newMols);
       setCompareIndices([]);
@@ -241,7 +245,7 @@ export default function Sidebar({
     );
     if (newObjs.length > 0) setParetoObjectives([...paretoObjectives, ...newObjs]);
     // Update molecules + recompute Pareto
-    computeParetoAndDominance(result.molecules, [...paretoObjectives, ...newObjs]);
+    rankUnder(result.molecules, [...paretoObjectives, ...newObjs], constraints);
     setMolecules([...result.molecules]);
     // Report what actually happened per record rather than a bare count: which
     // key each match was made on, what was aggregated, what disagreed, what was
@@ -340,7 +344,7 @@ export default function Sidebar({
         setCustomPropNames(newCustomProps);
         // See the note above: columns are offered, not silently optimised.
         const objs = objectivesForPreset(scoringPreset, newCustomProps, objectiveWindows);
-        computeParetoAndDominance(newMols, objs);
+        rankUnder(newMols, objs, constraints);
         setParetoObjectives(objs);
         setMolecules(newMols);
         setCompareIndices([]);
@@ -500,7 +504,7 @@ export default function Sidebar({
 
       setCustomPropNames([...result.customPropNames, ...customProps]);
       const ranked = objectivesForPreset(scoringPreset, customProps, objectiveWindows);
-      computeParetoAndDominance(result.molecules, ranked);
+      rankUnder(result.molecules, ranked, constraints);
       setParetoObjectives(ranked);
       setMolecules(result.molecules);
       setCompareIndices([]);
@@ -766,7 +770,7 @@ export default function Sidebar({
       {/* Tools — one quiet row of triggers; single-open, so the molecule cards lead */}
       {molecules.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px]">
-          {([['props', 'Properties'], ['substr', 'Substructure'], ['range', 'Ranges']] as const).map(([id, label]) => (
+          {([['props', 'Properties'], ['constraints', 'Constraints'], ['substr', 'Substructure'], ['range', 'Ranges']] as const).map(([id, label]) => (
             <button
               key={id}
               onClick={() => setOpenTool(o => (o === id ? null : id))}
@@ -988,6 +992,62 @@ export default function Sidebar({
               ))}
             </div>
           </div>
+      )}
+
+      {molecules.length > 0 && openTool === 'constraints' && (
+        <div className="mt-2 p-2 bg-[var(--bg)] border border-[var(--border-5)] rounded-md space-y-2 text-[11px]">
+          <p className="text-[var(--text2)] leading-relaxed">Constraints remove compounds before the front is ranked. A missing value fails. Predicted cutoffs are model outputs.</p>
+          <button
+            type="button"
+            aria-pressed={LIPINSKI_CONSTRAINTS.every((rule) => constraints.some((c) => c.key === rule.key && c.op === rule.op && c.value === rule.value && !c.predicted))}
+            onClick={() => {
+              const on = LIPINSKI_CONSTRAINTS.every((rule) => constraints.some((c) => c.key === rule.key && c.op === rule.op && c.value === rule.value && !c.predicted));
+              if (on) onConstraints?.(constraints.filter((c) => !LIPINSKI_CONSTRAINTS.some((rule) => rule.key === c.key && rule.op === c.op && rule.value === c.value && !c.predicted)));
+              else onConstraints?.([...constraints, ...LIPINSKI_CONSTRAINTS.map((c) => ({ ...c }))]);
+            }}
+            className="text-[var(--text)]"
+          >
+            Lipinski, all four rules
+          </button>
+          {admetPropNames.map((key) => {
+            const meta = ADMET_AI_PROPERTY_META[key.replace(/ \(pred\)$/, '')];
+            const active = constraints.find((c) => c.key === key && c.predicted);
+            const op = meta?.safeDir === 'high' ? '>=' as const : '<=' as const;
+            return (
+              <div key={key} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="accent-[#5F7367] w-3 h-3"
+                  checked={!!active}
+                  aria-label={`Constraint on predicted ${key}`}
+                  onChange={() => {
+                    if (active) onConstraints?.(constraints.filter((c) => c !== active));
+                    else onConstraints?.([...constraints, { key, op, value: 0.5, predicted: true }]);
+                  }}
+                />
+                <span className="text-[var(--text)] flex-1 truncate" title="Predicted">{key} predicted</span>
+                {active && (
+                  <>
+                    <span className="text-[var(--text2)]">{active.op}</span>
+                    <input
+                      type="number"
+                      step="0.05"
+                      value={active.value}
+                      aria-label={`${key} cutoff`}
+                      onChange={(e) => {
+                        const value = Number(e.target.value);
+                        if (!Number.isFinite(value)) return;
+                        onConstraints?.(constraints.map((c) => c === active ? { ...c, value } : c));
+                      }}
+                      className="w-16 bg-[var(--surface)] border border-[var(--border-10)] rounded px-1 py-0.5 text-[var(--text)]"
+                    />
+                  </>
+                )}
+              </div>
+            );
+          })}
+          {pruneSummary(molecules) && <p className="text-[var(--text)] leading-relaxed">{pruneSummary(molecules)}</p>}
+        </div>
       )}
 
       {/* Substructure panel */}

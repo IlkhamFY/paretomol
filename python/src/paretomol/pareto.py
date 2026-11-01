@@ -150,7 +150,11 @@ def _scalar(value: float, obj: Mapping[str, Any]) -> tuple[float, bool]:
     return value, obj["direction"] == "min"
 
 
-def compute_pareto(molecules: list[Molecule], objectives: Optional[Sequence[Any]] = None) -> list[Molecule]:
+def compute_pareto(
+    molecules: list[Molecule],
+    objectives: Optional[Sequence[Any]] = None,
+    eligible: Optional[Sequence[bool]] = None,
+) -> list[Molecule]:
     """Assign Pareto ranks and dominance edges in place. Returns the same list.
 
     Rank 1 is the non-dominated front. Rank 2 is the front that remains once
@@ -166,6 +170,11 @@ def compute_pareto(molecules: list[Molecule], objectives: Optional[Sequence[Any]
     for i, mol in enumerate(molecules):
         mol.dominates = []
         mol.dominated_by = []
+        if eligible is not None and i < len(eligible) and not eligible[i]:
+            vals[i] = None
+            mol.missing_objectives = None
+            mol.pareto_rank = None
+            continue
         row: list[float] = []
         missing: list[str] = []
         for obj in objs:

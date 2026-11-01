@@ -86,6 +86,8 @@ export interface Molecule {
    *  excluded from the dominance relation rather than imputed, so that a failed
    *  prediction is never read as a favourable measurement. */
   missingObjectives?: string[];
+  /** Constraint failures. The molecule was left out of the front. */
+  excluded?: string[];
   dominates: number[];
   dominatedBy: number[];
 }

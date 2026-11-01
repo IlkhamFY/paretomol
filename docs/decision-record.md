@@ -60,7 +60,8 @@ Code: `packages/core/src/decision.ts` (`buildDecisionRecord`,
 | `models.core` | `@paretomol/core` version, read from that package's `package.json`. |
 | `models.rdkitjs` | On v1, `{version, sha256}`. `version` is `RDKit.version()`. `sha256` is the hash of the pinned `RDKit_minimal.wasm`. v0 stored only the version string. |
 | `models.admet` | `{endpoint, model}` when any column came from ADMET-AI, else `null`. |
-| `objectives[]` | Pareto objectives, `{key, direction: "min" or "max"}`. |
+| `objectives[]` | Pareto objectives, `{key, direction: "min" or "max"}`. A window objective also stores its desirability band. |
+| `constraints[]` | Optional hard gates applied before the front is ranked: `{key, op, value, predicted?}`. A missing value fails. `predicted: true` marks a model cutoff. Omitted when no gates are set. |
 | `results[]` | Per molecule: `id`, `paretoRank` (1 = front), `mpo` (MPO under `profile.windows` and `profile.curve`, 6 decimals). Core computes both when it builds the record. It does not copy a rank the caller already stored. |
 | `selected[]` | Picked molecule ids, sorted. Every id must exist in the input. On v1, when `review` is present, this list is exactly the ids whose verdict is `accept`. |
 | `rationale` | Free text: why these picks. |

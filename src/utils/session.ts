@@ -26,6 +26,8 @@ export interface SessionData {
   scoringProfile?: string;
   /** MPO curve. Absent on older sessions; treated as linear. */
   mpoCurve?: 'linear' | 'sigmoid';
+  /** Hard gates. Absent on sessions saved before constraints were stored. */
+  constraints?: Array<{ key: string; op: '<=' | '>=' | '<' | '>'; value: number; predicted?: boolean }>;
 }
 
 // Molecule without non-serializable fields (fpPacked is Uint32Array)
