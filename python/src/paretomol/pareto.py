@@ -10,6 +10,8 @@ from __future__ import annotations
 import math
 from typing import Any, Iterable, Mapping, Optional, Sequence
 
+from .mpo import linear_desirability
+
 DEFAULT_OBJECTIVES: list[dict[str, str]] = [
     {"key": "MW", "direction": "min"},
     {"key": "LogP", "direction": "min"},
@@ -88,19 +90,64 @@ def get_mol_value(mol: Molecule, key: str) -> Optional[float]:
     return float(num)
 
 
-def normalize_objectives(objectives: Optional[Sequence[Any]]) -> list[dict[str, str]]:
+def _window(raw: Any) -> Optional[dict[str, float]]:
+    if not isinstance(raw, Mapping):
+        return None
+    try:
+        window = {k: float(raw[k]) for k in ("acceptMin", "idealMin", "idealMax", "acceptMax")}
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not all(math.isfinite(v) for v in window.values()):
+        return None
+    return window
+
+
+def contract_objectives(profile: Any = None) -> list[dict[str, Any]]:
+    """Desirability windows of a profile. Higher desirability is better."""
+    if profile is None:
+        from .profiles import get_profile
+        profile = get_profile("oral@1")
+    desirability = profile.desirability if hasattr(profile, "desirability") else profile["desirability"]
+    out: list[dict[str, Any]] = []
+    for key, window in desirability.items():
+        out.append({
+            "key": key,
+            "direction": "max",
+            "window": {
+                "acceptMax": float(window["acceptMax"]),
+                "acceptMin": float(window["acceptMin"]),
+                "idealMax": float(window["idealMax"]),
+                "idealMin": float(window["idealMin"]),
+            },
+        })
+    return out
+
+
+def normalize_objectives(objectives: Optional[Sequence[Any]]) -> list[dict[str, Any]]:
     if objectives is None:
-        return [dict(o) for o in DEFAULT_OBJECTIVES]
-    out: list[dict[str, str]] = []
+        return contract_objectives()
+    out: list[dict[str, Any]] = []
     for item in objectives:
         if isinstance(item, Mapping):
             key, direction = item["key"], item["direction"]
+            window = _window(item.get("window"))
         else:
             key, direction = item[0], item[1]
+            window = None
         if direction not in ("min", "max"):
             raise ValueError(f'objective direction must be "min" or "max", got {direction!r}')
-        out.append({"key": str(key), "direction": direction})
+        entry: dict[str, Any] = {"key": str(key), "direction": "max" if window else direction}
+        if window:
+            entry["window"] = window
+        out.append(entry)
     return out
+
+
+def _scalar(value: float, obj: Mapping[str, Any]) -> tuple[float, bool]:
+    window = obj.get("window")
+    if isinstance(window, Mapping):
+        return linear_desirability(value, window), False
+    return value, obj["direction"] == "min"
 
 
 def compute_pareto(molecules: list[Molecule], objectives: Optional[Sequence[Any]] = None) -> list[Molecule]:
@@ -112,7 +159,7 @@ def compute_pareto(molecules: list[Molecule], objectives: Optional[Sequence[Any]
     objs = normalize_objectives(objectives)
     n = len(molecules)
     k = len(objs)
-    minimise = [o["direction"] == "min" for o in objs]
+    minimise = [not isinstance(o.get("window"), Mapping) and o["direction"] == "min" for o in objs]
     vals: list[Optional[list[float]]] = [None] * n
     ranked: list[int] = []
 
@@ -126,7 +173,11 @@ def compute_pareto(molecules: list[Molecule], objectives: Optional[Sequence[Any]
             if value is None:
                 missing.append(obj["key"])
             else:
-                row.append(value)
+                scalar, _min = _scalar(value, obj)
+                if not math.isfinite(scalar):
+                    missing.append(obj["key"])
+                else:
+                    row.append(scalar)
         if missing:
             vals[i] = None
             mol.missing_objectives = missing

@@ -1,6 +1,5 @@
 import {
-  analyzeInput, buildDecisionRecord, descriptorTier, inferObjectives,
-  DEFAULT_PARETO_OBJECTIVES, getProfile, moleculeIds, splitInput,
+  analyzeInput, buildDecisionRecord, descriptorTier, getProfile, moleculeIds, objectivesForPreset, splitInput,
 } from '@paretomol/core';
 import { loadRDKit } from '@paretomol/core/node';
 import type { DecisionRecord, ParetoObjective } from '@paretomol/core';
@@ -24,9 +23,10 @@ export interface RankResult { record: DecisionRecord; errors: number }
  *  Offline: unparseable lines are skipped (the app would try a PubChem name lookup). */
 export async function rank(input: string, opts: RankOptions = {}): Promise<RankResult> {
   const RDKit = await loadRDKit();
-  const profile = getProfile(opts.profile ?? 'oral@1');
+  const profileRef = opts.profile ?? 'oral@1';
+  const profile = getProfile(profileRef === 'paper' ? 'oral@1' : profileRef);
   const preview = splitInput(input);
-  const objectives = opts.objectives ?? [...DEFAULT_PARETO_OBJECTIVES, ...inferObjectives(preview.customPropNames)];
+  const objectives = opts.objectives ?? objectivesForPreset(profileRef === 'paper' ? 'paper' : profile.ref, preview.customPropNames);
   const tier = descriptorTier([...objectives.map((o) => o.key), ...Object.keys(profile.desirability)]);
   const { molecules, errors } = analyzeInput(input, RDKit, tier);
   const want = new Set(opts.select ?? []);

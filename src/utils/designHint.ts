@@ -9,12 +9,8 @@
 // dominators, pick the highest-Tanimoto one.
 
 import type { Molecule, ParetoObjective } from '@paretomol/core';
+import { getMolValue, isStrictlyBetter } from '@paretomol/core';
 import { tanimotoPacked } from './chem';
-
-function molValue(mol: Molecule, key: string): number | undefined {
-  const v = (mol.props as unknown as Record<string, number>)[key] ?? mol.customProps[key];
-  return typeof v === 'number' && isFinite(v) ? v : undefined;
-}
 
 export interface DesignHint {
   index: number;       // molecule index of the nearest dominating analog
@@ -41,10 +37,10 @@ export function nearestBetterAnalog(
 
     const betterOn: string[] = [];
     for (const o of objectives) {
-      const va = molValue(d, o.key);
-      const vb = molValue(m, o.key);
-      if (va === undefined || vb === undefined) continue;
-      if ((o.direction === 'min' && va < vb) || (o.direction === 'max' && va > vb)) betterOn.push(o.key);
+      const va = getMolValue(d, o.key);
+      const vb = getMolValue(m, o.key);
+      if (va === null || vb === null) continue;
+      if (isStrictlyBetter(va, vb, o)) betterOn.push(o.key);
     }
     best = { index: di, tanimoto: t, betterOn };
   }

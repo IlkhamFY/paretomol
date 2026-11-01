@@ -33,12 +33,12 @@ const PROP_KEYS_ORDER: PropKey[] = ['MW', 'LogP', 'HBD', 'HBA', 'TPSA', 'RotBond
 const PROFILES: Record<string, { label: string; desc: string; profile: MPOProfile }> = {
   oral: {
     label: 'Oral Drug',
-    desc: 'Lipinski Ro5-based (MW Γëñ 500, LogP Γëñ 5, HBD Γëñ 5, HBA Γëñ 10)',
+    desc: 'Oral windows. The same bands rank the Pareto front.',
     profile: profileWindows('oral@1'),
   },
   cns: {
     label: 'CNS Drug',
-    desc: 'BBB-penetrant (MW Γëñ 400, LogP 1-4, TPSA Γëñ 90)',
+    desc: 'CNS window from cns@1. A sketch: logD and pKa are absent, so this is not Wager CNS MPO.',
     profile: profileWindows('cns@1'),
   },
   leadlike: {
@@ -259,7 +259,7 @@ function MPOView({
       <div>
         <h3 className="text-[14px] font-medium text-[var(--text-heading)]">MPO Desirability Scoring</h3>
         <p className="text-[12px] text-[var(--text2)] mt-0.5">
-          Geometric mean of per-property desirability (0-1). Each property scored against an ideal range.
+          Geometric mean of the same desirability windows as the Pareto front. A missing property drops out of the mean. A value outside its window still counts as 0.01.
         </p>
       </div>
 
@@ -270,6 +270,7 @@ function MPOView({
             <button
               key={name}
               onClick={() => selectProfile(name as MpoProfileKey)}
+              aria-pressed={selectedKey === name}
               className={`px-3 py-1.5 text-[12px] font-medium transition-colors border-b-2 ${
                 selectedKey === name
                   ? 'border-[var(--accent)] text-[var(--text-heading)]'

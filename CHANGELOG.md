@@ -32,6 +32,7 @@ All notable changes to ParetoMol. Dates are release dates; unreleased work is li
 - ADMET Space warm-up request on page load to cut cold-start time.
 
 ### Changed
+- The default Pareto front ranks desirability windows from the Oral profile (MW, LogP, HBD, HBA, TPSA, rotatable bonds). It no longer minimizes LogP and TPSA. MPO and Scoring use the same windows. Plain minimize or maximize is what you get when you pick that direction. A p-scaled potency column is added when the file has one. **Paper reproduction** minimizes MW, LogP, HBD, HBA, TPSA and rotatable bonds, the directions in the Digital Discovery FDA figures (50 compounds on the front, mean LogP -2.57).
 - `pareto_front` returns fronts and counts. The dominance edge list is included only when `edges` is true.
 - `open_review_url` refuses a link over ~32,000 characters and tells the agent to write a decision record file.
 

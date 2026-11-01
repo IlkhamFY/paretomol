@@ -1,5 +1,7 @@
+import { linearDesirability } from './mpo.js';
+import { contractObjectives } from './scoring.js';
+import { getProfile } from './profiles.js';
 import type { Molecule, MolProps, ParetoObjective } from './types.js';
-import { DEFAULT_PARETO_OBJECTIVES } from './types.js';
 
 /** Get a molecule's value for a Pareto objective key (built-in or custom).
  *  Returns null when the value is absent or non-finite. A missing value must
@@ -11,6 +13,31 @@ export function getMolValue(m: Molecule, key: string): number | null {
     ? (m.props[key as keyof MolProps] as number)
     : m.customProps[key];
   return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
+/** Value used for dominance. A window objective contributes its desirability. */
+export function objectiveScalar(raw: number, obj: ParetoObjective): number {
+  if (obj.window) return linearDesirability(raw, obj.window);
+  return raw;
+}
+
+/** True when a smaller scalar is better. Windows are never minimized. */
+export function objectiveMinimises(obj: ParetoObjective): boolean {
+  return !obj.window && obj.direction === 'min';
+}
+
+/** True when `a` is strictly better than `b` on this objective. */
+export function isStrictlyBetter(a: number, b: number, obj: ParetoObjective): boolean {
+  const av = objectiveScalar(a, obj);
+  const bv = objectiveScalar(b, obj);
+  if (!Number.isFinite(av) || !Number.isFinite(bv) || av === bv) return false;
+  return objectiveMinimises(obj) ? av < bv : av > bv;
+}
+
+let oralWindows: ParetoObjective[] | null = null;
+function defaultObjectives(): ParetoObjective[] {
+  if (!oralWindows) oralWindows = contractObjectives(getProfile('oral@1'));
+  return oralWindows;
 }
 
 /** Non-dominated fronts + dominance edges in a single O(n²) pass.
@@ -31,10 +58,10 @@ export function getMolValue(m: Molecule, key: string): number | null {
  *  the dominance edges materialised by the pairwise pass and costs O(n + |E|).
  */
 export function computeParetoAndDominance(molecules: Molecule[], objectives?: ParetoObjective[]) {
-  const objs = objectives ?? DEFAULT_PARETO_OBJECTIVES;
+  const objs = objectives ?? defaultObjectives();
   const n = molecules.length;
   const k = objs.length;
-  const minimise = objs.map(o => o.direction === 'min');
+  const minimise = objs.map(objectiveMinimises);
 
   // Resolve all objectives up front; `null` marks an incomplete molecule.
   const vals: (number[] | null)[] = new Array(n);
@@ -49,7 +76,11 @@ export function computeParetoAndDominance(molecules: Molecule[], objectives?: Pa
     for (const obj of objs) {
       const v = getMolValue(m, obj.key);
       if (v === null) missing.push(obj.key);
-      else row.push(v);
+      else {
+        const s = objectiveScalar(v, obj);
+        if (!Number.isFinite(s)) missing.push(obj.key);
+        else row.push(s);
+      }
     }
     if (missing.length > 0) {
       vals[i] = null;

@@ -14,10 +14,8 @@ import {
   ScatterController,
   Title
 } from 'chart.js';
-import type { Molecule, ParetoObjective } from '@paretomol/core';
-import { DRUG_FILTERS } from '@paretomol/core';
-import { findBestCompromise } from '@paretomol/core';
-import { readFront } from '@paretomol/core';
+import type { Molecule, ParetoObjective, ScoringPreset } from '@paretomol/core';
+import { DRUG_FILTERS, findBestCompromise, presetBlurb, readFront } from '@paretomol/core';
 import { nearestBetterAnalog } from '../../utils/designHint';
 import type { FDADrug } from '../../utils/fda_reference';
 import { PROP_TO_FDA } from '../../utils/fda_reference';
@@ -77,7 +75,7 @@ const FILTER_COLORS: Record<string, string> = {
   leadlike: '#22c55e',
 };
 
-function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, customPropNames = [], paretoObjectives = [] }: { molecules: Molecule[]; onSelectMolecule?: (idx: number) => void; selectedMolIdx?: number | null; fdaData?: FDADrug[]; customPropNames?: string[]; paretoObjectives?: ParetoObjective[] }) {
+function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, customPropNames = [], paretoObjectives = [], scoringPreset = 'oral@1', onScoringPreset }: { molecules: Molecule[]; onSelectMolecule?: (idx: number) => void; selectedMolIdx?: number | null; fdaData?: FDADrug[]; customPropNames?: string[]; paretoObjectives?: ParetoObjective[]; scoringPreset?: ScoringPreset; onScoringPreset?: (preset: ScoringPreset) => void }) {
   // Best-compromise ("knee") molecule across the active objectives — the one to pick.
   const knee = useMemo(() => findBestCompromise(molecules, paretoObjectives), [molecules, paretoObjectives]);
   // Deterministic "reading" of the front: size, objectives, sharpest trade-off.
@@ -190,7 +188,23 @@ function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, cust
         )}
       </div>
 
-      {/* Reading — a deterministic narration of the front */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]" role="group" aria-label="Scoring profile">
+        {([['oral@1', 'Oral'], ['cns@1', 'CNS'], ['leadlike@1', 'Lead-like'], ['paper', 'Paper reproduction']] as const).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            aria-pressed={scoringPreset === id}
+            onClick={() => onScoringPreset?.(id)}
+            className={scoringPreset === id ? 'text-[var(--text)] font-medium' : 'text-[var(--text2)] hover:text-[var(--text)]'}
+          >
+            {label}
+          </button>
+        ))}
+        {scoringPreset === 'custom' && <span className="text-[var(--text)] font-medium">Custom windows</span>}
+      </div>
+      <p className="text-[12px] text-[var(--text2)] leading-relaxed">{presetBlurb(scoringPreset)}</p>
+
+      {/* Reading: a deterministic narration of the front */}
       {reading && (
         <p className="text-[12px] text-[var(--text2)] leading-relaxed">
           <span className="text-[var(--text-heading)] font-medium">{reading.paretoCount}</span> of {reading.total} compounds are Pareto-optimal across {reading.objectiveKeys.length} objective{reading.objectiveKeys.length === 1 ? '' : 's'} ({reading.objectiveKeys.map(labelFor).join(', ')}).
@@ -212,7 +226,7 @@ function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, cust
           <span className="text-[12px] min-w-0 truncate">
             <span className="uppercase tracking-[1px] text-[10px] text-[var(--text2)]/70 mr-2">Best compromise</span>
             <span className="text-[var(--text-heading)] font-medium">{molecules[knee.index].name.replace(/_/g, ' ')}</span>
-            <span className="text-[var(--text2)]"> — nearest the ideal across {knee.nObjectives} objective{knee.nObjectives === 1 ? '' : 's'}</span>
+            <span className="text-[var(--text2)]">, nearest the ideal across {knee.nObjectives} objective{knee.nObjectives === 1 ? '' : 's'}</span>
           </span>
           <span className="text-[11px] text-[var(--accent)] shrink-0">{selectedMolIdx === knee.index ? 'selected' : 'select'}</span>
         </button>

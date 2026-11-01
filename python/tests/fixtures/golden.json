@@ -954,27 +954,23 @@
         }
       ],
       "ranks": [
-        1,
-        2,
-        1
-      ],
-      "missing": [
         null,
         null,
         null
       ],
+      "missing": [
+        ["HBD", "HBA", "RotBonds"],
+        ["HBD", "HBA", "RotBonds"],
+        ["HBD", "HBA", "RotBonds"]
+      ],
       "dominates": [
-        [
-          1
-        ],
+        [],
         [],
         []
       ],
       "dominatedBy": [
         [],
-        [
-          0
-        ],
+        [],
         []
       ]
     },

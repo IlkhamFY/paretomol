@@ -91,7 +91,7 @@ describe('scoring profiles', () => {
     expect(getProfile('custom@1').desirability).toEqual(getProfile('oral@1').desirability);
   });
 
-  it('uses the app default Pareto objectives', () => {
+  it('keeps the historical minimize list on oral@1 (the app front uses windows)', () => {
     expect(getProfile('oral@1').objectives).toEqual(DEFAULT_PARETO_OBJECTIVES);
   });
 

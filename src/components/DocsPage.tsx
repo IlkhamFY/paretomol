@@ -136,7 +136,7 @@ CC(=O)Oc1ccccc1C(=O)O,aspirin,45.2,12.1`}</pre>
       {
         id: 'objectives',
         q: 'How do I select Pareto objectives?',
-        a: <p>Open the <strong>Properties</strong> panel in the sidebar. Check any property to include it as a Pareto objective. Toggle the direction button (<strong>min</strong> / <strong>max</strong>) next to each property. Click <strong>Recompute Pareto</strong> to update the analysis. Green-bordered molecules in the list are on the Pareto front.</p>,
+        a: <p>The front starts on the Oral windows: a value inside each ideal band is better. The same windows score MPO. Open <strong>Properties</strong> to check a property or to switch it to minimize or maximize. The front updates as you change it. <strong>Paper reproduction</strong> minimizes MW, LogP, HBD, HBA, TPSA and rotatable bonds, the directions in the Digital Discovery FDA figures. Green-bordered molecules in the list are on the Pareto front.</p>,
       },
       {
         id: 'fda-ref',
@@ -371,7 +371,7 @@ I will open record.json in ParetoMol (Open record) to check your picks.`}</pre>
             <pre className="mt-2 bg-[var(--surface2)] p-3 rounded text-[11px] font-mono overflow-x-auto whitespace-pre-wrap select-all">{`@Web https://paretomol.com/llms.txt
 Use @paretomol/core, not your own descriptor code.
 - Load RDKit.js (npm @rdkit/rdkit 2025.3.4-1.0.0) and call analyzeInput(csvText, RDKit).
-- Rank with computeParetoAndDominance(molecules, objectives); objectives default to DEFAULT_PARETO_OBJECTIVES plus inferObjectives(customPropNames).
+- Rank with computeParetoAndDominance(molecules, objectives). With no objectives, the front uses the Oral desirability windows. Pass objectivesForPreset('paper') to reproduce the published all-minimize FDA front. Add potency columns with potencyObjectives(names).
 - Score with mpoScore(props, getProfile('oral@1').desirability, 'linear').
 - Save the result with buildDecisionRecord({ molecules, objectives, profile: 'oral@1', selected, rationale, rdkitVersion: RDKit.version() }) and stringifyDecisionRecord.
 - Check every number you report with verifyClaims(claims, RDKit) and show me the flags.

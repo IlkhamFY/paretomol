@@ -253,7 +253,15 @@ export function buildDecisionRecord(o: BuildDecisionOptions): DecisionRecord {
       rdkitjs: { version: o.rdkitVersion, sha256: RDKIT_WASM_SHA256 },
       admet: o.admetEndpoint ? { endpoint: o.admetEndpoint, model: ADMET_MODEL } : null,
     },
-    objectives: o.objectives.map((x) => ({ key: x.key, direction: x.direction })),
+    objectives: o.objectives.map((x) => {
+      if (!x.window) return { key: x.key, direction: x.direction };
+      const w = x.window;
+      return {
+        key: x.key,
+        direction: 'max' as const,
+        window: { acceptMax: w.acceptMax, acceptMin: w.acceptMin, idealMax: w.idealMax, idealMin: w.idealMin },
+      };
+    }),
     results,
     selected,
     rationale: o.rationale ?? '',

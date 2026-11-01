@@ -27,6 +27,7 @@ from .pareto import (
     DEFAULT_OBJECTIVES,
     Molecule,
     compute_pareto,
+    contract_objectives,
     get_mol_value,
     rank,
 )
@@ -61,6 +62,7 @@ __all__ = [
     "canonical_json",
     "canonical_property",
     "compute_pareto",
+    "contract_objectives",
     "decode_review",
     "desirability",
     "encode_review",

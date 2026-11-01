@@ -72,6 +72,13 @@ function tokenise(name: string): string[] {
  * higher value is more toxic. Returning null asks the user rather than
  * asserting one convention over the other.
  */
+/** True for concentration and p-scaled activity columns, including a column named potency. */
+export function isPotencyColumn(name: string): boolean {
+  const toks = tokenise(name);
+  if (toks.some((t) => P_SCALED.has(t) || RAW_ACTIVITY.has(t))) return true;
+  return toks.includes('potency');
+}
+
 export function inferObjectiveDirection(name: string): Direction | null {
   const toks = tokenise(name);
   const joined = toks.join('');

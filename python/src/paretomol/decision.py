@@ -154,6 +154,20 @@ def _selected_ids(selected: Optional[Sequence[int]], ids: Sequence[str]) -> list
     return [ids[i] for i in sorted(seen)]
 
 
+def _public_objective(obj: Mapping[str, Any]) -> dict[str, Any]:
+    item: dict[str, Any] = {"key": obj["key"], "direction": obj["direction"]}
+    window = obj.get("window")
+    if isinstance(window, Mapping):
+        item["direction"] = "max"
+        item["window"] = {
+            "acceptMax": window["acceptMax"],
+            "acceptMin": window["acceptMin"],
+            "idealMax": window["idealMax"],
+            "idealMin": window["idealMin"],
+        }
+    return item
+
+
 def build_decision_record(
     molecules: Any,
     objectives: Sequence[Any],
@@ -215,7 +229,7 @@ def build_decision_record(
             "rdkitjs": {"version": rdkit_version, "sha256": RDKIT_WASM_SHA256},
             "admet": {"endpoint": admet_endpoint, "model": ADMET_MODEL} if admet_endpoint else None,
         },
-        "objectives": [{"key": o["key"], "direction": o["direction"]} for o in objs],
+        "objectives": [_public_objective(o) for o in objs],
         "results": results,
         "selected": chosen,
         "rationale": "" if rationale is None else rationale,

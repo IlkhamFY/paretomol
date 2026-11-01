@@ -6,10 +6,13 @@
 // point in min–max-normalized objective space (each objective oriented so 0 = best).
 
 import type { Molecule, ParetoObjective } from './types.js';
+import { getMolValue, objectiveMinimises, objectiveScalar } from './pareto.js';
 
-function molValue(mol: Molecule, key: string): number | undefined {
-  const v = (mol.props as unknown as Record<string, number>)[key] ?? mol.customProps[key];
-  return typeof v === 'number' && isFinite(v) ? v : undefined;
+function molScalar(mol: Molecule, obj: ParetoObjective): number | undefined {
+  const raw = getMolValue(mol, obj.key);
+  if (raw === null) return undefined;
+  const s = objectiveScalar(raw, obj);
+  return Number.isFinite(s) ? s : undefined;
 }
 
 export interface KneeResult {
@@ -25,11 +28,11 @@ export function findBestCompromise(molecules: Molecule[], objectives: ParetoObje
   const front = molecules.map((m, i) => ({ m, i })).filter(({ m }) => m.paretoRank === 1);
   if (front.length === 0) return null;
 
-  // Per-objective data range across the full set, for min–max normalization.
-  const ranges = objectives.map(({ key }) => {
+  // Per-objective data range across the full set, in the same space as dominance.
+  const ranges = objectives.map((obj) => {
     let lo = Infinity, hi = -Infinity;
     for (const m of molecules) {
-      const v = molValue(m, key);
+      const v = molScalar(m, obj);
       if (v === undefined) continue;
       if (v < lo) lo = v;
       if (v > hi) hi = v;
@@ -47,10 +50,10 @@ export function findBestCompromise(molecules: Molecule[], objectives: ParetoObje
     for (let o = 0; o < objectives.length; o++) {
       const { hi, lo } = ranges[o];
       if (hi === lo) continue;
-      const v = molValue(m, objectives[o].key);
+      const v = molScalar(m, objectives[o]);
       if (v === undefined) continue;
       const norm = (v - lo) / (hi - lo);                                   // 0..1
-      const cost = objectives[o].direction === 'min' ? norm : 1 - norm;    // 0 = ideal
+      const cost = objectiveMinimises(objectives[o]) ? norm : 1 - norm;    // 0 = ideal
       sumSq += cost * cost;
     }
     const distance = Math.sqrt(sumSq);

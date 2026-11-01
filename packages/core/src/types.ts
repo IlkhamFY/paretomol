@@ -20,9 +20,22 @@ export interface FilterResult {
   violations: number;
 }
 
+/** Ideal band for one property. 1 inside [idealMin, idealMax], 0 outside [acceptMin, acceptMax]. */
+export interface ObjectiveWindow {
+  idealMin: number;
+  idealMax: number;
+  acceptMin: number;
+  acceptMax: number;
+}
+
 export interface ParetoObjective {
   key: string;
   direction: 'min' | 'max';
+  /**
+   * When set, dominance, the knee and the reading use linear desirability of
+   * `key` (higher is better) instead of the raw number. `direction` is `max`.
+   */
+  window?: ObjectiveWindow;
 }
 
 export interface FormulaColumn {
@@ -30,11 +43,13 @@ export interface FormulaColumn {
   expr: string;
 }
 
-// Default Pareto objectives are the established physicochemical descriptors.
-// The synthetic-complexity estimate (SC) is deliberately NOT among them: it is
-// an untrained heuristic, and leading with it gave an unvalidated quantity the
-// same standing as measured descriptors. It remains one click away in the
-// objective picker, labelled as an estimate.
+// Historical raw directions stored on oral@1 and the other v1 profiles.
+// The app's default front does not use this list: it ranks desirability
+// windows (see scoring.ts). This constant remains so a record that cites
+// oral@1 still hashes, and so the paper reproduction preset can name the
+// same minimize directions the Digital Discovery figures used.
+// The synthetic-complexity estimate (SC) is deliberately not an objective:
+// it is an untrained heuristic.
 export const DEFAULT_PARETO_OBJECTIVES: ParetoObjective[] = [
   { key: 'MW', direction: 'min' },
   { key: 'LogP', direction: 'min' },

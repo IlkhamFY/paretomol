@@ -6,7 +6,8 @@ import DocsPage from './components/DocsPage';
 import CopilotPanel from './components/CopilotPanel';
 import KeyboardShortcuts from './components/KeyboardShortcuts';
 import type { Molecule, ParetoObjective, FormulaColumn } from '@paretomol/core';
-import { DEFAULT_PARETO_OBJECTIVES } from '@paretomol/core';
+import { objectivesForPreset } from '@paretomol/core';
+import type { ObjectiveWindow, ScoringPreset } from '@paretomol/core';
 import { EXAMPLES } from './data/examples';
 import { parseFormula } from '@paretomol/core';
 import { autoSave, loadAutoSession, clearAutoSession, formatSessionTime, CURRENT_SCHEMA_VERSION } from './utils/session';
@@ -42,9 +43,11 @@ export default function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [customPropNames, setCustomPropNames] = useState<string[]>([]);
-  const [paretoObjectives, setParetoObjectives] = useState<ParetoObjective[]>(DEFAULT_PARETO_OBJECTIVES);
-  const [scoringProfileRef, setScoringProfileRef] = useState('oral@1');
+  const [scoringPreset, setScoringPreset] = useState<ScoringPreset>('oral@1');
+  const [customWindows, setCustomWindows] = useState<Record<string, ObjectiveWindow> | null>(null);
+  const [paretoObjectives, setParetoObjectives] = useState<ParetoObjective[]>(() => objectivesForPreset('oral@1'));
   const [mpoCurve, setMpoCurve] = useState<CurveType>('linear');
+  const scoringProfileRef = scoringPreset === 'paper' || scoringPreset === 'custom' ? 'oral@1' : scoringPreset;
   const [admetPropNames, setAdmetPropNames] = useState<string[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(() => window.location.search.includes('docs'));
@@ -206,11 +209,11 @@ export default function App() {
 
     // Ranks are always recomputed: front indices are derived from the active
     // objectives, and a stored rank can only be stale.
-    computeParetoAndDominance(restored, session.objectives ?? DEFAULT_PARETO_OBJECTIVES);
+    computeParetoAndDominance(restored, session.objectives ?? objectivesForPreset('oral@1'));
     setMolecules(restored);
     if (session.objectives) setParetoObjectives(session.objectives);
     if (session.scoringProfile) {
-      try { setScoringProfileRef(getProfile(session.scoringProfile).ref); } catch { /* keep the default */ }
+      try { setScoringPreset(getProfile(session.scoringProfile).ref as ScoringPreset); } catch { /* keep the default */ }
     }
     if (session.mpoCurve === 'linear' || session.mpoCurve === 'sigmoid') setMpoCurve(session.mpoCurve);
     if (session.formulaColumns) setFormulaColumns(session.formulaColumns);
@@ -243,9 +246,9 @@ export default function App() {
         const { molecules: fresh } = await parseAndAnalyze(text);
         if (fresh.length !== payload.molecules.length) throw new Error(`${payload.molecules.length - fresh.length} structures did not parse`);
         const mols = fresh.map((m, i) => ({ ...m, name: payload.molecules[i].name, customProps: { ...(payload.molecules[i].customProps ?? {}) } }));
-        const objectives = payload.objectives ?? getProfile(payload.profile ?? 'oral@1').objectives.map(o => ({ ...o }));
+        const objectives = payload.objectives ?? objectivesForPreset(payload.profile ?? 'oral@1');
         if (payload.profile) {
-          try { setScoringProfileRef(getProfile(payload.profile).ref); } catch { /* payload profile already validated */ }
+          try { setScoringPreset(getProfile(payload.profile).ref as ScoringPreset); } catch { /* payload profile already validated */ }
         }
         computeParetoAndDominance(mols, objectives);
         setMolecules(mols);
@@ -308,6 +311,7 @@ export default function App() {
     try {
       const { molecules: newMols } = await parseAndAnalyze(smiles);
       if (newMols.length > 0) {
+        computeParetoAndDominance(newMols, paretoObjectives);
         setMolecules(newMols);
         setSelectedMolIdx(null);
         setCompareIndices([]);
@@ -317,7 +321,25 @@ export default function App() {
     } catch {
       setToast('Failed to load example');
     }
-  }, []);
+  }, [paretoObjectives]);
+
+  const objectiveKey = JSON.stringify(paretoObjectives);
+  useEffect(() => {
+    setMolecules((prev) => {
+      if (prev.length === 0) return prev;
+      computeParetoAndDominance(prev, paretoObjectives);
+      return [...prev];
+    });
+    // Recompute when the objective list changes. The key is the dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [objectiveKey]);
+
+  const applyScoringPreset = useCallback((preset: ScoringPreset, windows?: Record<string, ObjectiveWindow> | null) => {
+    setScoringPreset(preset);
+    const nextWindows = windows === undefined ? customWindows : windows;
+    if (windows !== undefined) setCustomWindows(windows);
+    setParetoObjectives(objectivesForPreset(preset, customPropNames, nextWindows));
+  }, [customPropNames, customWindows]);
 
   useEffect(() => {
     if (!toast) return;
@@ -612,7 +634,7 @@ export default function App() {
       const v = rec.view ?? {};
       setMolecules(restored);
       setParetoObjectives(rec.objectives);
-      try { setScoringProfileRef(getProfile(rec.profile.ref).ref); } catch { /* unknown profile: leave the current one */ }
+      try { setScoringPreset(getProfile(rec.profile.ref).ref as ScoringPreset); } catch { /* unknown profile: leave the current one */ }
       if (rec.profile.curve === 'linear' || rec.profile.curve === 'sigmoid') setMpoCurve(rec.profile.curve);
       setFormulaColumns(v.formulaColumns ?? []);
       setCustomPropNames(v.customPropNames ?? Array.from(new Set(restored.flatMap(m => Object.keys(m.customProps)))));
@@ -771,6 +793,9 @@ export default function App() {
             setCustomPropNames={setCustomPropNames}
             paretoObjectives={paretoObjectives}
             setParetoObjectives={setParetoObjectives}
+            scoringPreset={scoringPreset}
+            onScoringPreset={applyScoringPreset}
+            objectiveWindows={scoringPreset === 'custom' ? customWindows : scoringPreset === 'paper' ? null : getProfile(scoringPreset).desirability}
             admetPropNames={admetPropNames}
             substructureFilter={substructureFilter}
             onSubstructureFilterChange={(smarts) => {
@@ -819,6 +844,8 @@ export default function App() {
             isInitialLoading={isInitialLoading}
             customPropNames={allCustomPropNames}
             paretoObjectives={paretoObjectives}
+            scoringPreset={scoringPreset}
+            onScoringPreset={applyScoringPreset}
             onADMETPredictions={handleADMETPredictions}
             onComputeMakeability={handleComputeMakeability}
             onCheckBuyability={handleCheckBuyability}
@@ -836,7 +863,7 @@ export default function App() {
             formulaColumns={formulaColumns}
             setFormulaColumns={setFormulaColumns}
             scoringProfileRef={scoringProfileRef}
-            onScoringProfileRef={setScoringProfileRef}
+            onScoringProfileRef={(ref) => applyScoringPreset(ref === 'custom@1' ? 'custom' : ref as ScoringPreset)}
             mpoCurve={mpoCurve}
             onMpoCurve={setMpoCurve}
           />

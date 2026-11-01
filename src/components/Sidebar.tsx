@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { Molecule, ParetoObjective } from '@paretomol/core';
-import { DEFAULT_PARETO_OBJECTIVES, DRUG_FILTERS, MAX_MOLECULES } from '@paretomol/core';
+import { DRUG_FILTERS, MAX_MOLECULES, objectivesForPreset, potencyObjectives, cycleObjective, directionWord, checkedObjective } from '@paretomol/core';
+import type { ObjectiveWindow, ScoringPreset } from '@paretomol/core';
 import { EXAMPLES } from '../data/examples';
 import { initRDKitCache, parseAndAnalyze, parseAndAnalyzeChunked, parseSDFFile, fetchChEMBLBatch, computeParetoAndDominance, getMolSvg, filterBySubstructure, mergeAssayData, enrichMoleculeNames } from '../utils/chem';
 import { useTheme } from '../contexts/ThemeContext';
-import { inferObjectives, inferObjectiveDirection } from '@paretomol/core';
+import { inferObjectiveDirection } from '@paretomol/core';
+import { ADMET_AI_PROPERTY_META } from '../utils/admetAI';
 import { track } from '../lib/track';
 import { loadFDAReference, getFDAPercentile, PROP_TO_FDA } from '../utils/fda_reference';
 import type { FDADrug } from '../utils/fda_reference';
@@ -35,6 +37,9 @@ interface SidebarProps {
   substructureInputRef?: React.RefObject<HTMLInputElement | null>;
   shortlist?: Set<number>;
   toggleShortlist?: (idx: number) => void;
+  scoringPreset?: ScoringPreset;
+  onScoringPreset?: (preset: ScoringPreset, windows?: Record<string, ObjectiveWindow> | null) => void;
+  objectiveWindows?: Record<string, ObjectiveWindow> | null;
 }
 
 export default function Sidebar({
@@ -60,6 +65,9 @@ export default function Sidebar({
   substructureInputRef,
   shortlist,
   toggleShortlist,
+  scoringPreset = 'oral@1',
+  onScoringPreset,
+  objectiveWindows = null,
 }: SidebarProps) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -168,7 +176,7 @@ export default function Sidebar({
       // whose direction can be established from the name become active
       // objectives; registering every column as 'max' meant an imported IC50
       // column was maximised, so the front selected the least potent compounds.
-      const objs = [...DEFAULT_PARETO_OBJECTIVES, ...inferObjectives(newCustomProps)];
+      const objs = objectivesForPreset(scoringPreset, newCustomProps, objectiveWindows);
       // Rank under the objectives being shown: parseAndAnalyze ranks under the
       // defaults only, so inferred columns (e.g. pIC50) were listed as active
       // objectives but ignored by the front until the user toggled something.
@@ -228,7 +236,7 @@ export default function Sidebar({
     }
     setCustomPropNames(merged);
     // Activate only the columns whose direction can be established by name.
-    const newObjs = inferObjectives(
+    const newObjs = potencyObjectives(
       result.newPropNames.filter(n => !paretoObjectives.find(o => o.key === n)),
     );
     if (newObjs.length > 0) setParetoObjectives([...paretoObjectives, ...newObjs]);
@@ -314,7 +322,7 @@ export default function Sidebar({
         }
         const { molecules: newMols, errors, failedLookups } = await parseAndAnalyze(lines.join('\n'));
         setCustomPropNames([]);
-        setParetoObjectives(DEFAULT_PARETO_OBJECTIVES);
+        setParetoObjectives(objectivesForPreset(scoringPreset, [], objectiveWindows));
         setMolecules(newMols);
         setCompareIndices([]);
         setSelectedMolIdx(null);
@@ -331,7 +339,7 @@ export default function Sidebar({
         const { molecules: newMols, errors, failedLookups, customPropNames: newCustomProps } = result;
         setCustomPropNames(newCustomProps);
         // See the note above: columns are offered, not silently optimised.
-        const objs = [...DEFAULT_PARETO_OBJECTIVES, ...inferObjectives(newCustomProps)];
+        const objs = objectivesForPreset(scoringPreset, newCustomProps, objectiveWindows);
         computeParetoAndDominance(newMols, objs);
         setParetoObjectives(objs);
         setMolecules(newMols);
@@ -404,7 +412,7 @@ export default function Sidebar({
       setInput(lines.join('\n'));
       const { molecules: newMols, errors, failedLookups } = await parseAndAnalyze(lines.join('\n'));
       setCustomPropNames([]);
-      setParetoObjectives(DEFAULT_PARETO_OBJECTIVES);
+      setParetoObjectives(objectivesForPreset(scoringPreset, [], objectiveWindows));
       setMolecules(newMols);
       setCompareIndices([]);
       setSelectedMolIdx(null);
@@ -491,10 +499,9 @@ export default function Sidebar({
       if (entries.some(e => e.ic50 > 0)) customProps.push('IC50_nM');
 
       setCustomPropNames([...result.customPropNames, ...customProps]);
-      setParetoObjectives([
-        ...DEFAULT_PARETO_OBJECTIVES,
-        { key: 'pChEMBL', direction: 'max' as const },
-      ]);
+      const ranked = objectivesForPreset(scoringPreset, customProps, objectiveWindows);
+      computeParetoAndDominance(result.molecules, ranked);
+      setParetoObjectives(ranked);
       setMolecules(result.molecules);
       setCompareIndices([]);
       setSelectedMolIdx(null);
@@ -789,22 +796,20 @@ export default function Sidebar({
                       if (isActive) {
                         setParetoObjectives(paretoObjectives.filter(o => o.key !== key));
                       } else {
-                        setParetoObjectives([...paretoObjectives, { key, direction: 'min' }]);
+                        setParetoObjectives([...paretoObjectives, checkedObjective(key, objectiveWindows, 'min')]);
                       }
                     }}
                     className="accent-[#5F7367] w-3 h-3"
                   />
-                  <span className="text-[var(--text)] flex-1" title={key === 'SC' ? 'Untrained synthetic-complexity estimate (1 easy – 10 hard) computed from structure. Its coefficients were chosen by hand, not fitted to reaction or synthesis data, so it is a fast triage proxy rather than a validated score. Run ADMET/Predict for the Ertl SA score, RAScore and SCScore. Lower = easier to make.' : undefined}>{key === 'SC' ? 'Synth. (est., untrained)' : key}</span>
-                  {isActive && (
+                  <span className="text-[var(--text)] flex-1" title={key === 'SC' ? 'Untrained synthetic-complexity estimate (1 easy to 10 hard) computed from structure. Its coefficients were chosen by hand, not fitted to reaction or synthesis data, so it is a fast triage proxy rather than a validated score. Run ADMET for the Ertl SA score, RAScore and SCScore. Lower means easier to make.' : undefined}>{key === 'SC' ? 'Synth. (est., untrained)' : key}</span>
+                  {isActive && obj && (
                     <button
-                      onClick={() => setParetoObjectives(paretoObjectives.map(o => o.key === key ? { ...o, direction: o.direction === 'min' ? 'max' : 'min' } : o))}
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${
-                        obj.direction === 'min'
-                          ? 'bg-[#5F7367]/15 border-[#5F7367]/40 text-[#9db8a5]'
-                          : 'bg-[#14b8a6]/15 border-[#14b8a6]/40 text-[#14b8a6]'
-                      }`}
+                      type="button"
+                      aria-label={`${key}, ${directionWord(obj)}`}
+                      onClick={() => setParetoObjectives(paretoObjectives.map(o => o.key === key ? cycleObjective(o, objectiveWindows) : o))}
+                      className="text-[11px] text-[var(--text)]"
                     >
-                      {obj.direction}
+                      {directionWord(obj)}
                     </button>
                   )}
                 </div>
@@ -821,21 +826,19 @@ export default function Sidebar({
                     checked={isActive}
                     onChange={() => {
                       if (isActive) setParetoObjectives(paretoObjectives.filter(o => o.key !== 'QED'));
-                      else setParetoObjectives([...paretoObjectives, { key: 'QED', direction: 'max' }]);
+                      else setParetoObjectives([...paretoObjectives, checkedObjective('QED', objectiveWindows, 'max')]);
                     }}
                     className="accent-[#5F7367] w-3 h-3"
                   />
                   <span className="text-[var(--text)] flex-1" title="Quantitative Estimate of Drug-likeness (Bickerton 2012); approx. — structural alerts counted as 0">QED ↑ *</span>
                   {isActive && (
                     <button
-                      onClick={() => setParetoObjectives(paretoObjectives.map(o => o.key === 'QED' ? { ...o, direction: o.direction === 'min' ? 'max' : 'min' } : o))}
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${
-                        obj.direction === 'min'
-                          ? 'bg-[#5F7367]/15 border-[#5F7367]/40 text-[#9db8a5]'
-                          : 'bg-[#14b8a6]/15 border-[#14b8a6]/40 text-[#14b8a6]'
-                      }`}
+                      type="button"
+                      aria-label={`QED, ${directionWord(obj)}`}
+                      onClick={() => setParetoObjectives(paretoObjectives.map(o => o.key === 'QED' ? cycleObjective(o, objectiveWindows) : o))}
+                      className="text-[11px] text-[var(--text)]"
                     >
-                      {obj.direction}
+                      {directionWord(obj)}
                     </button>
                   )}
                 </div>
@@ -859,7 +862,7 @@ export default function Sidebar({
                           if (isActive) {
                             setParetoObjectives(paretoObjectives.filter(o => o.key !== key));
                           } else {
-                            setParetoObjectives([...paretoObjectives, { key, direction: inferObjectiveDirection(key) ?? 'min' }]);
+                            setParetoObjectives([...paretoObjectives, checkedObjective(key, objectiveWindows, inferObjectiveDirection(key) ?? 'min')]);
                           }
                         }}
                         className="accent-[#14b8a6] w-3 h-3"
@@ -868,14 +871,12 @@ export default function Sidebar({
                       <CoverageNote objKey={key} />
                       {isActive && (
                         <button
-                          onClick={() => setParetoObjectives(paretoObjectives.map(o => o.key === key ? { ...o, direction: o.direction === 'min' ? 'max' : 'min' } : o))}
-                          className={`px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${
-                            obj.direction === 'min'
-                              ? 'bg-[#5F7367]/15 border-[#5F7367]/40 text-[#9db8a5]'
-                              : 'bg-[#14b8a6]/15 border-[#14b8a6]/40 text-[#14b8a6]'
-                          }`}
+                          type="button"
+                          aria-label={`${key}, ${directionWord(obj)}`}
+                          onClick={() => setParetoObjectives(paretoObjectives.map(o => o.key === key ? cycleObjective(o, objectiveWindows) : o))}
+                          className="text-[11px] text-[var(--text)]"
                         >
-                          {obj.direction}
+                          {directionWord(obj)}
                         </button>
                       )}
                     </div>
@@ -886,8 +887,9 @@ export default function Sidebar({
             {/* ADMET Predictions */}
             {admetPropNames.length > 0 && (() => {
               const ADMET_PRESETS: { label: string; keys: { key: string; dir: 'min' | 'max' }[] }[] = [
-                { label: 'Drug Safety', keys: [{ key: 'hERG', dir: 'min' }, { key: 'AMES', dir: 'min' }, { key: 'DILI', dir: 'min' }, { key: 'ClinTox', dir: 'min' }] },
-                { label: 'Oral Profile', keys: [{ key: 'HIA_Hou', dir: 'max' }, { key: 'BBB_Martins', dir: 'max' }, { key: 'Pgp_Broccatelli', dir: 'min' }, { key: 'Bioavailability_Ma', dir: 'max' }] },
+                { label: 'Safety', keys: [{ key: 'hERG', dir: 'min' }, { key: 'AMES', dir: 'min' }, { key: 'DILI', dir: 'min' }, { key: 'ClinTox', dir: 'min' }] },
+                { label: 'Oral absorption', keys: [{ key: 'HIA_Hou', dir: 'max' }, { key: 'Bioavailability_Ma', dir: 'max' }, { key: 'Solubility_AqSolDB', dir: 'max' }, { key: 'Pgp_Broccatelli', dir: 'min' }] },
+                { label: 'CNS (BBB high)', keys: [{ key: 'BBB_Martins', dir: 'max' }] },
                 { label: 'Metabolism', keys: [{ key: 'CYP2C9_Veith', dir: 'min' }, { key: 'CYP2D6_Veith', dir: 'min' }, { key: 'CYP3A4_Veith', dir: 'min' }, { key: 'CYP1A2_Veith', dir: 'min' }] },
               ];
               return (
@@ -922,10 +924,11 @@ export default function Sidebar({
                               setParetoObjectives([...paretoObjectives, ...toAdd.map(k => ({ key: k.key, direction: k.dir }))]);
                             }
                           }}
-                          className={`px-2 py-0.5 rounded text-[10px] font-medium border transition-colors ${
+                          aria-pressed={allActive}
+                          className={`px-2 py-0.5 text-[11px] transition-colors ${
                             allActive
-                              ? 'bg-[#f59e0b]/15 border-[#f59e0b]/40 text-[#f59e0b]'
-                              : 'bg-[var(--surface2)] border-[var(--border-10)] text-[var(--text2)] hover:border-[#f59e0b]/40'
+                              ? 'text-[var(--text)] font-medium'
+                              : 'text-[var(--text2)] hover:text-[var(--text)]'
                           }`}
                         >
                           {preset.label}
@@ -945,7 +948,9 @@ export default function Sidebar({
                             if (isActive) {
                               setParetoObjectives(paretoObjectives.filter(o => o.key !== key));
                             } else {
-                              setParetoObjectives([...paretoObjectives, { key, direction: 'min' }]);
+                              const meta = ADMET_AI_PROPERTY_META[key.replace(/ \(pred\)$/, '')];
+                              const dir: 'min' | 'max' = meta?.safeDir === 'high' ? 'max' : 'min';
+                              setParetoObjectives([...paretoObjectives, { key, direction: dir }]);
                             }
                           }}
                           className="accent-[#f59e0b] w-3 h-3"
@@ -954,14 +959,13 @@ export default function Sidebar({
                         <CoverageNote objKey={key} />
                         {isActive && (
                           <button
-                            onClick={() => setParetoObjectives(paretoObjectives.map(o => o.key === key ? { ...o, direction: o.direction === 'min' ? 'max' : 'min' } : o))}
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${
-                              obj.direction === 'min'
-                                ? 'bg-[#5F7367]/15 border-[#5F7367]/40 text-[#9db8a5]'
-                                : 'bg-[#f59e0b]/15 border-[#f59e0b]/40 text-[#f59e0b]'
-                            }`}
+                            type="button"
+                            aria-label={`${key}, ${directionWord(obj)}`}
+                            title={ADMET_AI_PROPERTY_META[key.replace(/ \(pred\)$/, '')]?.safeDir == null ? 'No safer direction is defined for this endpoint. Minimize or maximize is your choice.' : undefined}
+                            onClick={() => setParetoObjectives(paretoObjectives.map(o => o.key === key ? cycleObjective(o, null) : o))}
+                            className="text-[11px] text-[var(--text)]"
                           >
-                            {obj.direction}
+                            {directionWord(obj)}
                           </button>
                         )}
                       </div>
@@ -970,17 +974,19 @@ export default function Sidebar({
                 </>
               );
             })()}
-            <button
-              onClick={() => {
-                const updated = [...molecules];
-                computeParetoAndDominance(updated, paretoObjectives);
-                setMolecules(updated);
-                onToast?.('Pareto recomputed');
-              }}
-              className="w-full mt-1 py-1.5 bg-[#5F7367]/20 border border-[#5F7367]/30 text-[#9db8a5] text-[11px] font-medium rounded hover:bg-[#5F7367]/30 transition-colors"
-            >
-              Recompute Pareto
-            </button>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 text-[11px]" role="group" aria-label="Scoring profile">
+              {([['oral@1', 'Oral'], ['cns@1', 'CNS'], ['leadlike@1', 'Lead-like'], ['paper', 'Paper reproduction']] as const).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={scoringPreset === id}
+                  onClick={() => onScoringPreset?.(id)}
+                  className={scoringPreset === id ? 'text-[var(--text)] font-medium' : 'text-[var(--text2)] hover:text-[var(--text)]'}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
       )}
 

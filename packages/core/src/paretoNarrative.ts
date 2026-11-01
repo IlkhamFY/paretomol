@@ -6,11 +6,7 @@
 // and offline (no API key), so it is always available and honest.
 
 import type { Molecule, ParetoObjective } from './types.js';
-
-function molValue(mol: Molecule, key: string): number | undefined {
-  const v = (mol.props as unknown as Record<string, number>)[key] ?? mol.customProps[key];
-  return typeof v === 'number' && isFinite(v) ? v : undefined;
-}
+import { getMolValue, objectiveMinimises, objectiveScalar } from './pareto.js';
 
 function pearson(xs: number[], ys: number[]): number | null {
   let n = 0, sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0;
@@ -41,8 +37,11 @@ export function readFront(molecules: Molecule[], objectives: ParetoObjective[]):
 
   // Orient each objective so higher = better, then look for the most anti-correlated pair.
   const goodness = objectives.map(o => molecules.map(m => {
-    const v = molValue(m, o.key);
-    return v === undefined ? NaN : (o.direction === 'min' ? -v : v);
+    const raw = getMolValue(m, o.key);
+    if (raw === null) return NaN;
+    const v = objectiveScalar(raw, o);
+    if (!Number.isFinite(v)) return NaN;
+    return objectiveMinimises(o) ? -v : v;
   }));
 
   let tradeoff: FrontReading['tradeoff'] = null;

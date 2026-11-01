@@ -1,9 +1,9 @@
 // ParetoMol MCP tools. Each tool is a plain function over @paretomol/core so the
 // same logic serves the SDK server, tests and the agent benchmark.
 import {
-  analyzeInput, analyzeMolecule, checkInputLimits, computeParetoAndDominance, descriptorTier, getMolValue, getProfile, inferObjectives, splitInput,
-  listProfiles, moleculeIds, mpoScore, readFront, reviewUrl, verifyClaims, verifyDecision,
-  DEFAULT_PARETO_OBJECTIVES, REVIEW_URL_SOFT_LIMIT,
+  analyzeInput, analyzeMolecule, checkInputLimits, computeParetoAndDominance, contractObjectives, descriptorTier, getMolValue, getProfile, isStrictlyBetter, splitInput,
+  listProfiles, moleculeIds, mpoScore, objectivesForPreset, readFront, reviewUrl, verifyClaims, verifyDecision,
+  REVIEW_URL_SOFT_LIMIT,
 } from '@paretomol/core';
 import type { AnalyzeOptions, Claim, Molecule, ParetoObjective, ResolvedProfile, ReviewInput } from '@paretomol/core';
 import { loadRDKit } from '@paretomol/core/node';
@@ -87,7 +87,7 @@ export async function scoreMolecules(args: Record<string, unknown>) {
 }
 
 export async function paretoFront(args: Record<string, unknown>) {
-  const objectives = asObjectives(args.objectives, DEFAULT_PARETO_OBJECTIVES);
+  const objectives = asObjectives(args.objectives, contractObjectives(getProfile('oral@1')));
   const { molecules, invalid } = await analyze(take(args), descriptorTier(objectives.map((o) => o.key)));
   const edges = args.edges === true;
   if (args.edges !== undefined && typeof args.edges !== 'boolean') throw new ToolError('invalid_input', 'edges must be a boolean');
@@ -142,11 +142,12 @@ export function listProfilesTool() {
 export async function applyProfile(args: Record<string, unknown>) {
   const ref = typeof args.profile === 'string' ? args.profile : 'oral@1';
   const profile = profileOrThrow(ref);
+  const front = contractObjectives(profile);
   const { molecules, invalid } = await analyze(take(args), descriptorTier([
-    ...profile.objectives.map((o) => o.key),
+    ...front.map((o) => o.key),
     ...Object.keys(profile.desirability),
   ]));
-  computeParetoAndDominance(molecules, profile.objectives);
+  computeParetoAndDominance(molecules, front);
   const rows = molecules.map((m) => {
     const all: Record<string, number> = { ...(m.props as unknown as Record<string, number>), ...m.customProps };
     const { score, perProp } = mpoScore(all, profile.desirability);
@@ -163,7 +164,7 @@ export async function applyProfile(args: Record<string, unknown>) {
 }
 
 export async function explainTradeoff(args: Record<string, unknown>) {
-  const objectives = asObjectives(args.objectives, DEFAULT_PARETO_OBJECTIVES);
+  const objectives = asObjectives(args.objectives, contractObjectives(getProfile('oral@1')));
   const { molecules } = await analyze(take(args), descriptorTier(objectives.map((o) => o.key)));
   computeParetoAndDominance(molecules, objectives);
   const reading = readFront(molecules, objectives);
@@ -175,8 +176,8 @@ export async function explainTradeoff(args: Record<string, unknown>) {
     const better: string[] = [], worse: string[] = [], tied: string[] = [];
     for (const o of objectives) {
       const va = getMolValue(a, o.key), vb = getMolValue(b, o.key);
-      if (va === null || vb === null || va === vb) { tied.push(o.key); continue; }
-      ((o.direction === 'min' ? va < vb : va > vb) ? better : worse).push(o.key);
+      if (va === null || vb === null || !isStrictlyBetter(va, vb, o) && !isStrictlyBetter(vb, va, o)) { tied.push(o.key); continue; }
+      (isStrictlyBetter(va, vb, o) ? better : worse).push(o.key);
     }
     const ia = molecules.indexOf(a), ib = molecules.indexOf(b);
     const relation = a.dominates.includes(ib) ? `${a.name} dominates ${b.name}` : b.dominates.includes(ia) ? `${b.name} dominates ${a.name}` : 'neither dominates: a real trade-off';
@@ -247,8 +248,8 @@ export async function rankInput(args: Record<string, unknown>) {
   if (typeof args.text !== 'string' || !args.text.trim()) throw new ToolError('invalid_input', 'text must be a non-empty CSV, TSV or SMILES string');
   const RDKit = await loadRDKit();
   const preview = splitInput(args.text);
-  const objectives = asObjectives(args.objectives, [...DEFAULT_PARETO_OBJECTIVES, ...inferObjectives(preview.customPropNames)]);
-  const { molecules, errors } = analyzeInput(args.text, RDKit, descriptorTier(objectives.map((o) => o.key)));
+  const objectives = asObjectives(args.objectives, objectivesForPreset('oral@1', preview.customPropNames));
+  const { molecules, errors } = analyzeInput(args.text, RDKit, descriptorTier([...objectives.map((o) => o.key), ...Object.keys(getProfile('oral@1').desirability)]));
   if (molecules.length === 0) throw new ToolError('invalid_input', 'no molecules parsed');
   assertLimits(molecules.map((m) => ({ smiles: m.smiles })), args);
   computeParetoAndDominance(molecules, objectives);
