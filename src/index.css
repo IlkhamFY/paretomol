@@ -19,16 +19,16 @@
     --accent: #5F7367;
     --accent2: #798F81;
     --logo-mol: #3a3a3a;
-    --green: #16A34A;
-    --red: #DC2626;
+    --green: #157A3A;
+    --red: #B42318;
     --yellow: #C1995D;
     --cyan: #5E8F94;
     --pink: #A86D87;
     --orange: #B87652;
     --overlay: rgba(0, 0, 0, 0.30);
     --mol-stroke: #1A1918;
-    --canvas-label: #3a3a4a;
-    --canvas-sublabel: #5a5a6a;
+    --canvas-label: #1A1918;
+    --canvas-sublabel: #4A4844;
   }
 
   .dark {
@@ -54,8 +54,8 @@
     --orange: #B87652;
     --overlay: rgba(0, 0, 0, 0.50);
     --mol-stroke: #E8E6E3;
-    --canvas-label: #e0e0e8;
-    --canvas-sublabel: #8888a0;
+    --canvas-label: #E8E6E3;
+    --canvas-sublabel: #C4C0BA;
   }
 
   html {

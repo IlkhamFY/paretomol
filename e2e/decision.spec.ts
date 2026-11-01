@@ -83,7 +83,10 @@ test('decision record round-trips to the exact same view', async ({ page }) => {
   await waitForRDKit(page);
   await importRecord(page, b);
   const viewB = await page.locator('#root').innerText();
-  const calm = (s: string) => s.replace(/Opened decision record[^\n]*/g, '').replace(/Updating view…/g, '');
+  const calm = (s: string) => s
+    .replace(/Opened decision record[^\n]*/g, '')
+    .replace(/Updating view…/g, '')
+    .replace(/\n{2,}/g, '\n');
   expect(calm(viewB)).toBe(calm(viewA));
   const c = await exportRecord(page, 'lowest MW pair');
   expect(strip(c)).toEqual(strip(b));

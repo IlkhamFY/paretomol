@@ -76,7 +76,7 @@ export default function Sidebar({
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRDKitReady, setIsRDKitReady] = useState(false);
-  const [status, setStatus] = useState<{msg: string, type: 'success'|'error'|'info'}>({ msg: 'loading rdkit...', type: 'info' });
+  const [status, setStatus] = useState<{msg: string, type: 'success'|'error'|'info'}>({ msg: 'Getting the chemistry library ready.', type: 'info' });
   const [progress, setProgress] = useState<{ done: number; total: number; phase?: 'resolve' | 'analyze' } | null>(null);
   const [chemblInput, setChemblInput] = useState('');
   const [chemblOpen, setChemblOpen] = useState(false);
@@ -112,11 +112,11 @@ export default function Sidebar({
     initRDKitCache()
       .then(() => {
         setIsRDKitReady(true);
-        setStatus({ msg: 'rdkit loaded — paste SMILES and click analyze', type: 'success' });
+        setStatus({ msg: 'Ready. Paste SMILES, or try kinase inhibitors.', type: 'success' });
         onInitialLoadComplete?.();
       })
       .catch((e) => {
-        setStatus({ msg: 'failed to load rdkit: ' + e.message, type: 'error' });
+        setStatus({ msg: 'The chemistry library did not start. ' + e.message, type: 'error' });
         onInitialLoadComplete?.();
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1192,6 +1192,7 @@ function MoleculeList({ molecules, selectedMolIdx, setSelectedMolIdx, compareInd
   return (
     <div
       ref={containerRef}
+      data-mol-list
       className="mt-3 flex-1 min-h-0 overflow-y-auto custom-scrollbar pb-20"
       onScroll={handleScroll}
     >
@@ -1246,9 +1247,8 @@ function MoleculeCard({ molecule: m, isSelected, isCompared, isShortlisted, onSe
   }, [isSelected, fdaDrugs]);
   return (
     <div
-      onClick={onSelect}
       onContextMenu={(e) => { e.preventDefault(); onContextMenu(); }}
-      className={`p-3 bg-[var(--surface)] border rounded-md transition-colors cursor-pointer ${
+      className={`p-3 bg-[var(--surface)] border rounded-md transition-colors ${
         isCompared
           ? 'border-[#06b6d4] bg-[#06b6d4]/10'
           : isSelected
@@ -1265,7 +1265,7 @@ function MoleculeCard({ molecule: m, isSelected, isCompared, isShortlisted, onSe
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1">
-            <div className="text-[13px] font-medium text-[var(--text-heading)] truncate flex-1" title={m.name}>{m.name.replace(/_/g, ' ')}</div>
+            <button type="button" onClick={onSelect} className="text-left text-[13px] font-medium text-[var(--text-heading)] truncate flex-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--text)]" title={m.name}>{m.name.replace(/_/g, ' ')}</button>
             {onToggleShortlist && (
               <button
                 onClick={(e) => { e.stopPropagation(); onToggleShortlist(); }}
@@ -1273,10 +1273,19 @@ function MoleculeCard({ molecule: m, isSelected, isCompared, isShortlisted, onSe
                 className={`shrink-0 w-5 h-5 flex items-center justify-center text-[12px] rounded transition-colors ${
                   isShortlisted
                     ? 'text-[var(--accent)]'
-                    : 'text-[var(--text2)]/30 hover:text-[var(--accent)]'
+                    : 'text-[var(--text2)] hover:text-[var(--accent)]'
                 }`}
               >
                 {isShortlisted ? '★' : '☆'}
+              </button>
+            )}
+            {isSelected && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onContextMenu(); }}
+                className="text-[11px] text-[var(--text2)] hover:text-[var(--text)]"
+              >
+                Compare
               </button>
             )}
           </div>
@@ -1285,7 +1294,7 @@ function MoleculeCard({ molecule: m, isSelected, isCompared, isShortlisted, onSe
               <span title="Untrained synthetic-complexity estimate (1 easy – 10 hard) computed in-browser from structure (stereocentres, ring systems, size, 3-D character). Its coefficients were chosen by hand rather than fitted to synthesis data, so it is a fast triage proxy, not a validated score. Run ADMET/Predict for the Ertl SA score. Lower = easier to make.">Synth. est:</span>
               <span
                 title={m.scFactors && m.scFactors.length ? `Driven by: ${m.scFactors.join(', ')}` : 'no notable complexity drivers'}
-                className={`font-mono cursor-help ${m.props.SC <= 3 ? 'text-[#22c55e]' : m.props.SC <= 6 ? 'text-[#f59e0b]' : 'text-[#ef4444]'}`}
+                className={`font-mono cursor-help ${m.props.SC <= 3 ? 'text-[var(--green)]' : m.props.SC <= 6 ? 'text-[var(--text)]' : 'text-[var(--red)]'}`}
               >{m.props.SC.toFixed(1)}</span>
             </div>
             <div className="flex justify-between">
@@ -1297,8 +1306,8 @@ function MoleculeCard({ molecule: m, isSelected, isCompared, isShortlisted, onSe
               <span className="font-mono text-[var(--text-heading)]">{m.props.LogP.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
-              <span title="Quantitative Estimate of Drug-likeness (Bickerton 2012; approx. — no PAINS alert count)">QED*:</span>
-              <span className={`font-mono ${m.props.QED >= 0.6 ? 'text-[#22c55e]' : 'text-[var(--text-heading)]'}`}>{m.props.QED.toFixed(3)}</span>
+              <span title="Quantitative Estimate of Drug-likeness (Bickerton 2012)">QED:</span>
+              <span className={`font-mono ${m.props.QED >= 0.6 ? 'text-[var(--green)]' : 'text-[var(--text-heading)]'}`}>{m.props.QED.toFixed(3)}</span>
             </div>
           </div>
         </div>
@@ -1306,7 +1315,7 @@ function MoleculeCard({ molecule: m, isSelected, isCompared, isShortlisted, onSe
 
       <div className="mt-2 flex gap-1.5 flex-wrap">
         {m.paretoRank === 1 && (
-          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#22c55e]/15 text-[#22c55e]">
+          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[var(--surface2)] text-[var(--green)]">
             pareto
           </span>
         )}
@@ -1328,7 +1337,7 @@ function MoleculeCard({ molecule: m, isSelected, isCompared, isShortlisted, onSe
           )
         )}
         {Object.entries(m.filters).map(([fname, res]) => {
-          const shortNames: Record<string, string> = { lipinski: 'Ro5', veber: 'veb', ghose: 'gho', leadlike: 'lead' };
+          const shortNames: Record<string, string> = { lipinski: 'Lipinski', veber: 'Veber', ghose: 'Ghose', leadlike: 'Lead-like' };
           const short = shortNames[fname] ?? fname.slice(0, 3);
           // Build rich per-rule tooltip from DRUG_FILTERS definition
           const filterDef = DRUG_FILTERS[fname as keyof typeof DRUG_FILTERS];
@@ -1361,7 +1370,7 @@ function MoleculeCard({ molecule: m, isSelected, isCompared, isShortlisted, onSe
               key={fname}
               title={tooltip}
               className={`px-2 py-0.5 rounded text-[10px] font-medium cursor-help select-none ${
-                res.pass ? 'bg-[var(--border-10)] text-[var(--text-heading)]' : 'bg-[#ef4444]/15 text-[#ef4444]'
+                res.pass ? 'bg-[var(--border-10)] text-[var(--text)]' : 'bg-[var(--surface2)] text-[var(--red)]'
               }`}
             >
               {short} {res.pass ? 'pass' : 'fail'}

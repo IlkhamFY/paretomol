@@ -28,7 +28,6 @@ import { fetchZincPrices } from './utils/zinc';
 import { getInitialPayloadFromUrl, getInitialTabFromUrl, getShareableUrl } from './utils/share';
 import { track } from './lib/track';
 import { downloadDecisionRecord, downloadCSV, downloadScoredCSV, downloadJSON, downloadSDF, downloadSDFPareto, downloadManifest, downloadSummaryReport, downloadCanvasPng } from './utils/export';
-import { openCitePanel } from './lib/citePanel';
 import { clearSvgCache } from './utils/chem';
 import { applyPropertyFilters } from './components/PropertyFilters';
 
@@ -451,6 +450,9 @@ export default function App() {
       // Arrow keys — molecule navigation (only when molecules loaded)
       if (molecules.length === 0) return;
 
+      const focus = e.target as HTMLElement | null;
+      const inList = Boolean(focus?.closest('[data-mol-list], [data-pareto-chart]'));
+      if (!inList) return;
       if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
         e.preventDefault();
         setSelectedMolIdx(prev => prev === null ? 0 : Math.min(prev + 1, molecules.length - 1));
@@ -731,7 +733,7 @@ export default function App() {
   return (
     <div className="h-screen max-w-[100vw] overflow-hidden bg-[var(--bg-deep)] flex flex-col font-sans text-[var(--text)]">
       {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 bg-[var(--surface2)] border border-[var(--accent)] rounded-md text-sm text-[var(--text)] shadow-lg animate-fade-in">
+        <div className="fixed top-14 inset-x-3 z-[60] px-4 py-2 bg-[var(--surface2)] border border-[var(--accent)] rounded-md text-sm text-[var(--text)] shadow-lg animate-fade-in md:top-4 md:inset-x-auto md:left-1/2 md:-translate-x-1/2">
           {toast}
         </div>
       )}
@@ -902,7 +904,7 @@ export default function App() {
 
       <button
         onClick={() => setIsCopilotOpen(true)}
-        className="fixed bottom-6 right-6 w-12 h-12 bg-[var(--surface2)] border border-[var(--border-10)] rounded-full flex items-center justify-center text-base font-semibold text-[var(--text)] hover:bg-[var(--accent)] hover:border-transparent hover:text-[var(--text-heading)] transition-all z-40 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#5F7367]/50"
+        className="hidden md:flex fixed bottom-6 right-6 w-12 h-12 bg-[var(--surface2)] border border-[var(--border-10)] rounded-full items-center justify-center text-base font-semibold text-[var(--text)] hover:bg-[var(--accent)] hover:border-transparent hover:text-[var(--text-heading)] transition-all z-40 shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--text)]"
         title="AI Copilot ( / )"
       >
         AI
@@ -912,18 +914,11 @@ export default function App() {
       <div className="fixed bottom-6 left-6 flex items-center gap-2 z-40">
         <button
           onClick={() => setShortcutsOpen(true)}
-          className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] text-[var(--text2)]/40 hover:text-[var(--text2)] bg-[var(--surface2)]/50 border border-[var(--border-5)] rounded-md transition-colors"
+          className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] text-[var(--text2)] hover:text-[var(--text)] bg-[var(--surface2)] border border-[var(--border-5)] rounded-md transition-colors"
           title="Keyboard shortcuts"
         >
           <kbd className="text-[10px] font-mono bg-[var(--surface2)] px-1 py-0.5 rounded border border-[var(--border-10)]">?</kbd>
           <span>Shortcuts</span>
-        </button>
-        <button
-          type="button"
-          onClick={openCitePanel}
-          className="hidden md:flex items-center px-2.5 py-1.5 text-[11px] text-[var(--text2)]/50 hover:text-[var(--text2)] bg-[var(--surface2)]/50 border border-[var(--border-5)] rounded-md transition-colors"
-        >
-          Cite
         </button>
       </div>
 

@@ -135,7 +135,7 @@ export default function Content({ molecules, compareIndices, selectedMolIdx, set
                 onToast?.('SVG exported');
               }}
               title="Download view as editable SVG (vector structures; charts embedded)"
-              className="px-2 py-1 text-[11px] text-[var(--text2)] hover:text-[var(--text)] border border-[var(--border-5)] rounded hover:border-[var(--accent)] transition-colors"
+              className="hidden sm:inline px-2 py-1 text-[11px] text-[var(--text2)] hover:text-[var(--text)] border border-[var(--border-5)] rounded hover:border-[var(--accent)] transition-colors"
             >
               SVG ↓
             </button>
@@ -164,7 +164,7 @@ export default function Content({ molecules, compareIndices, selectedMolIdx, set
                 downloadCanvasPng(out, `paretomol-${activeTab}.png`);
               }}
               title="Download chart as PNG"
-              className="px-2 py-1 text-[11px] text-[var(--text2)] hover:text-[var(--text)] border border-[var(--border-5)] rounded hover:border-[var(--accent)] transition-colors"
+              className="hidden sm:inline px-2 py-1 text-[11px] text-[var(--text2)] hover:text-[var(--text)] border border-[var(--border-5)] rounded hover:border-[var(--accent)] transition-colors"
             >
               PNG ↓
             </button>

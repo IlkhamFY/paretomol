@@ -523,7 +523,7 @@ function ScatterChart({ molecules, xKey, yKey, activeFilter, onSelectMolecule, s
   }), []);
 
   return (
-    <div className="relative w-full h-full" role="img" aria-label={`${labelFor(xKey)} versus ${labelFor(yKey)}. Named points are on the Pareto front.`}>
+    <div data-pareto-chart tabIndex={0} className="relative w-full h-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--text)]" role="img" aria-label={`${labelFor(xKey)} versus ${labelFor(yKey)}. Named points are on the Pareto front. Arrow keys move the selection.`}>
       <div
         ref={tooltipRef}
         id="pareto-tooltip"
