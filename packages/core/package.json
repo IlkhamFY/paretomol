@@ -18,10 +18,16 @@
       "types": "./dist/src/verify.d.ts",
       "default": "./dist/src/verify.js"
     },
+    "./node": {
+      "source": "./src/node.ts",
+      "types": "./dist/src/node.d.ts",
+      "default": "./dist/src/node.js"
+    },
     "./profiles/*.json": "./profiles/*.json",
     "./package.json": "./package.json"
   },
   "dependencies": {
+    "@rdkit/rdkit": "2025.3.4-1.0.0",
     "lz-string": "^1.5.0"
   },
   "files": ["dist", "profiles", "README.md"],

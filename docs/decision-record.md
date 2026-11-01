@@ -88,6 +88,18 @@ custom columns, objectives, filters, formula columns and the shortlist, then
 recomputes the Pareto ranks. Exporting again gives the same record except for
 `timestamp` and `recordHash`; `e2e/decision.spec.ts` checks this.
 
+## Recompute
+
+`verifyDecision(record, RDKit)` in `@paretomol/core` checks the schema and the
+hashes (the same rules as `parseDecisionRecord`) and recomputes Pareto rank
+and linear MPO with RDKit. The CLI is `paretomol verify-decision record.json`
+(exit 2 when `ok` is false). The MCP tool is `verify_decision`.
+
+`issues[].code` is `schema`, `hash`, `count`, `selection`, `profile`,
+`invalid_smiles`, `rank` or `mpo`. A hash failure still includes the
+recomputed rows when the molecules parse, so the diff is visible next to
+the hash error. `rank` and `mpo` issues carry `claimed` and `actual`.
+
 ## Versioning
 
 Additive optional fields keep `/0`. Any change in meaning or in hashing bumps

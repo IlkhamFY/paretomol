@@ -20,6 +20,18 @@ SMILES are skipped and counted), no ADMET-AI calls, and no `view` block.
 Everything else in the record (input hash, Pareto ranks, MPO, profile hash)
 is identical; `e2e/cli-match.spec.ts` checks this.
 
+## verify-decision
+
+```sh
+npx paretomol verify-decision record.json
+```
+
+Checks a decision record's schema and hashes, then recomputes Pareto rank and
+linear MPO with RDKit. Prints a JSON report (`issues[].code` is `schema`,
+`hash`, `count`, `selection`, `profile`, `invalid_smiles`, `rank` or `mpo`).
+Exit 2 when `ok` is false. The same function is `verifyDecision` in
+`@paretomol/core` and the MCP tool `verify_decision`.
+
 ## verify
 
 ```sh

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { Molecule, ParetoObjective } from '@paretomol/core';
-import { EXAMPLES, DEFAULT_PARETO_OBJECTIVES, DRUG_FILTERS } from '@paretomol/core';
+import { EXAMPLES, DEFAULT_PARETO_OBJECTIVES, DRUG_FILTERS, MAX_MOLECULES } from '@paretomol/core';
 import { initRDKitCache, parseAndAnalyze, parseAndAnalyzeChunked, parseSDFFile, fetchChEMBLBatch, computeParetoAndDominance, getMolSvg, filterBySubstructure, mergeAssayData, enrichMoleculeNames } from '../utils/chem';
 import { useTheme } from '../contexts/ThemeContext';
 import { inferObjectives, inferObjectiveDirection } from '@paretomol/core';
@@ -135,14 +135,12 @@ export default function Sidebar({
       });
   }, [isRDKitReady, initialPayloadFromUrl, onUrlPayloadConsumed, setMolecules, setCompareIndices, setSelectedMolIdx, onToast]);
 
-  const MOL_LIMIT = 2000;
-
   const handleAnalyze = async () => {
     if (!input.trim() || !isRDKitReady) return;
     const lineCount = input.trim().split('\n').filter((l) => l.trim()).length;
-    if (lineCount > MOL_LIMIT) {
+    if (lineCount > MAX_MOLECULES) {
       const proceed = window.confirm(
-        `You're about to analyze ${lineCount.toLocaleString()} molecules. Above ${MOL_LIMIT.toLocaleString()}, performance may degrade significantly (slow parsing, unreadable scatter plots, large memory use).\n\nConsider filtering your dataset first.\n\nContinue anyway?`
+        `You're about to analyze ${lineCount.toLocaleString()} molecules. Above ${MAX_MOLECULES.toLocaleString()}, performance may degrade significantly (slow parsing, unreadable scatter plots, large memory use).\n\nConsider filtering your dataset first.\n\nContinue anyway?`
       );
       if (!proceed) return;
     }

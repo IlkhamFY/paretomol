@@ -50,7 +50,9 @@ path or referrer.
 
 `@paretomol/core`: `validateReview`, `encodeReview`, `decodeReview`,
 `reviewUrl(payload, base?)`, `reviewTokenFromUrl(url)`. The MCP tool
-`open_review_url` returns the same link.
+`open_review_url` returns the same link. Encoding stays in core, so a
+change to the token (for example a tighter compression) shows up in the
+tool without a second encoder.
 
 ## Limits
 
@@ -58,6 +60,12 @@ Links above about 32 000 characters (`REVIEW_URL_SOFT_LIMIT`) may be cut by
 chat apps or browsers; roughly 300 to 600 drug-like molecules fit, depending on
 SMILES length and custom columns. For larger sets use a decision record file or
 the CLI.
+
+`open_review_url` does not return a link over that size. The tool result is
+an error, code `review_url_too_long`, and the message says to write a
+decision record file. The experimental `review_shortlist` MCP App still
+returns its panel, and puts the same refusal in `fallbackError` instead of
+a URL.
 
 The link is a request for review, not a decision: nothing is accepted until the
 reviewer clicks. The structures are re-parsed with RDKit.js in the browser and

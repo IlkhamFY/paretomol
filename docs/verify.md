@@ -2,7 +2,9 @@
 
 `verifyClaims(claims, RDKit, opts?)` in `@paretomol/core` (also
 `@paretomol/core/verify`, and `npx paretomol verify claims.json`) checks what an
-agent says about molecules before anyone acts on it.
+agent says about molecules before anyone acts on it. A finished decision
+record is a different check: `verifyDecision` and `paretomol verify-decision`
+(see decision-record.md).
 
 Input, one entry per molecule:
 

@@ -4,6 +4,7 @@
   "description": "ParetoMol MCP server (stdio): score molecules, Pareto fronts, scoring profiles, trade-off readings, review links and claim checks for chemistry agents.",
   "license": "MIT",
   "type": "module",
+  "mcpName": "io.github.IlkhamFY/paretomol",
   "bin": {
     "paretomol-mcp": "./bin/paretomol-mcp.js"
   },
@@ -25,15 +26,22 @@
   "files": [
     "bin",
     "dist",
-    "README.md"
+    "README.md",
+    "server.json",
+    "ui/review.html"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node scripts/build-ui.mjs && tsc -p tsconfig.json",
     "prepack": "npm run build"
   },
   "dependencies": {
+    "@modelcontextprotocol/ext-apps": "^1.7.5",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@paretomol/core": "0.1.0",
-    "@paretomol/cli": "0.1.0"
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.11"
   },
   "repository": {
     "type": "git",

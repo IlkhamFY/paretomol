@@ -65,6 +65,23 @@ describe('paretomol rank', () => {
     expect(rec.input.count).toBe(2);
   });
 
+  it('verify-decision exits 0 on its own record and 2 after an edit', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pm-decision-'));
+    const inp = join(dir, 'in.smi'), out = join(dir, 'rec.json');
+    (await import('node:fs')).writeFileSync(inp, 'CCO ethanol\nCCN ethylamine\n');
+    const err = process.stderr.write, outW = process.stdout.write;
+    process.stderr.write = () => true; process.stdout.write = () => true;
+    try {
+      expect(await main(['rank', inp, '--timestamp', '2026-01-01T00:00:00.000Z', '--out', out])).toBe(0);
+      expect(await main(['verify-decision', out])).toBe(0);
+      const rec = JSON.parse(readFileSync(out, 'utf8'));
+      rec.rationale = 'edited';
+      (await import('node:fs')).writeFileSync(out, JSON.stringify(rec));
+      expect(await main(['verify-decision', out])).toBe(2);
+      expect(await main(['verify-decision'])).toBe(1);
+    } finally { process.stderr.write = err; process.stdout.write = outW; }
+  });
+
   it('verify exits 2 on the seeded fixture and 0 on a clean claim', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'pm-verify-'));
     const good = join(dir, 'good.json');

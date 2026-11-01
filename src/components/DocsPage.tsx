@@ -330,7 +330,8 @@ score = 1 + 9 · (1 − exp(−(raw − 1) / 6.6))   → clamped to 1–10`}</pr
         a: (
           <>
             <p>Yes. <a href="/llms.txt" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline">/llms.txt</a> describes the app, the core library, the CLI, scoring profiles, the decision record and the claim verifier in one page an agent can read. Point your agent at <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">https://paretomol.com/llms.txt</code>.</p>
-            <p className="mt-2">The pieces an agent needs: <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">paretomol rank</code> to rank offline with the same RDKit.js build as this app, the <strong>decision record</strong> (Export &gt; Decision record) so its result can be opened here and checked, and <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">paretomol verify</code> to recompute the numbers it claims. The CLI is not on npm yet; run it from a clone (<code className="bg-[var(--surface2)] px-1 rounded text-[12px]">npm install &amp;&amp; npm run build</code>).</p>
+            <p className="mt-2">The pieces an agent needs: <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">paretomol rank</code> to rank offline with the same RDKit.js build as this app, the <strong>decision record</strong> (Export &gt; Decision record) so its result can be opened here and checked, and <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">paretomol verify</code> to recompute the numbers it claims. <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">paretomol verify-decision</code> checks a record&apos;s hashes and recomputes its front. The CLI is not on npm yet; run it from a clone (<code className="bg-[var(--surface2)] px-1 rounded text-[12px]">npm install &amp;&amp; npm run build</code>).</p>
+            <p className="mt-2">The same clone can run the MCP server: <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">npx paretomol-mcp</code>. It is not published. An experimental review tool can show the shortlist inside a host that supports MCP Apps. Otherwise the agent should send the review link.</p>
           </>
         ),
       },
@@ -342,7 +343,7 @@ score = 1 + 9 · (1 − exp(−(raw − 1) / 6.6))   → clamped to 1–10`}</pr
       {
         id: 'review-url',
         q: 'What is a review link?',
-        a: <p>An agent can send you a link of the form <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">https://paretomol.com/#r=...</code> with its molecules, objectives and profile packed into the fragment (never sent to the server). It opens in review mode: Accept or Reject each molecule, add why, and <strong>Export decision record</strong>. Nothing is accepted until you click. Spec: docs/review-url.md.</p>,
+        a: <p>An agent can send you a link of the form <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">https://paretomol.com/#r=...</code> with its molecules, objectives and profile packed into the fragment (never sent to the server). It opens in review mode: Accept or Reject each molecule, add why, and <strong>Export decision record</strong>. Nothing is accepted until you click. A link that would be too long for a browser is refused, and the agent is told to send a decision record file instead. Spec: docs/review-url.md.</p>,
       },
       {
         id: 'prompt-claude',

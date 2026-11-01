@@ -1,10 +1,11 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { stringifyDecisionRecord, verifyClaims } from '@paretomol/core';
+import { stringifyDecisionRecord, verifyClaims, verifyDecision } from '@paretomol/core';
 import type { Claim } from '@paretomol/core';
 import { rank, parseObjectives, loadRDKit } from './rank.js';
 
 const USAGE = `Usage: paretomol rank <in.csv|in.smi|-> [options]
-       paretomol verify <claims.json|->   (exit 2 when any claim is flagged)
+       paretomol verify <claims.json|->            (exit 2 when any claim is flagged)
+       paretomol verify-decision <record.json|->   (exit 2 when the record does not match)
 
 Options:
   --profile <id@version>   scoring profile (default oral@1)
@@ -20,6 +21,7 @@ export async function main(argv: string[]): Promise<number> {
   const [cmd, ...rest] = argv;
   if (!cmd || cmd === '-h' || cmd === '--help') { process.stdout.write(USAGE); return cmd ? 0 : 1; }
   if (cmd === 'verify') return verify(rest);
+  if (cmd === 'verify-decision') return verifyDecisionCmd(rest);
   if (cmd !== 'rank') { process.stderr.write(`Unknown command: ${cmd}\n${USAGE}`); return 1; }
   const flags: Record<string, string> = {};
   const pos: string[] = [];
@@ -50,6 +52,21 @@ export async function main(argv: string[]): Promise<number> {
     const front = record.results.filter((r) => r.paretoRank === 1).length;
     process.stderr.write(`${record.input.count} molecules (${errors} skipped), ${front} on the front, profile ${record.profile.ref}, ${((performance.now() - t0) / 1000).toFixed(2)} s\n`);
     return 0;
+  } catch (e) {
+    process.stderr.write(`paretomol: ${e instanceof Error ? e.message : String(e)}\n`);
+    return 1;
+  }
+}
+
+/** record.json: a paretomol.decision/0 file. Prints the verifyDecision report. */
+async function verifyDecisionCmd(args: string[]): Promise<number> {
+  if (args.length !== 1) { process.stderr.write(USAGE); return 1; }
+  try {
+    const raw = JSON.parse(readFileSync(args[0] === '-' ? 0 : args[0], 'utf8'));
+    const rep = verifyDecision(raw, await loadRDKit());
+    process.stdout.write(JSON.stringify(rep, null, 2) + '\n');
+    process.stderr.write(rep.ok ? `decision record ok (${rep.recomputed.length} molecules)\n` : `decision record: ${rep.issues.length} issue(s)\n`);
+    return rep.ok ? 0 : 2;
   } catch (e) {
     process.stderr.write(`paretomol: ${e instanceof Error ? e.message : String(e)}\n`);
     return 1;

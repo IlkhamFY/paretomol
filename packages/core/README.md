@@ -10,7 +10,9 @@ The web app imports everything below from this package, so results match the app
 - `computeQED` (Bickerton 2012), `QED_ALERT_SMARTS`, `DRUG_FILTERS` + `checkFilter`.
 - Fingerprint similarity, activity cliffs, synthetic-complexity heuristic, assay value parsing, stats, safe formula parser, citation.
 
-Descriptor calculation (RDKit) is not included; pass in `props` computed by RDKit or any other toolkit.
+Descriptor calculation is not in the main entry; pass in `props` computed by RDKit or any other toolkit. Node scripts can load the same RDKit.js build as the app with `loadRDKit()` from `@paretomol/core/node`.
+
+`verifyDecision(record, RDKit)` checks a `paretomol.decision/0` file (schema and hashes) and recomputes Pareto rank and linear MPO. `checkInputLimits` enforces the web app's 2,000 molecule cap (`MAX_MOLECULES`) unless the caller passes a higher `maxMolecules`.
 
 ## Scoring profiles
 

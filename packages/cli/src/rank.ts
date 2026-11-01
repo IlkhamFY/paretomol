@@ -1,23 +1,11 @@
-import { createRequire } from 'node:module';
 import {
   analyzeInput, buildDecisionRecord, computeParetoAndDominance, inferObjectives,
   DEFAULT_PARETO_OBJECTIVES, getProfile, moleculeIds,
 } from '@paretomol/core';
-import type { DecisionRecord, ParetoObjective, RDKitLike } from '@paretomol/core';
+import { loadRDKit } from '@paretomol/core/node';
+import type { DecisionRecord, ParetoObjective } from '@paretomol/core';
 
-export interface RDKitNode extends RDKitLike { version(): string }
-
-let rdkit: Promise<RDKitNode> | null = null;
-
-/** Load the RDKit.js WebAssembly build from npm (same version the app loads from the CDN). */
-export function loadRDKit(): Promise<RDKitNode> {
-  if (!rdkit) {
-    const require = createRequire(import.meta.url);
-    const init = require('@rdkit/rdkit') as () => Promise<RDKitNode>;
-    rdkit = init();
-  }
-  return rdkit;
-}
+export { loadRDKit };
 
 export interface RankOptions {
   profile?: string;

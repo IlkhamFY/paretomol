@@ -88,6 +88,12 @@ mpoScore({ MW: 320, LogP: 2.1, HBD: 1, HBA: 5, TPSA: 70, RotBonds: 4 }, oral.des
 
 Build it with `npm run build -w @paretomol/core`.
 
+## CLI and MCP
+
+`@paretomol/cli` ranks a file offline and writes the same decision record as the app (`npx paretomol rank in.csv --profile oral@1 --out record.json`). `paretomol verify` checks claimed descriptors. `paretomol verify-decision` recomputes a record's front and MPO. Neither command is on npm yet. See [packages/cli/README.md](packages/cli/README.md).
+
+`@paretomol/mcp` is a stdio MCP server on the official TypeScript SDK: descriptors, Pareto fronts, profiles, claim checks, and an experimental review panel. `npx paretomol-mcp` from a built clone. It is not published. See [packages/mcp/README.md](packages/mcp/README.md).
+
 ## Development
 
 ```bash
