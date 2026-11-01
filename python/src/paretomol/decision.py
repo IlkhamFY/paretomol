@@ -141,8 +141,11 @@ def build_decision_record(
     view: Optional[Mapping[str, Any]] = None,
     review: Optional[Mapping[str, Any]] = None,
     timestamp: Optional[str] = None,
+    curve: str = "linear",
 ) -> dict[str, Any]:
     """Build a ``paretomol.decision/0`` record, including ``recordHash``."""
+    if curve not in ("linear", "sigmoid"):
+        raise ValueError("Decision record: curve must be linear or sigmoid")
     if isinstance(profile, str) or profile is None:
         resolved = get_profile(profile or "oral@1")
     elif isinstance(profile, ResolvedProfile):
@@ -162,7 +165,7 @@ def build_decision_record(
     results: list[dict[str, Any]] = []
     for mol, mid in zip(mols, ids):
         merged = {**mol.props, **mol.custom_props}
-        score = mpo_score(merged, resolved.desirability, "linear")["score"]
+        score = mpo_score(merged, resolved.desirability, curve)["score"]
         results.append({
             "id": mid,
             "paretoRank": mol.pareto_rank if mol.pareto_rank is not None else None,
@@ -171,7 +174,7 @@ def build_decision_record(
     rec: dict[str, Any] = {
         "schema": DECISION_RECORD_SCHEMA,
         "input": {"sha256": input_hash(in_mols), "count": len(in_mols), "molecules": in_mols},
-        "profile": {"ref": resolved.ref, "hash": resolved.hash},
+        "profile": {"ref": resolved.ref, "hash": resolved.hash, "curve": curve},
         "models": {
             "core": CORE_VERSION,
             "rdkitjs": rdkit_version,
@@ -234,6 +237,9 @@ def parse_decision_record(data: Any) -> dict[str, Any]:
         known = None
     if known is not None and known.hash != (rec.get("profile") or {}).get("hash"):
         raise ValueError(f"Decision record: profile {pref} hash differs from this version of ParetoMol")
+    stored_curve = (rec.get("profile") or {}).get("curve")
+    if stored_curve is not None and stored_curve not in ("linear", "sigmoid"):
+        raise ValueError("Decision record: profile.curve must be linear or sigmoid")
     ids = {m.get("id") for m in inp["molecules"]}
     for sid in rec.get("selected") or []:
         if sid not in ids:

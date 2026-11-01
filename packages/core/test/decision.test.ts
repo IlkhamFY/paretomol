@@ -27,6 +27,7 @@ describe('decision record v0', () => {
     const r = buildDecisionRecord(base);
     expect(r.schema).toBe(DECISION_RECORD_SCHEMA);
     expect(r.profile.ref).toBe('oral@1');
+    expect(r.profile.curve).toBe('linear');
     expect(r.profile.hash).toMatch(/^sha256:[0-9a-f]{64}$/);
     expect(r.input.sha256).toMatch(/^sha256:[0-9a-f]{64}$/);
     expect(r.selected).toEqual(['a', 'a~2']);
@@ -45,6 +46,15 @@ describe('decision record v0', () => {
     const a = buildDecisionRecord(base), b = buildDecisionRecord({ ...base, rationale: 'x', timestamp: '2027-01-01T00:00:00Z' });
     expect(a.input.sha256).toBe(b.input.sha256);
     expect(a.recordHash).not.toBe(b.recordHash);
+  });
+
+  it('records the MPO curve and scores with it', () => {
+    const lin = buildDecisionRecord({ ...base, profile: 'cns@1', curve: 'linear' });
+    const sig = buildDecisionRecord({ ...base, profile: 'cns@1', curve: 'sigmoid' });
+    expect(sig.profile).toEqual({ ref: 'cns@1', hash: lin.profile.hash, curve: 'sigmoid' });
+    expect(lin.profile.curve).toBe('linear');
+    expect(sig.results.map((r) => r.mpo)).not.toEqual(lin.results.map((r) => r.mpo));
+    expect(parseDecisionRecord(stringifyDecisionRecord(sig)).profile.curve).toBe('sigmoid');
   });
 
   it('round-trips through JSON', () => {

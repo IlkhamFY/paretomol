@@ -59,6 +59,8 @@ export function countQEDAlerts(mol: RDKitMolLike, RDKit: RDKitLike): number {
 }
 
 
+const SMILES_HEADERS = ['smiles', 'smi', 'structure', 'canonical_smiles', 'molecule', 'mol', 'compound_smiles'];
+
 /** Split a delimiter-separated table, honouring RFC 4180 quotes.
  *  A quoted field may contain the separator, a newline, or a doubled quote (`""`).
  *  Cells are trimmed. Empty trailing records are dropped. */
@@ -95,24 +97,51 @@ export function parseDelimited(text: string, separator: string): string[][] {
   return rows;
 }
 
+/** Same parser. The e2e corpus and older notes use this name. */
+export function parseRfc4180(text: string, separator: string): string[][] {
+  return parseDelimited(text, separator);
+}
+
+/** Separator of the first record: a tab wins over a comma. Counts only outside quotes. */
+export function detectSeparator(input: string): ',' | '\t' | '' {
+  const s = input.replace(/^\uFEFF/, '');
+  let quoted = false;
+  let commas = 0;
+  let tabs = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (quoted) {
+      if (c === '"') {
+        if (s[i + 1] === '"') { i++; continue; }
+        quoted = false;
+      }
+      continue;
+    }
+    if (c === '"') { quoted = true; continue; }
+    if (c === '\n' || c === '\r') break;
+    if (c === ',') commas++;
+    else if (c === '\t') tabs++;
+  }
+  if (tabs >= 1) return '\t';
+  if (commas >= 1) return ',';
+  return '';
+}
+
+/** Parsed delimiter-separated table, or null when the text is not a table. */
+export function readTable(input: string): { separator: ',' | '\t'; rows: string[][] } | null {
+  const separator = detectSeparator(input);
+  if (!separator) return null;
+  const rows = parseDelimited(input, separator);
+  if (rows.length === 0) return null;
+  return { separator, rows };
+}
+
 /** Detect if input is CSV/TSV with a header row. Returns parsed rows + header info, or null if not CSV. */
 export function detectCSV(input: string): { separator: string; headers: string[]; rows: string[][]; smilesCol: number } | null {
-  const firstBreak = input.search(/\r?\n/);
-  const firstLine = (firstBreak === -1 ? input : input.slice(0, firstBreak)).replace(/^\uFEFF/, '');
-  if (!input.trim() || firstBreak === -1) return null;
-  // Detect separator: tabs first, then commas. Quoted commas still count as separators here,
-  // which is what we want for a header such as "smiles","name".
-  let separator = '';
-  if (firstLine.includes('\t') && firstLine.split('\t').length >= 2) separator = '\t';
-  else if (firstLine.includes(',') && firstLine.split(',').length >= 2) separator = ',';
-  if (!separator) return null;
+  const table = readTable(input);
+  if (!table || table.rows.length < 2) return null;
+  const headers = table.rows[0];
 
-  const table = parseDelimited(input, separator);
-  if (table.length < 2) return null;
-  const headers = table[0];
-
-  // Find SMILES column by header name (case-insensitive) — can be ANY position
-  const SMILES_HEADERS = ['smiles', 'smi', 'structure', 'canonical_smiles', 'molecule', 'mol', 'compound_smiles'];
   let smilesCol = -1;
   for (let i = 0; i < headers.length; i++) {
     if (SMILES_HEADERS.includes(headers[i].toLowerCase())) {
@@ -121,9 +150,8 @@ export function detectCSV(input: string): { separator: string; headers: string[]
     }
   }
 
-  // If no header match, check if any column in the second row looks like SMILES
   if (smilesCol === -1) {
-    const secondRowCells = table[1];
+    const secondRowCells = table.rows[1];
     for (let i = 0; i < secondRowCells.length; i++) {
       const cell = secondRowCells[i];
       if (/[()=[\]#@\\/]/.test(cell) || /^[A-Za-z][A-Za-z0-9()=[\]#@\\/+\-.*]+$/.test(cell)) {
@@ -135,14 +163,13 @@ export function detectCSV(input: string): { separator: string; headers: string[]
 
   if (smilesCol === -1) return null;
 
-  // Determine if the first row is a header (SMILES column header is a known keyword, not actual SMILES)
   const smilesHeader = headers[smilesCol].toLowerCase();
   const isHeaderRow = SMILES_HEADERS.includes(smilesHeader) || !/[()=[\]#@\\/]/.test(headers[smilesCol]);
 
   const dataStart = isHeaderRow ? 1 : 0;
   const actualHeaders = isHeaderRow ? headers : headers.map((_, i) => `Col${i}`);
-  const rows = table.slice(dataStart).filter((cells) => cells[smilesCol]);
-  return { separator, headers: actualHeaders, rows, smilesCol };
+  const rows = table.rows.slice(dataStart).filter((cells) => cells[smilesCol]);
+  return { separator: table.separator, headers: actualHeaders, rows, smilesCol };
 }
 
 /** Parse a CSV cell as a number, or null if it carries no measurement.

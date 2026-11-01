@@ -29,6 +29,7 @@ export async function truthFor(t: Task): Promise<Answer> {
     }
     case 'tradeoff_pair': { const r = await explainTradeoff(a); const p = r.reading?.tradeoff; return p ? [p.a, p.b].sort() : []; }
     case 'flagged': { const r = await verifyClaimsTool({ claims: t.claims }); return [...new Set(r.flags.map((f) => f.id))].sort(); }
+    default: throw new Error(`unknown truth kind: ${t.truth}`);
   }
 }
 

@@ -18,8 +18,20 @@ path or referrer.
 
 ## Token
 
-`token = LZString.compressToEncodedURIComponent(JSON.stringify(payload))`
-(lz-string 1.5, the same scheme as ParetoMol share links).
+Current tokens start with `v1.` and are raw deflate (RFC 1951) of the JSON,
+then base64url with the padding stripped:
+
+```
+token = "v1." + base64url(deflate(JSON.stringify(payload)))
+```
+
+Older links have no prefix. Those are
+`LZString.compressToEncodedURIComponent` of the same JSON and still open.
+
+The fragment stays in the address bar after the page loads, including when
+the tab changes, so reload and copy-link keep the review. Analytics strip `r`
+before a hit is counted. An old `?r=` link is accepted and immediately
+rewritten to `#r=` so the payload does not stay in the query.
 
 ```json
 {
@@ -57,9 +69,9 @@ tool without a second encoder.
 ## Limits
 
 Links above about 32 000 characters (`REVIEW_URL_SOFT_LIMIT`) may be cut by
-chat apps or browsers; roughly 300 to 600 drug-like molecules fit, depending on
-SMILES length and custom columns. For larger sets use a decision record file or
-the CLI.
+chat apps or browsers. Deflate fits more than the old lz-string tokens. If a
+link is still over that size, the tool says so: send a decision record file
+instead (see [decision-record.md](decision-record.md)) or use the CLI.
 
 `open_review_url` does not return a link over that size. The tool result is
 an error, code `review_url_too_long`, and the message says to write a

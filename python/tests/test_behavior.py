@@ -110,6 +110,12 @@ def test_review_defaults_and_query_token():
         validate_review({"molecules": []})
     with pytest.raises(ValueError, match="corrupt"):
         decode_review("garbage!!")
+    import lzstring
+    legacy = lzstring.LZString().compressToEncodedURIComponent(
+        '{"schema":"paretomol.review/0","molecules":[{"name":"mol1","smiles":"CCO"}],"profile":"oral@1"}'
+    )
+    assert not legacy.startswith("v1.")
+    assert decode_review(legacy)["molecules"][0]["smiles"] == "CCO"
 
 
 def test_dataframe_rank_and_review_link():

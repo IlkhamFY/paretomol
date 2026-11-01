@@ -34,6 +34,8 @@ describe('stripMoleculePayload', () => {
     expect(stripMoleculePayload('https://paretomol.com/?m=abc&tab=table')).toBe('https://paretomol.com/?tab=table');
     expect(stripMoleculePayload('https://paretomol.com/?r=abc')).toBe('https://paretomol.com/');
     expect(stripMoleculePayload('https://paretomol.com/#r=abc')).toBe('https://paretomol.com/');
+    expect(stripMoleculePayload('https://paretomol.com/#m=abc')).toBe('https://paretomol.com/');
+    expect(stripMoleculePayload('/?tab=radar#m=abc')).toBe('/?tab=radar');
     expect(stripMoleculePayload('/?tab=table#r=abc')).toBe('/?tab=table');
     expect(stripMoleculePayload('/?docs#intro')).toBe('/?docs#intro');
   });

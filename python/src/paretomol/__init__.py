@@ -34,11 +34,13 @@ from .profiles import get_profile, list_profiles, load_profile, profile_hash
 from .review import (
     REVIEW_BASE_URL,
     REVIEW_SCHEMA,
+    REVIEW_TOKEN_PREFIX,
     REVIEW_URL_SOFT_LIMIT,
     decode_review,
     encode_review,
     review_token_from_url,
     review_url,
+    review_url_warning,
     validate_review,
 )
 from .verify import canonical_property, expected_direction, verify_claims
@@ -53,6 +55,7 @@ __all__ = [
     "Molecule",
     "REVIEW_BASE_URL",
     "REVIEW_SCHEMA",
+    "REVIEW_TOKEN_PREFIX",
     "REVIEW_URL_SOFT_LIMIT",
     "build_decision_record",
     "canonical_json",
@@ -82,6 +85,7 @@ __all__ = [
     "record_hash",
     "review_token_from_url",
     "review_url",
+    "review_url_warning",
     "round6",
     "selected_indices",
     "sha256_hex",

@@ -46,7 +46,13 @@ test('review link opens in review mode and exports the verdicts as a decision re
 
   expect(rec.selected).toEqual(['aspirin', 'ibuprofen']);
   expect(rec.rationale).toBe('Best potency at acceptable MW.');
-  expect(rec.profile).toEqual({ ref: 'cns@1', hash: getProfile('cns@1').hash });
+  expect(rec.profile).toEqual({ ref: 'cns@1', hash: getProfile('cns@1').hash, curve: 'linear' });
+  expect(new URL(page.url()).hash).toContain('r=');
+  await page.getByRole('button', { name: 'Table', exact: true }).click();
+  await expect.poll(() => new URL(page.url()).searchParams.get('tab')).toBe('table');
+  const afterTab = new URL(page.url());
+  expect(afterTab.hash).toContain('r=');
+  expect(afterTab.searchParams.get('r')).toBeNull();
   expect(rec.objectives).toEqual(payload.objectives);
   expect(rec.review).toEqual({
     source: 'e2e-agent',
@@ -61,8 +67,13 @@ test('review link also works as ?r= and a corrupt link says so', async ({ page }
   await page.goto(`/?r=${encodeReview({ molecules: payload.molecules.slice(0, 2) })}`);
   await expect(page.getByTestId('review-row')).toHaveCount(2, { timeout: 60_000 });
   await expect(page.getByTestId('review-panel')).toContainText('profile oral@1');
+  const migrated = new URL(page.url());
+  expect(migrated.searchParams.get('r')).toBeNull();
+  expect(migrated.hash.startsWith('#r=')).toBe(true);
 
-  await page.goto('/#r=not-a-real-payload');
+  // A query change forces a fresh document. A hash-only change would not, now
+  // that an old ?r= link has already been rewritten to #r=.
+  await page.goto('/?fresh=1#r=not-a-real-payload');
   await expect(page.getByText(/Could not open review link/)).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId('review-panel')).toHaveCount(0);
 });

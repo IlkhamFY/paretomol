@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseDecisionRecord, stringifyDecisionRecord, recordHash } from '../packages/core/src/index';
+import { parseDecisionRecord, stringifyDecisionRecord, recordHash, getProfile } from '../packages/core/src/index';
 import type { DecisionRecord } from '../packages/core/src/index';
 
 /**
@@ -46,6 +46,19 @@ function strip(r: DecisionRecord) {
   const { timestamp: _t, recordHash: _h, ...rest } = r;
   return rest;
 }
+
+test('decision record uses the MPO profile and curve', async ({ page }) => {
+  await page.goto('/');
+  await waitForRDKit(page);
+  await analyse(page, DRUGS);
+  await page.getByRole('button', { name: 'MPO', exact: true }).click();
+  await page.getByRole('button', { name: 'CNS Drug' }).click();
+  await page.getByRole('button', { name: 'Sigmoid' }).click();
+  const rec = await exportRecord(page, 'cns sigmoid');
+  expect(rec.profile.ref).toBe('cns@1');
+  expect(rec.profile.hash).toBe(getProfile('cns@1').hash);
+  expect(rec.profile.curve).toBe('sigmoid');
+});
 
 test('decision record round-trips to the exact same view', async ({ page }) => {
   await page.goto('/');

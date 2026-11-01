@@ -13,7 +13,8 @@ All notable changes to ParetoMol. Dates are release dates; unreleased work is li
 - `loadRDKit` lives at `@paretomol/core/node`. The MCP server no longer depends on the CLI.
 - Agent benchmark (`benchmarks/agents`, schema `paretomol.agentbench/1`): 27 tasks on a 12-molecule ChEMBL_37 extract (CC BY-SA 3.0). Twenty answers are regenerated from `@paretomol/core`. Seven are independent: RDKit Python 2026.03.4 descriptors, a hand-checked Pareto front, quoted CSV, duplicate ids, and a tampered decision record that must fail verification. `node benchmarks/agents/mcp-client.mjs` runs every task through the stdio server.
 - MCP tool `rank_input` (CSV or SMILES text, quoted fields kept).
-- CSV parsing keeps quoted fields, including commas inside a name.
+- CSV parsing keeps quoted fields, including commas inside a name. The app and the CLI use the same parser.
+- Review link tokens are deflate-compressed with a `v1.` prefix. Unprefixed lz-string tokens still open. A link that is still over about 32 000 characters says to use a decision record file instead.
 - `@paretomol/core`: headless TypeScript core (Pareto ranking, objective inference, MPO, QED, filters, similarity, SHA-256) shared by the app, CLI and MCP server.
 - Versioned scoring profiles `oral@1`, `cns@1`, `leadlike@1`, `lipinski@1`, `custom@1`, each with a pinned `sha256:` hash.
 - Decision record (`paretomol.decision/0`): Export > Decision record (JSON) and Open record. See docs/decision-record.md.
@@ -30,6 +31,11 @@ All notable changes to ParetoMol. Dates are release dates; unreleased work is li
 - `open_review_url` refuses a link over ~32,000 characters and tells the agent to write a decision record file.
 
 ### Fixed
+- Review links (`#r=`) stay in the address bar after load and when you change tabs, so reload and copy-link keep working. Analytics still strip `r` and `m`.
+- Share links carry molecules in the fragment (`#m=`). Older `?m=` and `?r=` links still open, then the address bar is rewritten to the fragment so the payload is not left in the query.
+- CSV and TSV import follows RFC 4180 quoting. A comma inside a quoted name no longer shifts later columns. The app and the CLI use the same parser.
+- Export > Decision record writes the MPO profile and curve you selected (for example `cns@1` and sigmoid), not always `oral@1` with a linear curve.
+- A review export records the ADMET endpoint when ADMET columns are present.
 - The MCP server negotiates a protocol version it implements. An unknown client version is no longer echoed back.
 - **CSV ranking ignored inferred objectives.** After loading a CSV or pasted table with assay columns (for example pIC50 or IC50_nM), the app showed the inferred objectives but ranked the Pareto front on the default MW/LogP/TPSA only. The front is now recomputed with the inferred objectives on both the paste and upload paths. Ranks for such files can differ from earlier versions.
 - MPO scores were NaN when a value sat exactly on a zero-width window edge (for example HBD = 0 under oral@1). Such values now score as inside the window.

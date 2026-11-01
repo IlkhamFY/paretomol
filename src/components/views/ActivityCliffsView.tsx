@@ -202,7 +202,7 @@ function NetworkCanvas({ molecules, edges, nodeProp, onSelectMol, selectedIdx }:
     }
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-  }, [molecules, edges, nodeProp, selectedIdx, themeVersion]);
+  }, [molecules, edges, nodeProp, selectedIdx]);
 
   // Redraw when state changes
   useEffect(() => {
@@ -227,7 +227,7 @@ function NetworkCanvas({ molecules, edges, nodeProp, onSelectMol, selectedIdx }:
       if (d < bestDist) { bestDist = d; best = nd.idx; }
     }
     if (best !== null) onSelectMol?.(best);
-  }, [onSelectMol, themeVersion]);
+  }, [onSelectMol]);
 
   return (
     <canvas

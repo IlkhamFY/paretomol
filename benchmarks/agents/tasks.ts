@@ -58,7 +58,7 @@ const PROP: Record<string, string> = {
   PPIA: 'pchembl_ppia',
 };
 
-const ROWS = moleculesDoc.molecules as MolRow[];
+const ROWS = moleculesDoc.molecules as unknown as MolRow[];
 
 function asMol(m: MolRow): BenchMol {
   const props: Record<string, number> = {};

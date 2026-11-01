@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "customConditions": ["source"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "composite": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "../node_modules/.tmp/benchmarks",
+    "tsBuildInfoFile": "../node_modules/.tmp/benchmarks/tsconfig.tsbuildinfo",
+    "types": ["node"]
+  },
+  "include": ["agents/**/*.ts", "agents/**/*.json"]
+}

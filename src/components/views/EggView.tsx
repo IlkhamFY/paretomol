@@ -372,7 +372,7 @@ function EggView({ molecules, selectedMolIdx, setSelectedMolIdx, fdaData }: EggV
       }
     }
 
-  }, [molecules, selectedMolIdx, fdaData, themeVersion, zoom, panX, panY]);
+  }, [molecules, selectedMolIdx, fdaData, zoom, panX, panY]);
 
   // Redraw when data or container size changes
   useEffect(() => {

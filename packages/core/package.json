@@ -28,13 +28,24 @@
   },
   "dependencies": {
     "@rdkit/rdkit": "2025.3.4-1.0.0",
+    "fflate": "^0.8.2",
     "lz-string": "^1.5.0"
   },
-  "files": ["dist", "profiles", "README.md"],
+  "files": [
+    "dist",
+    "profiles",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "prepack": "npm run build"
   },
-  "repository": { "type": "git", "url": "git+https://github.com/IlkhamFY/paretomol.git", "directory": "packages/core" },
-  "engines": { "node": ">=20.10" }
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IlkhamFY/paretomol.git",
+    "directory": "packages/core"
+  },
+  "engines": {
+    "node": ">=20.10"
+  }
 }

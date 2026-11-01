@@ -19,7 +19,7 @@ describe('paretomol rank', () => {
     expect(errors).toBe(1);
     expect(record.input.count).toBe(3);
     expect(record.selected).toEqual(['benzene']);
-    expect(record.profile).toEqual({ ref: 'oral@1', hash: getProfile('oral@1').hash });
+    expect(record.profile).toEqual({ ref: 'oral@1', hash: getProfile('oral@1').hash, curve: 'linear' });
     expect(record.models.rdkitjs).toMatch(/^2025\.03\.4/);
     expect(parseDecisionRecord(JSON.parse(JSON.stringify(record)))).toEqual(record);
     expect(record.results.every((r) => r.paretoRank !== null)).toBe(true);
@@ -34,6 +34,13 @@ describe('paretomol rank', () => {
     const { record } = await rank('smiles,name,pIC50,notes_id\nCCO,a,5,1\nCCCO,b,6,2\n');
     expect(record.objectives.map((o) => `${o.key}:${o.direction}`)).toContain('pIC50:max');
     expect(record.input.molecules[0].customProps).toEqual({ pIC50: 5, notes_id: 1 });
+  });
+
+  it('keeps a comma that sits inside a quoted name', async () => {
+    const csv = 'smiles,name,pIC50\nCCO,"ethanol, absolute",5\n';
+    const { record } = await rank(csv, { timestamp: 't' });
+    expect(record.input.molecules[0].name).toBe('ethanol, absolute');
+    expect(record.input.molecules[0].customProps).toEqual({ pIC50: 5 });
   });
 
   it('parses objective specs', () => {

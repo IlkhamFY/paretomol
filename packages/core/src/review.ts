@@ -4,6 +4,7 @@
 // fragment (#r=...), which browsers never send to the server.
 // Spec: docs/review-url.md.
 
+import { deflateSync, inflateSync, strFromU8, strToU8 } from 'fflate';
 import LZString from 'lz-string';
 import type { ParetoObjective } from './types.js';
 import { getProfile } from './profiles.js';
@@ -12,6 +13,11 @@ export const REVIEW_SCHEMA = 'paretomol.review/0' as const;
 export const REVIEW_BASE_URL = 'https://paretomol.com/';
 /** Browsers and chat apps handle links up to roughly this size reliably. */
 export const REVIEW_URL_SOFT_LIMIT = 32000;
+/**
+ * Current tokens are `v1.` + base64url(raw deflate(JSON)).
+ * Tokens without this prefix are the original lz-string encoding and still open.
+ */
+export const REVIEW_TOKEN_PREFIX = 'v1.';
 
 export interface ReviewMolecule {
   name: string;
@@ -81,19 +87,91 @@ export function validateReview(input: unknown): ReviewPayload {
   return out;
 }
 
-/** Compressed, URL-safe token for a payload. */
-export function encodeReview(input: ReviewInput): string {
-  return LZString.compressToEncodedURIComponent(JSON.stringify(validateReview(input)));
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+const B64_LOOKUP = new Uint8Array(128).fill(255);
+for (let i = 0; i < B64.length; i++) B64_LOOKUP[B64.charCodeAt(i)] = i;
+
+function bytesToBase64Url(bytes: Uint8Array): string {
+  let out = '';
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = bytes[i];
+    const b = i + 1 < bytes.length ? bytes[i + 1] : 0;
+    const c = i + 2 < bytes.length ? bytes[i + 2] : 0;
+    const n = (a << 16) | (b << 8) | c;
+    out += B64[(n >> 18) & 63] + B64[(n >> 12) & 63]
+      + (i + 1 < bytes.length ? B64[(n >> 6) & 63] : '=')
+      + (i + 2 < bytes.length ? B64[n & 63] : '=');
+  }
+  return out.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
-/** Inverse of encodeReview. Throws on a corrupt or invalid token. */
-export function decodeReview(token: string): ReviewPayload {
+function base64UrlToBytes(input: string): Uint8Array {
+  const s = input.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = s.length % 4 === 0 ? '' : '='.repeat(4 - (s.length % 4));
+  const b64 = s + pad;
+  const len = b64.length;
+  const bytes = new Uint8Array((len / 4) * 3 - (b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0));
+  let j = 0;
+  for (let i = 0; i < len; i += 4) {
+    const at = (ch: string) => {
+      const code = ch.charCodeAt(0);
+      return code < 128 ? B64_LOOKUP[code] : 255;
+    };
+    const c0 = at(b64[i]);
+    const c1 = at(b64[i + 1]);
+    const c2 = b64[i + 2] === '=' ? 0 : at(b64[i + 2]);
+    const c3 = b64[i + 3] === '=' ? 0 : at(b64[i + 3]);
+    if (c0 === 255 || c1 === 255 || (b64[i + 2] !== '=' && c2 === 255) || (b64[i + 3] !== '=' && c3 === 255)) {
+      throw new Error('bad base64');
+    }
+    const n = (c0 << 18) | (c1 << 12) | (c2 << 6) | c3;
+    bytes[j++] = (n >> 16) & 255;
+    if (b64[i + 2] !== '=') bytes[j++] = (n >> 8) & 255;
+    if (b64[i + 3] !== '=') bytes[j++] = n & 255;
+  }
+  return bytes;
+}
+
+function reviewCorrupt(detail: string): Error {
+  return new Error(`Review link is corrupt (${detail}). For a large set, use a decision record file instead.`);
+}
+
+/** Compressed, URL-safe token for a payload. `v1.` + base64url(raw deflate). */
+export function encodeReview(input: ReviewInput): string {
+  const json = JSON.stringify(validateReview(input));
+  return REVIEW_TOKEN_PREFIX + bytesToBase64Url(deflateSync(strToU8(json), { level: 9 }));
+}
+
+function jsonFromToken(token: string): string {
+  if (token.startsWith(REVIEW_TOKEN_PREFIX)) {
+    try {
+      return strFromU8(inflateSync(base64UrlToBytes(token.slice(REVIEW_TOKEN_PREFIX.length))));
+    } catch {
+      throw reviewCorrupt('could not decompress');
+    }
+  }
+  // Unprefixed tokens are the original lz-string links.
   let json: string | null = null;
   try { json = LZString.decompressFromEncodedURIComponent(token); } catch { json = null; }
-  if (!json) throw new Error('Review link is corrupt (could not decompress)');
+  if (!json) throw reviewCorrupt('could not decompress');
+  return json;
+}
+
+/** Inverse of encodeReview. Also accepts the original unprefixed lz-string tokens. */
+export function decodeReview(token: string): ReviewPayload {
+  const json = jsonFromToken(token);
   let obj: unknown;
-  try { obj = JSON.parse(json); } catch { throw new Error('Review link is corrupt (not JSON)'); }
+  try { obj = JSON.parse(json); } catch { throw reviewCorrupt('not JSON'); }
   return validateReview(obj);
+}
+
+/**
+ * Set when a review URL is still longer than browsers and chat apps reliably keep.
+ * The caller should show this instead of pretending the link will survive.
+ */
+export function reviewUrlWarning(url: string): string | undefined {
+  if (url.length <= REVIEW_URL_SOFT_LIMIT) return undefined;
+  return `Review link is ${url.length} characters, past the ${REVIEW_URL_SOFT_LIMIT} characters browsers and chat apps reliably keep. Use a decision record file instead.`;
 }
 
 /** `https://paretomol.com/#r=<token>`. */

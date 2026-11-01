@@ -11,6 +11,7 @@ from paretomol import (
     canonical_json,
     canonical_property,
     compute_pareto,
+    decode_review,
     expected_direction,
     get_profile,
     infer_objective_direction,
@@ -24,6 +25,7 @@ from paretomol import (
     selected_indices,
     sha256_hex,
     stringify_decision_record,
+    validate_review,
 )
 
 FIX = json.loads((Path(__file__).parent / "fixtures" / "golden.json").read_text(encoding="utf-8"))
@@ -130,8 +132,12 @@ def test_ranked_decision_recomputes_to_the_same_record():
 
 
 def test_review_urls_match_core():
+    # Deflate bytes differ between fflate and zlib, so the characters of the
+    # token are not shared. Both sides must open the TypeScript link, and a
+    # Python link must round-trip to the same payload.
     for case in FIX["review"]:
+        expect = validate_review(case["input"])
         url = review_url(case["input"])
-        assert url == case["url"]
-        assert url.startswith("https://paretomol.com/#r=")
-        assert review_token_from_url(url) == url.split("#r=", 1)[1]
+        assert url.startswith("https://paretomol.com/#r=v1.")
+        assert decode_review(review_token_from_url(url)) == expect
+        assert decode_review(review_token_from_url(case["url"])) == expect

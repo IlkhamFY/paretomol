@@ -4,7 +4,7 @@ import {
   parseAssayValue, isCensored, aggregate, isConflicting,
   packFingerprint, tanimotoPacked, computeTanimotoMatrix,
   syntheticComplexityFromDescriptors,
-  detectCSV, parseCSVData, analyzeMolecule,
+  detectCSV, parseCSVData, analyzeMolecule, readTable,
 } from '@paretomol/core';
 import type { AssayValue, SynthComplexity } from '@paretomol/core';
 import { track } from '../lib/track';
@@ -587,12 +587,11 @@ export function mergeAssayData(
     unmatchedRows: [], conflicts: [], censored: [], aggregated: 0, unitsByColumn: {},
   };
 
-  const lines = csvText.split('\n').map(l => l.trim()).filter(Boolean);
-  if (lines.length < 2) return { newPropNames: [], matchCount: 0, molecules, report: emptyReport };
+  const table = readTable(csvText);
+  if (!table || table.rows.length < 2) return { newPropNames: [], matchCount: 0, molecules, report: emptyReport };
 
-  const sep = lines[0].includes('\t') ? '\t' : ',';
-  const cellsOf = (line: string) => line.split(sep).map(c => c.trim().replace(/^"|"$/g, ''));
-  const headers = cellsOf(lines[0]);
+  const headers = table.rows[0];
+  const dataRows = table.rows.slice(1);
 
   let smilesCol = -1, nameCol = -1;
   for (let i = 0; i < headers.length; i++) {
@@ -606,8 +605,8 @@ export function mergeAssayData(
     if (i === smilesCol || i === nameCol) continue;
     if (BUILTIN.has(headers[i]) || existingCustomPropNames.includes(headers[i])) continue;
     let numCount = 0;
-    for (let r = 1; r <= Math.min(3, lines.length - 1); r++) {
-      if (parseAssayValue(cellsOf(lines[r])[i]) !== null) numCount++;
+    for (let r = 0; r < Math.min(3, dataRows.length); r++) {
+      if (parseAssayValue(dataRows[r][i]) !== null) numCount++;
     }
     if (numCount > 0) valueCols.push({ idx: i, name: headers[i] });
   }
@@ -633,8 +632,8 @@ export function mergeAssayData(
   };
 
   let rowsParsed = 0;
-  for (let r = 1; r < lines.length; r++) {
-    const cells = cellsOf(lines[r]);
+  for (let r = 0; r < dataRows.length; r++) {
+    const cells = dataRows[r];
     const rawSmiles = smilesCol >= 0 ? cells[smilesCol] ?? '' : '';
     const rawName = nameCol >= 0 ? (cells[nameCol] ?? '') : '';
     if (!rawSmiles && !rawName) continue;

@@ -27,7 +27,7 @@ print(get_profile("oral@1").hash)
 print(review_url(ranked, profile="oral@1", source="notebook"))
 ```
 
-`rank` adds `pareto_rank` (1 is the front, None means a value was missing). `review_url` packs `name`, `smiles` and the other numeric columns into a fragment link. The page recomputes descriptors and ranks.
+`rank` adds `pareto_rank` (1 is the front, None means a value was missing). `review_url` packs `name`, `smiles` and the other numeric columns into a fragment link (`v1.` plus deflate). Older lz-string links still open. The page recomputes descriptors and ranks.
 
 ## Profiles
 
@@ -35,7 +35,7 @@ print(review_url(ranked, profile="oral@1", source="notebook"))
 
 ## Decision records
 
-`build_decision_record` / `parse_decision_record` / `stringify_decision_record` read and write `paretomol.decision/0`. `models.core` stays `0.1.0`, the `@paretomol/core` version that defines the schema, so a record built here verifies in the app.
+`build_decision_record` / `parse_decision_record` / `stringify_decision_record` read and write `paretomol.decision/0`. The profile block includes `curve` (`linear` or `sigmoid`), which is the curve used for `results.mpo`. `models.core` stays `0.1.0`, the `@paretomol/core` version that defines the schema, so a record built here verifies in the app.
 
 ## Claims
 

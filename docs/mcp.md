@@ -53,7 +53,7 @@ Every call that takes molecules is capped at 2,000 molecules, the same cap the w
 | `apply_profile` | Versioned profile (`oral@1`, `cns@1`, `leadlike@1`, `lipinski@1`): MPO score, per-property desirability, filter violations, profile objectives. Returns ref and sha256 hash. |
 | `list_profiles` | Every built-in profile: ref, label, description, objectives, hash. |
 | `explain_tradeoff` | Front size, the most anti-correlated objective pair, and an optional head-to-head of two named molecules. |
-| `open_review_url` | A `https://paretomol.com/#r=` link (see review-url.md). Over the size limit the tool errors with `review_url_too_long` and tells the agent to write a decision record file. |
+| `open_review_url` | A `https://paretomol.com/#r=` link (see review-url.md). The token is deflate (`v1.`). Over the size limit the tool errors with `review_url_too_long` and tells the agent to write a decision record file. |
 | `verify_claims` | Claimed descriptor values and objective directions (see verify.md). |
 | `verify_decision` | A `paretomol.decision/0` record: hashes, then a recomputed front and MPO (see decision-record.md). Same function as `paretomol verify-decision`. |
 | `rank_input` | Parses CSV, TSV or SMILES text, including quoted fields, and returns Pareto ranks and decision-record ids (`name`, then `name~2` for a repeated name). |

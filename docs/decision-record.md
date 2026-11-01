@@ -42,12 +42,12 @@ Code: `packages/core/src/decision.ts` (`buildDecisionRecord`,
 | `input.molecules[]` | Ordered input: `id`, `name`, `smiles`, and `customProps` (imported, measured or ADMET-predicted numbers). RDKit descriptors are not stored; they are recomputed. |
 | `input.count` | Number of molecules. |
 | `input.sha256` | `sha256:<hex>` of the canonical JSON of the molecules (id, name, smiles, finite customProps). |
-| `profile.ref` / `profile.hash` | Scoring profile as `id@version` and its content hash. The app's Export menu writes `oral@1`; a review link exports the link's profile. |
+| `profile.ref` / `profile.hash` / `profile.curve` | Scoring profile as `id@version`, its content hash, and the MPO curve (`linear` or `sigmoid`) used for `results.mpo`. Export writes the profile and curve selected on the MPO tab (`oral@1` and linear until you change them). A review link exports the link's profile and a linear curve. Older records omit `curve`; readers treat that as linear. |
 | `models.core` | `@paretomol/core` version. |
 | `models.rdkitjs` | RDKit.js version that computed descriptors (`RDKit.version()`). |
 | `models.admet` | `{endpoint, model}` when any column came from ADMET-AI, else `null`. |
 | `objectives[]` | Pareto objectives, `{key, direction: "min" \| "max"}`. |
-| `results[]` | Per molecule: `id`, `paretoRank` (1 = front), `mpo` (linear MPO under the profile, 6 decimals). |
+| `results[]` | Per molecule: `id`, `paretoRank` (1 = front), `mpo` (MPO under the profile and `profile.curve`, 6 decimals). |
 | `selected[]` | Picked molecule ids (the shortlist), sorted. Every id must exist in the input. |
 | `rationale` | Free text: why these picks. |
 | `view` | Optional UI state: active tab, formula columns, custom/ADMET column names, property filters, substructure filter. The CLI omits it. |

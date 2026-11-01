@@ -43,7 +43,8 @@
     <script>
       // Page and event counts only on the production hostname.
       // Localhost and preview builds are skipped. no_onload keeps the library
-      // from sending location.search (the share link carries molecules in `m`).
+      // from sending location.search. Molecule payloads live in the fragment
+      // (#m= share, #r= review). Analytics strip those keys as well.
       if (location.hostname === 'paretomol.com') {
         window.goatcounter = { no_onload: true };
         document.write('<script data-goatcounter="https://paretomol.goatcounter.com/count" async src="//gc.zgo.at/count.js"><\/script>');

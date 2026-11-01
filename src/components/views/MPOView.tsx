@@ -2,6 +2,8 @@
 import type { Molecule, PropDesirability, CurveType } from '@paretomol/core';
 import { useTheme } from '../../contexts/ThemeContext';
 import { desirability, geometricMean, sigmoidDesirability, getProfile } from '@paretomol/core';
+import { MPO_PROFILE_REFS, mpoKeyForRef } from '../../utils/scoringProfile';
+import type { MpoProfileKey } from '../../utils/scoringProfile';
 
 // ─── ADMET desirability ─────────────────────────────────────────────────────
 
@@ -148,41 +150,72 @@ function DesirCurve({ d, value, profile, curveType = 'linear' }: { d: number; va
 
 // ΓöÇΓöÇΓöÇ Component ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
+function windowsFor(ref: string | undefined): MPOProfile {
+  if (!ref) return PROFILES.oral.profile;
+  try {
+    const d = getProfile(ref).desirability;
+    return Object.fromEntries(PROP_KEYS_ORDER.map((k) => [k, { ...d[k] }])) as MPOProfile;
+  } catch {
+    return PROFILES.oral.profile;
+  }
+}
+
 function MPOView({
   molecules,
   selectedMolIdx,
   setSelectedMolIdx,
+  profileRef,
+  onProfileRef,
+  curveType: curveProp,
+  onCurveType,
 }: {
   molecules: Molecule[];
   selectedMolIdx?: number | null;
   setSelectedMolIdx?: (idx: number | null) => void;
+  /** Versioned profile ref from the app, e.g. cns@1. */
+  profileRef?: string;
+  onProfileRef?: (ref: string) => void;
+  curveType?: CurveType;
+  onCurveType?: (curve: CurveType) => void;
 }) {
   useTheme(); // subscribe to theme changes
-  const [profileName, setProfileName] = useState<keyof typeof PROFILES>('oral');
+  const [localProfileName, setLocalProfileName] = useState<MpoProfileKey>('oral');
   const [customProfile, setCustomProfile] = useState<MPOProfile>({ ...PROFILES.custom.profile });
   const [showRangeEditor, setShowRangeEditor] = useState(false);
   const [sortBy, setSortBy] = useState<'mpo' | PropKey>('mpo');
-  const [curveType, setCurveType] = useState<CurveType>('linear');
+  const [localCurve, setLocalCurve] = useState<CurveType>('linear');
   const [includeAdmet, setIncludeAdmet] = useState(false);
+  const selectedKey: MpoProfileKey | null = profileRef !== undefined ? mpoKeyForRef(profileRef) : localProfileName;
+  const curveType = curveProp ?? localCurve;
 
   const admetPresent = useMemo(
     () => molecules.some(m => m.customProps && ADMET_MPO_DEFS.some(d => m.customProps![d.key] != null)),
     [molecules]
   );
 
-  const activeProfile: MPOProfile =
-    profileName === 'custom' ? customProfile : PROFILES[profileName].profile;
+  const activeProfile: MPOProfile = selectedKey === 'custom'
+    ? customProfile
+    : selectedKey
+      ? PROFILES[selectedKey].profile
+      : windowsFor(profileRef);
 
-  const selectProfile = (name: keyof typeof PROFILES) => {
-    setProfileName(name);
+  const selectProfile = (name: MpoProfileKey) => {
+    setLocalProfileName(name);
+    onProfileRef?.(MPO_PROFILE_REFS[name]);
     if (name !== 'custom') setCustomProfile({ ...PROFILES[name].profile });
+  };
+
+  const chooseCurve = (ct: CurveType) => {
+    setLocalCurve(ct);
+    onCurveType?.(ct);
   };
 
   const updateBoundary = (prop: PropKey, field: keyof PropDesirability, raw: string) => {
     const val = parseFloat(raw);
     if (isNaN(val)) return;
     setCustomProfile(prev => ({ ...prev, [prop]: { ...prev[prop], [field]: val } }));
-    setProfileName('custom');
+    setLocalProfileName('custom');
+    onProfileRef?.(MPO_PROFILE_REFS.custom);
   };
 
   const scored = useMemo(() => {
@@ -236,9 +269,9 @@ function MPOView({
           {Object.entries(PROFILES).map(([name, def]) => (
             <button
               key={name}
-              onClick={() => selectProfile(name as keyof typeof PROFILES)}
+              onClick={() => selectProfile(name as MpoProfileKey)}
               className={`px-3 py-1.5 text-[12px] font-medium transition-colors border-b-2 ${
-                profileName === name
+                selectedKey === name
                   ? 'border-[var(--accent)] text-[var(--text-heading)]'
                   : 'border-transparent text-[var(--text2)] hover:text-[var(--text)]'
               }`}
@@ -268,7 +301,7 @@ function MPOView({
             {(['linear', 'sigmoid'] as const).map(ct => (
               <button
                 key={ct}
-                onClick={() => setCurveType(ct)}
+                onClick={() => chooseCurve(ct)}
                 className={`px-2.5 py-1 text-[10px] font-medium transition-colors ${
                   curveType === ct
                     ? 'bg-[#5F7367]/20 text-[#8fad9a]'
@@ -292,7 +325,7 @@ function MPOView({
         </div>
       </div>
 
-      <p className="text-[11px] text-[var(--text2)]/70 -mt-3 italic">{PROFILES[profileName].desc}</p>
+      <p className="text-[11px] text-[var(--text2)]/70 -mt-3 italic">{selectedKey ? PROFILES[selectedKey].desc : (profileRef ?? PROFILES.oral.desc)}</p>
 
       {/* Range editor */}
       {showRangeEditor && (

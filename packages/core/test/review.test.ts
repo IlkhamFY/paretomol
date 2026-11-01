@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { encodeReview, decodeReview, reviewUrl, reviewTokenFromUrl, validateReview, REVIEW_SCHEMA, buildDecisionRecord, parseDecisionRecord } from '../src/index';
+import LZString from 'lz-string';
+import { encodeReview, decodeReview, reviewUrl, reviewUrlWarning, reviewTokenFromUrl, validateReview, REVIEW_SCHEMA, REVIEW_TOKEN_PREFIX, REVIEW_URL_SOFT_LIMIT, buildDecisionRecord, parseDecisionRecord } from '../src/index';
 import type { Molecule } from '../src/index';
 
 const payload = {
@@ -19,7 +20,33 @@ describe('review URL', () => {
     const url = reviewUrl(payload);
     expect(url.startsWith('https://paretomol.com/#r=')).toBe(true);
     const tok = reviewTokenFromUrl(url)!;
+    expect(tok.startsWith(REVIEW_TOKEN_PREFIX)).toBe(true);
     expect(decodeReview(tok)).toEqual({ schema: REVIEW_SCHEMA, ...payload });
+  });
+
+  it('still opens an unprefixed lz-string token', () => {
+    const validated = validateReview(payload);
+    const legacy = LZString.compressToEncodedURIComponent(JSON.stringify(validated));
+    expect(legacy.startsWith(REVIEW_TOKEN_PREFIX)).toBe(false);
+    expect(decodeReview(legacy)).toEqual(validated);
+  });
+
+  it('points a cut-off or still-too-long link at a decision record file', () => {
+    expect(() => decodeReview('v1.not-valid!!!')).toThrow(/decision record file/);
+    expect(() => decodeReview('garbage!!')).toThrow(/corrupt/);
+    expect(reviewUrlWarning('https://paretomol.com/#r=v1.abc')).toBeUndefined();
+    const molecules = Array.from({ length: 1200 }, (_, i) => {
+      let x = i + 1;
+      let smiles = '';
+      for (let k = 0; k < 80; k++) {
+        x = (Math.imul(x, 1103515245) + 12345) & 0x7fffffff;
+        smiles += 'CNOFClBr'[x % 6];
+      }
+      return { name: `m${i}`, smiles };
+    });
+    const url = reviewUrl({ molecules });
+    expect(url.length).toBeGreaterThan(REVIEW_URL_SOFT_LIMIT);
+    expect(reviewUrlWarning(url)).toMatch(/decision record file/);
   });
 
   it('also reads ?r= and ignores other params', () => {

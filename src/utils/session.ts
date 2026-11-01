@@ -22,6 +22,10 @@ export interface SessionData {
   customPropNames: string[];
   activeTab: string;
   shortlist: number[];
+  /** MPO profile ref, e.g. oral@1. Absent on sessions saved before it was stored. */
+  scoringProfile?: string;
+  /** MPO curve. Absent on older sessions; treated as linear. */
+  mpoCurve?: 'linear' | 'sigmoid';
 }
 
 // Molecule without non-serializable fields (fpPacked is Uint32Array)

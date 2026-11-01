@@ -7,6 +7,7 @@ import type { Molecule, ParetoObjective, FormulaColumn } from './types.js';
 import { canonicalJSON, getProfile } from './profiles.js';
 import type { ResolvedProfile } from './profiles.js';
 import { mpoScore } from './mpo.js';
+import type { CurveType } from './mpo.js';
 import { sha256Hex } from './sha256.js';
 
 export const DECISION_RECORD_SCHEMA = 'paretomol.decision/0' as const;
@@ -26,7 +27,7 @@ export interface DecisionMolecule {
 export interface DecisionResult {
   id: string;
   paretoRank: number | null;
-  /** Linear MPO score under `profile`, rounded to 6 decimals. */
+  /** MPO score under `profile` and its curve (linear when the curve was not stored), rounded to 6 decimals. */
   mpo: number;
 }
 
@@ -53,7 +54,12 @@ export interface DecisionReview {
 export interface DecisionRecord {
   schema: typeof DECISION_RECORD_SCHEMA;
   input: { sha256: string; count: number; molecules: DecisionMolecule[] };
-  profile: { ref: string; hash: string };
+  profile: {
+    ref: string;
+    hash: string;
+    /** MPO curve used for `results.mpo`. Absent on older records; readers treat that as linear. */
+    curve?: CurveType;
+  };
   models: { core: string; rdkitjs: string; admet: { endpoint: string; model: string } | null };
   objectives: ParetoObjective[];
   results: DecisionResult[];
@@ -115,6 +121,8 @@ export interface BuildDecisionOptions {
   molecules: Molecule[];
   objectives: ParetoObjective[];
   profile?: string | ResolvedProfile;
+  /** MPO curve the user applied. Default linear (CLI, and review export). */
+  curve?: CurveType;
   /** Indices into `molecules`. */
   selected?: number[];
   rationale?: string;
@@ -129,6 +137,8 @@ export interface BuildDecisionOptions {
 
 export function buildDecisionRecord(o: BuildDecisionOptions): DecisionRecord {
   const profile = typeof o.profile === 'string' || o.profile === undefined ? getProfile(o.profile ?? 'oral@1') : o.profile;
+  if (o.curve !== undefined && o.curve !== 'linear' && o.curve !== 'sigmoid') throw new Error('Decision record: curve must be linear or sigmoid');
+  const curve: CurveType = o.curve ?? 'linear';
   const ids = moleculeIds(o.molecules.map((m) => m.name));
   const inMols: DecisionMolecule[] = o.molecules.map((m, i) => {
     const cp = cleanCustom(m.customProps);
@@ -137,13 +147,13 @@ export function buildDecisionRecord(o: BuildDecisionOptions): DecisionRecord {
   const results: DecisionResult[] = o.molecules.map((m, i) => ({
     id: ids[i],
     paretoRank: m.paretoRank ?? null,
-    mpo: round6(mpoScore({ ...(m.props as unknown as Record<string, number>), ...m.customProps }, profile.desirability, 'linear').score),
+    mpo: round6(mpoScore({ ...(m.props as unknown as Record<string, number>), ...m.customProps }, profile.desirability, curve).score),
   }));
   const selected = [...new Set(o.selected ?? [])].filter((i) => i >= 0 && i < ids.length).sort((a, b) => a - b).map((i) => ids[i]);
   const rec: Omit<DecisionRecord, 'recordHash'> = {
     schema: DECISION_RECORD_SCHEMA,
     input: { sha256: inputHash(inMols), count: inMols.length, molecules: inMols },
-    profile: { ref: profile.ref, hash: profile.hash },
+    profile: { ref: profile.ref, hash: profile.hash, curve },
     models: {
       core: CORE_VERSION,
       rdkitjs: o.rdkitVersion,
@@ -178,6 +188,7 @@ export function parseDecisionRecord(json: string | unknown): DecisionRecord {
   let p: ResolvedProfile | null = null;
   try { p = getProfile(rec.profile.ref); } catch { /* unknown profile: allowed, cannot be checked */ }
   if (p && p.hash !== rec.profile.hash) throw new Error(`Decision record: profile ${rec.profile.ref} hash differs from this version of ParetoMol`);
+  if (rec.profile.curve !== undefined && rec.profile.curve !== 'linear' && rec.profile.curve !== 'sigmoid') throw new Error('Decision record: profile.curve must be linear or sigmoid');
   const ids = new Set(rec.input.molecules.map((m) => m.id));
   for (const s of rec.selected) if (!ids.has(s)) throw new Error(`Decision record: selected id not in input: ${s}`);
   if (rec.review) {

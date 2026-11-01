@@ -15,18 +15,39 @@ const MOLS = [
   { smiles: 'CN1C=NC2=C1C(=O)N(C(=O)N2C)C', name: 'caffeine', props: { pIC50: 6 } },
   { smiles: 'CCO', name: 'ethanol', props: { pIC50: 3 } },
 ];
-const OBJECTIVES = [{ key: 'MW', direction: 'min' }, { key: 'pIC50', direction: 'max' }];
+const OBJECTIVES = [{ key: 'MW', direction: 'min' as const }, { key: 'pIC50', direction: 'max' as const }];
 
 const pkg = join(__dirname, '..');
 let client: Client;
 let close: () => Promise<void>;
 
+interface ToolContent {
+  molecules: { descriptors: { MW: number }; name: string; mpo: number; svg: string; paretoRank: number; dominatedBy?: string[] }[];
+  invalid: { index: number; smiles: string }[];
+  front: string[];
+  counts: { onFront: number };
+  fronts: { rank: number; names: string[] }[];
+  edges: boolean;
+  profile: { ref: string };
+  profiles: { ref: string }[];
+  comparison: { relation: string };
+  url: string;
+  ok: boolean;
+  code: string;
+  message: string;
+  experimental: boolean;
+  ui: string;
+  fallbackUrl: string;
+  issues: { code: string }[];
+}
+
 async function call(name: string, args: Record<string, unknown>) {
-  return client.callTool({ name, arguments: args }) as Promise<{
+  const result = await client.callTool({ name, arguments: args }) as {
     isError?: boolean;
-    structuredContent?: Record<string, unknown>;
+    structuredContent?: Partial<ToolContent>;
     content: { type: string; text?: string }[];
-  }>;
+  };
+  return { ...result, structuredContent: (result.structuredContent ?? {}) as ToolContent };
 }
 
 beforeAll(async () => {
@@ -52,7 +73,7 @@ describe('paretomol mcp', () => {
     ]);
     const review = listed.tools.find((t) => t.name === 'review_shortlist');
     expect(review?._meta).toMatchObject({ ui: { resourceUri: 'ui://paretomol/review.html' } });
-    expect(review?.description.startsWith('Experimental.')).toBe(true);
+    expect(review?.description?.startsWith('Experimental.')).toBe(true);
     const exp = listed.tools.find((t) => t.name === 'export_review_decision');
     expect(exp?._meta).toMatchObject({ ui: { visibility: ['app'] } });
     const pareto = listed.tools.find((t) => t.name === 'pareto_front');
@@ -69,11 +90,11 @@ describe('paretomol mcp', () => {
     const p = (await call('pareto_front', { molecules: MOLS, objectives: OBJECTIVES })).structuredContent;
     expect(p.front.sort()).toEqual(['aspirin', 'ethanol']);
     expect(p.counts.onFront).toBe(2);
-    expect(p.fronts.find((f: { rank: number }) => f.rank === 1).names.sort()).toEqual(['aspirin', 'ethanol']);
+    expect(p.fronts.find((f) => f.rank === 1)!.names.sort()).toEqual(['aspirin', 'ethanol']);
     expect(p.edges).toBe(false);
     expect(p.molecules[0].dominatedBy).toBeUndefined();
     const e = (await call('pareto_front', { molecules: MOLS, objectives: OBJECTIVES, edges: true })).structuredContent;
-    expect(e.molecules.find((m: { name: string }) => m.name === 'caffeine').dominatedBy).toContain('aspirin');
+    expect(e.molecules.find((m) => m.name === 'caffeine')!.dominatedBy).toContain('aspirin');
   });
 
   it('caps molecule count and SMILES length with stable codes', async () => {
@@ -109,9 +130,11 @@ describe('paretomol mcp', () => {
   });
 
   it('refuses a review link over the size limit and does not return the URL', async () => {
-    const molecules = Array.from({ length: 400 }, (_, i) => ({
+    // Unique hex, not a repeated digest: deflate would otherwise shrink the
+    // repeated form under the limit and the refusal would never fire.
+    const molecules = Array.from({ length: 500 }, (_, i) => ({
       name: `m${i}`,
-      smiles: createHash('sha256').update(`mol-${i}`).digest('hex').repeat(6),
+      smiles: ['a', 'b', 'c', 'd'].map((s) => createHash('sha256').update(`mol-${i}-${s}`).digest('hex')).join(''),
     }));
     const u = await call('open_review_url', { molecules });
     expect(u.isError).toBe(true);
@@ -128,7 +151,7 @@ describe('paretomol mcp', () => {
     expect(view.ui).toBe('ui://paretomol/review.html');
     expect(view.fallbackUrl.startsWith('https://paretomol.com/#r=')).toBe(true);
     expect(view.molecules[0].svg).toContain('<svg');
-    expect(view.molecules.find((m: { name: string }) => m.name === 'aspirin').paretoRank).toBe(1);
+    expect(view.molecules.find((m) => m.name === 'aspirin')!.paretoRank).toBe(1);
     const text = (await call('review_shortlist', { molecules: MOLS })).content[0].text ?? '';
     expect(text).not.toContain('<svg');
 

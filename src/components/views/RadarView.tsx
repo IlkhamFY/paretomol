@@ -34,7 +34,7 @@ function DownloadIcon({ size = 12 }: { size?: number }) {
 type FilterMode = 'all' | 'pareto' | 'starred';
 
 function RadarView({ molecules, selectedMolIdx, setSelectedMolIdx, shortlist }: { molecules: Molecule[], selectedMolIdx: number | null, setSelectedMolIdx?: (idx: number | null) => void, shortlist?: Set<number> }) {
-  const { themeVersion } = useTheme();
+  useTheme();
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chartRef = useRef<any>(null);
@@ -152,7 +152,7 @@ function RadarView({ molecules, selectedMolIdx, setSelectedMolIdx, shortlist }: 
         tempChart.destroy();
       });
     });
-  }, [datasets, labels, themeVersion]);
+  }, [datasets, labels]);
 
   return (
     <div className="bg-[var(--surface)] border border-[var(--border-5)] rounded-lg p-5">

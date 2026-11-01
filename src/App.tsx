@@ -15,7 +15,8 @@ import { useTheme } from './contexts/ThemeContext';
 import { detectLocalServer } from './utils/admetTiers';
 import { warmupAdmetEndpoint, getAdmetAIEndpoint } from './utils/admetAI';
 import { buildDecisionRecord, parseDecisionRecord, selectedIndices, reviewTokenFromUrl, decodeReview, getProfile } from '@paretomol/core';
-import type { ReviewVerdict } from '@paretomol/core';
+import type { CurveType, ReviewVerdict } from '@paretomol/core';
+import { decisionExportFields } from './utils/decisionExport';
 import ReviewPanel from './components/ReviewPanel';
 import type { ReviewState } from './components/ReviewPanel';
 import { fetchRAScore, getRascoreUrl } from './utils/rascore';
@@ -41,6 +42,8 @@ export default function App() {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [customPropNames, setCustomPropNames] = useState<string[]>([]);
   const [paretoObjectives, setParetoObjectives] = useState<ParetoObjective[]>(DEFAULT_PARETO_OBJECTIVES);
+  const [scoringProfileRef, setScoringProfileRef] = useState('oral@1');
+  const [mpoCurve, setMpoCurve] = useState<CurveType>('linear');
   const [admetPropNames, setAdmetPropNames] = useState<string[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(() => window.location.search.includes('docs'));
@@ -154,10 +157,12 @@ export default function App() {
         customPropNames,
         activeTab,
         shortlist: Array.from(shortlist),
+        scoringProfile: scoringProfileRef,
+        mpoCurve,
       });
     }, 2000);
     return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
-  }, [molecules, paretoObjectives, formulaColumns, customPropNames, activeTab, shortlist]);
+  }, [molecules, paretoObjectives, formulaColumns, customPropNames, activeTab, shortlist, scoringProfileRef, mpoCurve]);
 
   // Session restore on load
   useEffect(() => {
@@ -203,6 +208,10 @@ export default function App() {
     computeParetoAndDominance(restored, session.objectives ?? DEFAULT_PARETO_OBJECTIVES);
     setMolecules(restored);
     if (session.objectives) setParetoObjectives(session.objectives);
+    if (session.scoringProfile) {
+      try { setScoringProfileRef(getProfile(session.scoringProfile).ref); } catch { /* keep the default */ }
+    }
+    if (session.mpoCurve === 'linear' || session.mpoCurve === 'sigmoid') setMpoCurve(session.mpoCurve);
     if (session.formulaColumns) setFormulaColumns(session.formulaColumns);
     if (session.customPropNames) setCustomPropNames(session.customPropNames);
     if (session.activeTab) setActiveTab(session.activeTab);
@@ -234,6 +243,9 @@ export default function App() {
         if (fresh.length !== payload.molecules.length) throw new Error(`${payload.molecules.length - fresh.length} structures did not parse`);
         const mols = fresh.map((m, i) => ({ ...m, name: payload.molecules[i].name, customProps: { ...(payload.molecules[i].customProps ?? {}) } }));
         const objectives = payload.objectives ?? getProfile(payload.profile ?? 'oral@1').objectives.map(o => ({ ...o }));
+        if (payload.profile) {
+          try { setScoringProfileRef(getProfile(payload.profile).ref); } catch { /* payload profile already validated */ }
+        }
         computeParetoAndDominance(mols, objectives);
         setMolecules(mols);
         setParetoObjectives(objectives);
@@ -264,14 +276,23 @@ export default function App() {
     const RDKit = await initRDKitCache();
     const accepted = Object.entries(review.decisions).filter(([, v]) => v === 'accept').map(([k]) => Number(k));
     const names = new Map(molecules.map((m, i) => [m.name, i] as const));
+    const scoring = decisionExportFields({
+      kind: 'review',
+      profileRef: scoringProfileRef,
+      curve: mpoCurve,
+      reviewProfile: review.payload.profile,
+      admetColumns: admetPropNames.length,
+      admetEndpoint: getAdmetAIEndpoint(),
+    });
     const rec = buildDecisionRecord({
       molecules,
       objectives: paretoObjectives,
-      profile: review.payload.profile ?? 'oral@1',
+      profile: scoring.profile,
+      curve: scoring.curve,
       selected: accepted,
       rationale: note,
       rdkitVersion: typeof RDKit?.version === 'function' ? String(RDKit.version()) : 'unknown',
-      admetEndpoint: null,
+      admetEndpoint: scoring.admetEndpoint,
       view: { activeTab, formulaColumns, customPropNames, admetPropNames, propertyFilters, substructureFilter },
       review: { source: review.payload.source, decisions: review.decisions, suggested: (review.payload.suggested ?? []).flatMap(n => names.has(n) ? [names.get(n)!] : []) },
     });
@@ -549,14 +570,22 @@ export default function App() {
     const rationale = window.prompt('Why these picks? (optional, saved in the record)', '');
     if (rationale === null) return;
     const RDKit = await initRDKitCache();
+    const scoring = decisionExportFields({
+      kind: 'workspace',
+      profileRef: scoringProfileRef,
+      curve: mpoCurve,
+      admetColumns: admetPropNames.length,
+      admetEndpoint: getAdmetAIEndpoint(),
+    });
     const rec = buildDecisionRecord({
       molecules,
       objectives: paretoObjectives,
-      profile: 'oral@1',
+      profile: scoring.profile,
+      curve: scoring.curve,
       selected: Array.from(shortlist),
       rationale,
       rdkitVersion: typeof RDKit?.version === 'function' ? String(RDKit.version()) : 'unknown',
-      admetEndpoint: admetPropNames.length > 0 ? getAdmetAIEndpoint() : null,
+      admetEndpoint: scoring.admetEndpoint,
       view: { activeTab, formulaColumns, customPropNames, admetPropNames, propertyFilters, substructureFilter },
     });
     downloadDecisionRecord(rec);
@@ -574,6 +603,8 @@ export default function App() {
       const v = rec.view ?? {};
       setMolecules(restored);
       setParetoObjectives(rec.objectives);
+      try { setScoringProfileRef(getProfile(rec.profile.ref).ref); } catch { /* unknown profile: leave the current one */ }
+      if (rec.profile.curve === 'linear' || rec.profile.curve === 'sigmoid') setMpoCurve(rec.profile.curve);
       setFormulaColumns(v.formulaColumns ?? []);
       setCustomPropNames(v.customPropNames ?? Array.from(new Set(restored.flatMap(m => Object.keys(m.customProps)))));
       setAdmetPropNames(v.admetPropNames ?? []);
@@ -791,6 +822,10 @@ export default function App() {
             toggleShortlist={toggleShortlist}
             formulaColumns={formulaColumns}
             setFormulaColumns={setFormulaColumns}
+            scoringProfileRef={scoringProfileRef}
+            onScoringProfileRef={setScoringProfileRef}
+            mpoCurve={mpoCurve}
+            onMpoCurve={setMpoCurve}
           />
         </div>
       </main>

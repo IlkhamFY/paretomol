@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useDeferredValue, startTransition, lazy, Suspense } from 'react';
 import type { Molecule, FormulaColumn, ParetoObjective } from '@paretomol/core';
-import { getInitialTabFromUrl } from '../utils/share';
+import { getInitialTabFromUrl, urlForView } from '../utils/share';
 import { exportViewAsSVG, downloadCanvasPng } from '../utils/export';
 import { useTheme } from '../contexts/ThemeContext';
 import { useFDAReference } from '../hooks/useFDAReference';
@@ -25,7 +25,7 @@ const ADMETAIView = lazy(() => import('./views/ADMETAIView'));
 const StatisticsView = lazy(() => import('./views/StatisticsView'));
 const MakeabilityView = lazy(() => import('./views/MakeabilityView'));
 
-export default function Content({ molecules, compareIndices, selectedMolIdx, setSelectedMolIdx, exportContainerRef, setCompareIndices, isInitialLoading, customPropNames = [], paretoObjectives = [], onADMETPredictions, onComputeMakeability, onCheckBuyability, onCheckAvailability, onExportScores, onLoadExample, onOpenSidebar, activeTab: activeTabProp, setActiveTab: setActiveTabProp, showFDARef: showFDARefProp, setShowFDARef: setShowFDARefProp, onToast, shortlist, toggleShortlist, formulaColumns, setFormulaColumns }: { molecules: Molecule[]; compareIndices: number[]; selectedMolIdx: number | null; setSelectedMolIdx?: (idx: number | null) => void; exportContainerRef?: React.RefObject<HTMLDivElement | null>; setCompareIndices?: React.Dispatch<React.SetStateAction<number[]>>; isInitialLoading?: boolean; customPropNames?: string[]; paretoObjectives?: ParetoObjective[]; onADMETPredictions?: (predictions: Map<string, Record<string, number>>) => void; onComputeMakeability?: () => Promise<{ sa: number; ra: number; sc: number; total: number }>; onCheckBuyability?: () => Promise<{ resolved: number; buyable: number; total: number }>; onCheckAvailability?: () => Promise<{ inZinc: number; total: number }>; onExportScores?: () => void; onLoadExample?: (key: string) => void; onOpenSidebar?: () => void; activeTab?: string; setActiveTab?: (tab: string) => void; showFDARef?: boolean; setShowFDARef?: (v: boolean | ((prev: boolean) => boolean)) => void; onToast?: (msg: string) => void; shortlist?: Set<number>; toggleShortlist?: (idx: number) => void; formulaColumns?: FormulaColumn[]; setFormulaColumns?: (cols: FormulaColumn[]) => void }) {
+export default function Content({ molecules, compareIndices, selectedMolIdx, setSelectedMolIdx, exportContainerRef, setCompareIndices, isInitialLoading, customPropNames = [], paretoObjectives = [], onADMETPredictions, onComputeMakeability, onCheckBuyability, onCheckAvailability, onExportScores, onLoadExample, onOpenSidebar, activeTab: activeTabProp, setActiveTab: setActiveTabProp, showFDARef: showFDARefProp, setShowFDARef: setShowFDARefProp, onToast, shortlist, toggleShortlist, formulaColumns, setFormulaColumns, scoringProfileRef, onScoringProfileRef, mpoCurve, onMpoCurve }: { molecules: Molecule[]; compareIndices: number[]; selectedMolIdx: number | null; setSelectedMolIdx?: (idx: number | null) => void; exportContainerRef?: React.RefObject<HTMLDivElement | null>; setCompareIndices?: React.Dispatch<React.SetStateAction<number[]>>; isInitialLoading?: boolean; customPropNames?: string[]; paretoObjectives?: ParetoObjective[]; onADMETPredictions?: (predictions: Map<string, Record<string, number>>) => void; onComputeMakeability?: () => Promise<{ sa: number; ra: number; sc: number; total: number }>; onCheckBuyability?: () => Promise<{ resolved: number; buyable: number; total: number }>; onCheckAvailability?: () => Promise<{ inZinc: number; total: number }>; onExportScores?: () => void; onLoadExample?: (key: string) => void; onOpenSidebar?: () => void; activeTab?: string; setActiveTab?: (tab: string) => void; showFDARef?: boolean; setShowFDARef?: (v: boolean | ((prev: boolean) => boolean)) => void; onToast?: (msg: string) => void; shortlist?: Set<number>; toggleShortlist?: (idx: number) => void; formulaColumns?: FormulaColumn[]; setFormulaColumns?: (cols: FormulaColumn[]) => void; scoringProfileRef?: string; onScoringProfileRef?: (ref: string) => void; mpoCurve?: 'linear' | 'sigmoid'; onMpoCurve?: (curve: 'linear' | 'sigmoid') => void }) {
   // Use lifted state from App if provided, otherwise fallback to local state
   const validTabs = ['pareto','admet-ai','egg','table','makeability','radar','scaffolds','chemspace','scoring','mpo','cliffs','compare','parallel','similarity','statistics'];
   // Legacy tab IDs → new tab IDs (for old shared URLs)
@@ -44,16 +44,17 @@ export default function Content({ molecules, compareIndices, selectedMolIdx, set
   const fdaData = useFDAReference(showFDARef);
   const [shortlistOpen, setShortlistOpen] = useState(false);
 
-  // Expose activeTab changes to URL (for share link)
+  // Keep the tab query in sync. Molecule payloads stay in the fragment
+  // (#m= share, #r= review). Old ?m= and ?r= links are moved there on this
+  // pass so they are not left in the address bar. Analytics strip both keys
+  // on their own and do not read this URL.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (activeTab !== 'pareto') {
-      params.set('tab', activeTab);
-    } else {
-      params.delete('tab');
-    }
-    const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
-    window.history.replaceState(null, '', newUrl);
+    const next = urlForView(
+      { pathname: window.location.pathname, search: window.location.search, hash: window.location.hash },
+      activeTab,
+    );
+    const current = window.location.pathname + window.location.search + window.location.hash;
+    if (next !== current) window.history.replaceState(null, '', next);
   }, [activeTab]);
 
   // Tab bar scroll fade state (must be before any early return)
@@ -289,7 +290,7 @@ export default function Content({ molecules, compareIndices, selectedMolIdx, set
           {activeTab === 'scaffolds' && <ScaffoldView molecules={deferredMolecules} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} />}
           {activeTab === 'chemspace' && <ChemSpaceView molecules={deferredMolecules} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} />}
           {activeTab === 'scoring' && <ScoringView molecules={deferredMolecules} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} />}
-          {activeTab === 'mpo' && <MPOView molecules={deferredMolecules} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} />}
+          {activeTab === 'mpo' && <MPOView molecules={deferredMolecules} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} profileRef={scoringProfileRef} onProfileRef={onScoringProfileRef} curveType={mpoCurve} onCurveType={onMpoCurve} />}
           {activeTab === 'cliffs' && <ActivityCliffsView molecules={deferredMolecules} onComparePair={setCompareIndices ? (i, j) => { setCompareIndices([i, j]); setActiveTab('compare'); } : undefined} />}
           {activeTab === 'compare' && <CompareView molecules={deferredMolecules} compareIndices={compareIndices} setCompareIndices={setCompareIndices} />}
           {activeTab === 'parallel' && <ParallelView molecules={deferredMolecules} selectedMolIdx={selectedMolIdx} setSelectedMolIdx={setSelectedMolIdx} />}

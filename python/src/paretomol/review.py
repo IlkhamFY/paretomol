@@ -7,6 +7,8 @@ dicts or a pandas DataFrame.
 
 from __future__ import annotations
 
+import base64
+import zlib
 from typing import Any, Mapping, Optional, Sequence
 from urllib.parse import unquote
 
@@ -19,6 +21,7 @@ from .profiles import get_profile
 REVIEW_SCHEMA = "paretomol.review/0"
 REVIEW_BASE_URL = "https://paretomol.com/"
 REVIEW_URL_SOFT_LIMIT = 32000
+REVIEW_TOKEN_PREFIX = "v1."
 
 _lz = lzstring.LZString()
 _RESERVED = frozenset({
@@ -105,25 +108,59 @@ def validate_review(data: Any) -> dict[str, Any]:
     return out_payload
 
 
+def _b64url(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+
+def _b64url_decode(text: str) -> bytes:
+    pad = "=" * ((4 - len(text) % 4) % 4)
+    return base64.urlsafe_b64decode(text + pad)
+
+
 def encode_review(data: Any) -> str:
-    """Compressed, URL-safe token for a payload."""
-    return _lz.compressToEncodedURIComponent(js_stringify(validate_review(data)))
+    """``v1.`` plus base64url(raw deflate) of the JSON. Old lz-string tokens still decode."""
+    raw = js_stringify(validate_review(data)).encode("utf-8")
+    comp = zlib.compressobj(level=9, wbits=-15)
+    return REVIEW_TOKEN_PREFIX + _b64url(comp.compress(raw) + comp.flush())
+
+
+def _corrupt(detail: str) -> ValueError:
+    return ValueError(
+        f"Review link is corrupt ({detail}). For a large set, use a decision record file instead."
+    )
 
 
 def decode_review(token: str) -> dict[str, Any]:
-    """Inverse of :func:`encode_review`. Raises on a corrupt or invalid token."""
-    try:
-        text = _lz.decompressFromEncodedURIComponent(token)
-    except Exception:
-        text = None
-    if not text:
-        raise ValueError("Review link is corrupt (could not decompress)")
+    """Inverse of :func:`encode_review`. Also accepts the original lz-string tokens."""
     import json
+    if token.startswith(REVIEW_TOKEN_PREFIX):
+        try:
+            raw = zlib.decompress(_b64url_decode(token[len(REVIEW_TOKEN_PREFIX):]), -15)
+            text = raw.decode("utf-8")
+        except Exception as exc:
+            raise _corrupt("could not decompress") from exc
+    else:
+        try:
+            text = _lz.decompressFromEncodedURIComponent(token)
+        except Exception:
+            text = None
+        if not text:
+            raise _corrupt("could not decompress")
     try:
         obj = json.loads(text)
     except Exception as exc:
-        raise ValueError("Review link is corrupt (not JSON)") from exc
+        raise _corrupt("not JSON") from exc
     return validate_review(obj)
+
+
+def review_url_warning(url: str) -> Optional[str]:
+    """Set when a review URL is still longer than browsers and chat apps reliably keep."""
+    if len(url) <= REVIEW_URL_SOFT_LIMIT:
+        return None
+    return (
+        f"Review link is {len(url)} characters, past the {REVIEW_URL_SOFT_LIMIT} characters "
+        "browsers and chat apps reliably keep. Use a decision record file instead."
+    )
 
 
 def _review_url(data: Any, base: str = REVIEW_BASE_URL) -> str:
