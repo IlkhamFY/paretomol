@@ -8,7 +8,7 @@
 // carries `matched_smiles` (verbatim the query) so correlation back to the input
 // is an exact string group-by — no canonicalisation needed.
 
-import type { MolCost } from '@paretomol/core';
+import type { MolCost } from './types';
 
 const CB = 'https://cartblanche22.docking.org';
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));

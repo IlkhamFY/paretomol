@@ -1,17 +1,5 @@
-import type { Molecule, ParetoObjective, FormulaColumn } from '@paretomol/core';
-import { PROPERTIES, DRUG_FILTERS } from '@paretomol/core';
-import {
-  CITATION_COLUMN,
-  CITATION_LINE,
-  CITATION_META,
-  csvCitationComment,
-  DOI,
-  DOI_URL,
-  FORMATTED_CITATION,
-} from '@paretomol/core';
-import { stringifyDecisionRecord } from '@paretomol/core';
-import type { DecisionRecord } from '@paretomol/core';
-import { track } from '../lib/track';
+import type { Molecule, ParetoObjective, FormulaColumn } from './types';
+import { PROPERTIES, DRUG_FILTERS } from './types';
 
 /** Escape a single CSV field value (wrap in quotes, double any internal quotes). */
 function csvEscape(val: unknown): string {
@@ -49,11 +37,8 @@ export function buildExportCSV(molecules: Molecule[]): string {
   const filterNames = Object.keys(DRUG_FILTERS);
   const customKeys = collectCustomKeys(molecules);
 
-  // The main analysis CSV already leads with a # comment, so the citation
-  // joins that line. Pandas needs comment='#'. Table-shaped exports that
-  // must parse with no options use a citation column instead (see
-  // withCitationColumn and buildScoredCSV).
-  const dateComment = csvCitationComment(new Date().toISOString());
+  // Header comment with export date
+  const dateComment = `# ParetoMol export — ${new Date().toISOString()}\n`;
 
   // Column headers
   const columns = [
@@ -109,7 +94,6 @@ export function buildExportCSV(molecules: Molecule[]): string {
 
 /** Trigger download of CSV file. */
 export function downloadCSV(molecules: Molecule[], filename = 'paretomol_export.csv'): void {
-  track('export/csv');
   const csv = buildExportCSV(molecules);
   const blob = new Blob([csv], { type: 'text/csv' });
   const a = document.createElement('a');
@@ -127,26 +111,13 @@ function csvCell(val: unknown): string {
   return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
 
-/**
- * Append a final `citation` column. The cell is quoted (the text contains commas)
- * so pandas and Excel keep it as one field. Used for CSVs that are header-first:
- * a leading # comment would be read as the header.
- */
-export function withCitationColumn(headerLine: string, rowLines: string[]): string {
-  const cell = csvCell(CITATION_LINE);
-  const lines = [`${headerLine},${CITATION_COLUMN}`, ...rowLines.map((row) => `${row},${cell}`)];
-  return lines.join('\n') + '\n';
-}
-
-/** Researcher-friendly "scored" CSV: each molecule's identity plus every custom column,
+/** Researcher-friendly "scored" CSV: each molecule's identity plus every custom column —
  *  the columns imported from the source file (kept in their original order and names) and
  *  the computed make-ability scores SA_Score / RAScore / SCScore, alongside any
  *  formula/assay columns. Pandas-ready: no leading comment line, minimal quoting, so a
- *  researcher drops in a file and gets it straight back with the scores appended.
- *  The citation is a final column, not a comment, so the header stays the header. */
+ *  researcher drops in a file and gets it straight back with the scores appended. */
 export function buildScoredCSV(molecules: Molecule[], propNames: string[]): string {
-  const header = ['smiles', 'name', ...propNames, CITATION_COLUMN].map(csvCell).join(',') + '\n';
-  const cite = csvCell(CITATION_LINE);
+  const header = ['smiles', 'name', ...propNames].map(csvCell).join(',') + '\n';
   const rows = molecules.map((m) => {
     const cells = [
       csvCell(m.smiles || ''),
@@ -155,7 +126,6 @@ export function buildScoredCSV(molecules: Molecule[], propNames: string[]): stri
         const v = m.customProps?.[k];
         return v === undefined || v === null || (typeof v === 'number' && !isFinite(v)) ? '' : csvCell(v);
       }),
-      cite,
     ];
     return cells.join(',') + '\n';
   });
@@ -164,7 +134,6 @@ export function buildScoredCSV(molecules: Molecule[], propNames: string[]): stri
 
 /** Trigger download of the scored CSV. */
 export function downloadScoredCSV(molecules: Molecule[], propNames: string[], filename = 'paretomol_scored.csv'): void {
-  track('export/csv');
   const blob = new Blob([buildScoredCSV(molecules, propNames)], { type: 'text/csv' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -207,8 +176,6 @@ export function buildExportSDF(molecules: Molecule[]): string {
       filterTags.trimEnd(),
       `> <Pareto_Rank>\n${m.paretoRank ?? 'N/A'}`,
       `> <Pareto_Optimal>\n${m.paretoRank === 1 ? 'YES' : 'NO'}`,
-      `> <Citation>\n${CITATION_LINE}`,
-      `> <DOI>\n${DOI}`,
       '$$$$',
     ].filter(p => p.trim());
     return parts.join('\n') + '\n';
@@ -222,7 +189,6 @@ export function buildExportSDFPareto(molecules: Molecule[]): string {
 
 /** Trigger SDF download. */
 export function downloadSDF(molecules: Molecule[], filename = 'paretomol_export.sdf'): void {
-  track('export/sdf');
   const sdf = buildExportSDF(molecules);
   const blob = new Blob([sdf], { type: 'chemical/x-mdl-sdfile' });
   const a = document.createElement('a');
@@ -234,7 +200,6 @@ export function downloadSDF(molecules: Molecule[], filename = 'paretomol_export.
 
 /** Trigger SDF download for Pareto-optimal subset only. */
 export function downloadSDFPareto(molecules: Molecule[], filename = 'pareto_optimal.sdf'): void {
-  track('export/sdf');
   const sdf = buildExportSDFPareto(molecules);
   const blob = new Blob([sdf], { type: 'chemical/x-mdl-sdfile' });
   const a = document.createElement('a');
@@ -256,17 +221,11 @@ export function buildExportJSON(molecules: Molecule[]): string {
     paretoRank: m.paretoRank,
     paretoOptimal: m.paretoRank === 1,
   }));
-  return JSON.stringify({
-    citation: CITATION_META,
-    molecules: data,
-    exportedAt: new Date().toISOString(),
-    version: '0.19.0',
-  }, null, 2);
+  return JSON.stringify({ molecules: data, exportedAt: new Date().toISOString(), version: '0.19.0' }, null, 2);
 }
 
 /** Trigger download of JSON file. */
 export function downloadJSON(molecules: Molecule[], filename = 'paretomol_export.json'): void {
-  track('export/json');
   const json = buildExportJSON(molecules);
   const blob = new Blob([json], { type: 'application/json' });
   const a = document.createElement('a');
@@ -288,11 +247,9 @@ export function downloadManifest(
   formulaColumns: FormulaColumn[],
   filename = 'paretomol_manifest.json'
 ): void {
-  track('export/json');
   const manifest = {
     tool: 'ParetoMol',
     url: 'https://paretomol.com',
-    citation: CITATION_META,
     generatedAt: new Date().toISOString(),
     methods: {
       descriptors: 'RDKit.js 2025.03 (WebAssembly, client-side)',
@@ -462,13 +419,7 @@ export function buildSummaryReport(
   lines.push(
     '---',
     '',
-    '## Citation',
-    '',
-    FORMATTED_CITATION,
-    '',
-    DOI_URL,
-    '',
-    '_Report generated by ParetoMol. https://paretomol.com_',
+    '_Report generated by ParetoMol · https://paretomol.com_',
     ''
   );
 
@@ -476,70 +427,6 @@ export function buildSummaryReport(
 }
 
 // ─── Figure export (editable SVG) ────────────────────────────────────────────
-
-function escapeXml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-/**
- * Copy a chart canvas and paint a citation line in a footer strip.
- * The live canvas is left untouched. Width grows if the line would clip.
- */
-export function stampCitation(source: HTMLCanvasElement): HTMLCanvasElement {
-  const cssW = source.clientWidth || source.width || 1;
-  const scale = source.width > 0 ? source.width / cssW : 1;
-  const fontPx = Math.max(10, Math.round(11 * (Number.isFinite(scale) && scale > 0 ? scale : 1)));
-  const footerH = Math.round(22 * (fontPx / 11));
-  const pad = Math.round(12 * (fontPx / 11));
-
-  const canvas = document.createElement('canvas');
-  const probe = canvas.getContext('2d');
-  if (!probe) return source;
-  probe.font = `${fontPx}px sans-serif`;
-  const textW = probe.measureText(CITATION_LINE).width;
-  canvas.width = Math.max(source.width, Math.ceil(textW) + pad * 2);
-  canvas.height = source.height + footerH;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return source;
-
-  const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#ffffff';
-  const fg = getComputedStyle(document.documentElement).getPropertyValue('--text2').trim() || '#6B6862';
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(source, 0, 0);
-  ctx.fillStyle = fg;
-  ctx.font = `${fontPx}px sans-serif`;
-  ctx.textBaseline = 'middle';
-  ctx.fillText(CITATION_LINE, pad, source.height + footerH / 2);
-  return canvas;
-}
-
-/** Download a PNG of `source` with the citation footer. */
-export function downloadCanvasPng(source: HTMLCanvasElement, filename: string): void {
-  track('export/png');
-  const stamped = stampCitation(source);
-  const save = (blob: Blob) => triggerDownload(blob, filename);
-  if (typeof stamped.toBlob !== 'function') {
-    save(dataUrlToBlob(stamped.toDataURL('image/png')));
-    return;
-  }
-  stamped.toBlob((blob) => {
-    save(blob ?? dataUrlToBlob(stamped.toDataURL('image/png')));
-  }, 'image/png');
-}
-
-function dataUrlToBlob(dataUrl: string): Blob {
-  const [head, body] = dataUrl.split(',');
-  const mime = /data:([^;]+)/.exec(head)?.[1] ?? 'image/png';
-  const binary = atob(body ?? '');
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return new Blob([bytes], { type: mime });
-}
 
 function triggerDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -614,18 +501,9 @@ export function exportViewAsSVG(container: HTMLElement, filename = 'paretomol_fi
     return `<g transform="translate(${x},${y})">${cell.content}</g>`;
   }).join('');
 
-  const fg = getComputedStyle(document.documentElement).getPropertyValue('--text2').trim() || '#6B6862';
-  const fontSize = 11;
-  const footerH = 24;
-  const minW = Math.ceil(CITATION_LINE.length * fontSize * 0.56) + pad * 2;
-  const width = Math.max(totalW, minW);
-  const height = totalH + footerH;
-  const footer = `<text x="${pad}" y="${totalH + 16}" font-family="sans-serif" font-size="${fontSize}" fill="${escapeXml(fg)}">${escapeXml(CITATION_LINE)}</text>`;
-
-  track('export/svg');
   const doc = `<?xml version="1.0" encoding="UTF-8"?>\n` +
-    `<svg xmlns="${NS}" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" ` +
-    `viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="${escapeXml(bg)}"/>${body}${footer}</svg>`;
+    `<svg xmlns="${NS}" xmlns:xlink="http://www.w3.org/1999/xlink" width="${totalW}" height="${totalH}" ` +
+    `viewBox="0 0 ${totalW} ${totalH}"><rect width="100%" height="100%" fill="${bg}"/>${body}</svg>`;
   triggerDownload(new Blob([doc], { type: 'image/svg+xml' }), filename);
   return true;
 }
@@ -637,22 +515,8 @@ export function downloadSummaryReport(
   admetPropNames?: string[],
   filename = 'paretomol_report.md'
 ): void {
-  track('export/md');
   const md = buildSummaryReport(molecules, paretoObjectives, admetPropNames);
   const blob = new Blob([md], { type: 'text/markdown' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
-// ─── Decision record ─────────────────────────────────────────────────────────
-// paretomol.decision/1, see docs/decision-record.md. Re-open it with
-// "Open record" in the header to restore the exact view.
-export function downloadDecisionRecord(rec: DecisionRecord, filename = 'paretomol_decision.json'): void {
-  track('decision/exported');
-  const blob = new Blob([stringifyDecisionRecord(rec)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = filename;

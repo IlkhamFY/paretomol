@@ -1,21 +1,9 @@
-import type { Molecule, ParetoObjective } from '@paretomol/core';
-import {
-  computeParetoAndDominance as coreComputeParetoAndDominance,
-  parseAssayValue, isCensored, aggregate, isConflicting,
-  packFingerprint, tanimotoPacked, computeTanimotoMatrix,
-  syntheticComplexityFromDescriptors,
-  detectCSV, parseCSVData, analyzeMolecule, readTable,
-} from '@paretomol/core';
-import type { AssayValue, SynthComplexity } from '@paretomol/core';
-import { track } from '../lib/track';
-
-// Pure logic moved to @paretomol/core; re-exported so existing imports keep working.
-export {
-  packFingerprint, tanimotoPacked, computeTanimotoMatrix, getDiversityScore,
-  DEFAULT_CLIFF_KEYS, readMolProp, computeActivityCliffs,
-  syntheticComplexityFromDescriptors,
-} from '@paretomol/core';
-export type { ActivityCliff, SynthComplexity } from '@paretomol/core';
+import type { Molecule, FilterResult, MolProps, ParetoObjective } from './types';
+import { DRUG_FILTERS, DEFAULT_PARETO_OBJECTIVES } from './types';
+import { computeQED } from './qed';
+import { QED_ALERT_SMARTS } from '../data/qedAlerts';
+import { parseAssayValue, isCensored, aggregate, isConflicting } from './assayValue';
+import type { AssayValue } from './assayValue';
 
 // Let the window object hold RDKitModule globally just like index.html
 declare global {
@@ -27,7 +15,7 @@ declare global {
 
 export async function initRDKitCache(): Promise<any> {
   if (window.RDKitModule) return window.RDKitModule;
-  if (!window.initRDKitModule) throw new Error("RDKit is not loaded");
+  if (!window.initRDKitModule) throw new Error("RDKit minimal JS not loaded via CDN");
   window.RDKitModule = await window.initRDKitModule();
   return window.RDKitModule;
 }
@@ -204,6 +192,36 @@ type AlertCatalog = Record<string, { name: string; smarts: string }[]>;
 let alertCatalogPromise: Promise<AlertCatalog> | null = null;
 const qmolCache = new Map<string, RDKitMol | null>();
 
+/** Number of canonical-QED structural alerts a molecule matches.
+ *
+ *  QED's alert term counts how many of the reference implementation's 116
+ *  patterns match at least once — not the total number of matches. These
+ *  patterns are specific to QED and are not the PAINS/Brenk/NIH catalogues
+ *  used elsewhere in this file, so the two counts are not interchangeable.
+ *  Compiled queries are cached across molecules; without that, 116 SMARTS
+ *  would be recompiled for every structure. */
+function countQEDAlerts(mol: RDKitMol, RDKit: RDKitMinimal): number {
+  let n = 0;
+  for (const smarts of QED_ALERT_SMARTS) {
+    let q = qmolCache.get(smarts);
+    if (q === undefined) {
+      try {
+        q = RDKit.get_qmol(smarts);
+        if (q && !q.is_valid()) { q.delete(); q = null; }
+      } catch { q = null; }
+      qmolCache.set(smarts, q);
+    }
+    if (!q) continue;
+    try {
+      // Existence is all QED needs, so stop at the first match rather than
+      // enumerating every occurrence.
+      const hit = mol.get_substruct_match(q);
+      if (hit && hit !== '{}' && hit !== '') n++;
+    } catch { /* pattern not applicable to this molecule */ }
+  }
+  return n;
+}
+
 function loadAlertCatalog(): Promise<AlertCatalog> {
   if (!alertCatalogPromise) {
     alertCatalogPromise = import('../data/structural_alerts.json')
@@ -250,6 +268,39 @@ export async function detectStructuralAlerts(smiles: string): Promise<AlertHit[]
     mol.delete();
   }
   return hits;
+}
+
+// ─── Packed fingerprint utilities ────────────────────────────────────────────
+const EMPTY_FP_PACKED = new Uint32Array(64); // 2048 bits / 32
+
+/** Pack a '0'/'1' bit-string fingerprint into a Uint32Array for fast bitwise ops. */
+export function packFingerprint(fp: string): Uint32Array {
+  if (!fp || fp.length === 0) return EMPTY_FP_PACKED;
+  const packed = new Uint32Array(Math.ceil(fp.length / 32));
+  for (let i = 0; i < fp.length; i++) {
+    if (fp.charCodeAt(i) === 49) { // '1'
+      packed[i >>> 5] |= (1 << (i & 31));
+    }
+  }
+  return packed;
+}
+
+/** Popcount (Hamming weight) for a 32-bit integer. */
+function popcount32(x: number): number {
+  x = x - ((x >>> 1) & 0x55555555);
+  x = (x & 0x33333333) + ((x >>> 2) & 0x33333333);
+  return (((x + (x >>> 4)) & 0x0F0F0F0F) * 0x01010101) >>> 24;
+}
+
+/** Fast Tanimoto using packed Uint32Array fingerprints. */
+export function tanimotoPacked(a: Uint32Array, b: Uint32Array): number {
+  let inter = 0, union = 0;
+  const len = Math.min(a.length, b.length);
+  for (let i = 0; i < len; i++) {
+    inter += popcount32(a[i] & b[i]);
+    union += popcount32(a[i] | b[i]);
+  }
+  return union === 0 ? 0 : inter / union;
 }
 
 export type SimilarityMetric = 'tanimoto-r2' | 'tanimoto-r3' | 'tanimoto-r6' | 'selfies-ted';
@@ -486,6 +537,133 @@ export async function fetchChEMBLBatch(
   return lines;
 }
 
+function checkFilter(filterName: string, props: any): FilterResult {
+  const filter = DRUG_FILTERS[filterName as keyof typeof DRUG_FILTERS];
+  if (!filter) return { pass: false, violations: 0 };
+  let violations = 0;
+  for (const rule of filter.rules) {
+    const val = props[rule.key as keyof typeof props];
+    if (rule.op === '<=' && val > rule.val) violations++;
+    else if (rule.op === '>=' && val < rule.val) violations++;
+    else if (rule.op === '<' && val >= rule.val) violations++;
+    else if (rule.op === '>' && val <= rule.val) violations++;
+  }
+  return { pass: violations <= filter.maxViolations, violations };
+}
+
+/** Detect if input is CSV/TSV with a header row. Returns parsed rows + header info, or null if not CSV. */
+function detectCSV(input: string): { separator: string; headers: string[]; rows: string[][]; smilesCol: number } | null {
+  const lines = input.split('\n').filter(l => l.trim());
+  if (lines.length < 2) return null;
+  const firstLine = lines[0];
+  // Detect separator: tabs first, then commas
+  let separator = '';
+  if (firstLine.includes('\t') && firstLine.split('\t').length >= 2) separator = '\t';
+  else if (firstLine.includes(',') && firstLine.split(',').length >= 2) separator = ',';
+  if (!separator) return null;
+
+  const headers = firstLine.split(separator).map(h => h.trim());
+
+  // Find SMILES column by header name (case-insensitive) — can be ANY position
+  const SMILES_HEADERS = ['smiles', 'smi', 'structure', 'canonical_smiles', 'molecule', 'mol', 'compound_smiles'];
+  let smilesCol = -1;
+  for (let i = 0; i < headers.length; i++) {
+    if (SMILES_HEADERS.includes(headers[i].toLowerCase())) {
+      smilesCol = i;
+      break;
+    }
+  }
+
+  // If no header match, check if any column in second row looks like SMILES
+  if (smilesCol === -1) {
+    const secondRowCells = lines[1].split(separator).map(c => c.trim());
+    for (let i = 0; i < secondRowCells.length; i++) {
+      const cell = secondRowCells[i];
+      if (/[()=[\]#@\\/]/.test(cell) || /^[A-Za-z][A-Za-z0-9()=[\]#@\\/+\-.*]+$/.test(cell)) {
+        smilesCol = i;
+        break;
+      }
+    }
+  }
+
+  if (smilesCol === -1) return null;
+
+  // Determine if first line is a header row (SMILES column header is a known keyword, not actual SMILES)
+  const smilesHeader = headers[smilesCol].toLowerCase();
+  const isHeaderRow = SMILES_HEADERS.includes(smilesHeader) || !/[()=[\]#@\\/]/.test(headers[smilesCol]);
+
+  // Parse all data rows
+  const dataStart = isHeaderRow ? 1 : 0;
+  const actualHeaders = isHeaderRow ? headers : headers.map((_, i) => `Col${i}`);
+  const rows: string[][] = [];
+  for (let i = dataStart; i < lines.length; i++) {
+    const cells = lines[i].split(separator).map(c => c.trim());
+    if (cells.length > 0 && cells[smilesCol]) rows.push(cells);
+  }
+  return { separator, headers: actualHeaders, rows, smilesCol };
+}
+
+/** Parse a CSV cell as a number, or null if it carries no measurement.
+ *  `Number('')` is 0 and `Number('   ')` is 0, so a naive coercion turns every
+ *  blank cell into a real-looking 0.0 — which then enters the Pareto analysis
+ *  as the best possible value for any minimised objective. Common textual
+ *  missing-data placeholders are treated as absent for the same reason. */
+function parseNumericCell(raw: string | undefined | null): number | null {
+  if (raw === undefined || raw === null) return null;
+  const s = String(raw).trim();
+  if (s === '' || /^(na|n\/a|nan|nd|null|none|-|\.)$/i.test(s)) return null;
+  const v = Number(s);
+  return Number.isFinite(v) ? v : null;
+}
+
+/** Extract SMILES lines and custom properties from CSV data. */
+function parseCSVData(csv: { headers: string[]; rows: string[][]; smilesCol: number }): { smilesLines: string[]; customPropNames: string[]; customPropValues: Record<string, number>[] } {
+  const { headers, rows, smilesCol } = csv;
+  const NAME_HEADERS = ['name', 'id', 'molecule', 'compound', 'compound id', 'compound_id', 'mol_name', 'title'];
+  let nameIdx = -1;
+  const customCols: { idx: number; name: string }[] = [];
+
+  for (let i = 0; i < headers.length; i++) {
+    if (i === smilesCol) continue; // skip the SMILES column
+    const h = headers[i].toLowerCase();
+    if (nameIdx === -1 && NAME_HEADERS.includes(h)) {
+      nameIdx = i;
+    } else {
+      // Check if this column has numeric data (check first few data rows)
+      let numericCount = 0;
+      const checkRows = Math.min(3, rows.length);
+      for (let r = 0; r < checkRows; r++) {
+        if (parseNumericCell(rows[r]?.[i]) !== null) numericCount++;
+      }
+      if (numericCount > 0) {
+        customCols.push({ idx: i, name: headers[i] });
+      } else if (nameIdx === -1) {
+        // First non-numeric, non-SMILES column becomes name
+        nameIdx = i;
+      }
+    }
+  }
+
+  const smilesLines: string[] = [];
+  const customPropValues: Record<string, number>[] = [];
+
+  for (const row of rows) {
+    const smiles = row[smilesCol];
+    if (!smiles) continue;
+    const name = nameIdx >= 0 ? row[nameIdx] || '' : '';
+    smilesLines.push(name ? `${smiles} ${name}` : smiles);
+
+    const props: Record<string, number> = {};
+    for (const col of customCols) {
+      const val = parseNumericCell(row[col.idx]);
+      if (val !== null) props[col.name] = val;
+    }
+    customPropValues.push(props);
+  }
+
+  return { smilesLines, customPropNames: customCols.map(c => c.name), customPropValues };
+}
+
 export interface AssayMergeReport {
   /** Data rows read from the file. */
   rowsParsed: number;
@@ -587,11 +765,12 @@ export function mergeAssayData(
     unmatchedRows: [], conflicts: [], censored: [], aggregated: 0, unitsByColumn: {},
   };
 
-  const table = readTable(csvText);
-  if (!table || table.rows.length < 2) return { newPropNames: [], matchCount: 0, molecules, report: emptyReport };
+  const lines = csvText.split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length < 2) return { newPropNames: [], matchCount: 0, molecules, report: emptyReport };
 
-  const headers = table.rows[0];
-  const dataRows = table.rows.slice(1);
+  const sep = lines[0].includes('\t') ? '\t' : ',';
+  const cellsOf = (line: string) => line.split(sep).map(c => c.trim().replace(/^"|"$/g, ''));
+  const headers = cellsOf(lines[0]);
 
   let smilesCol = -1, nameCol = -1;
   for (let i = 0; i < headers.length; i++) {
@@ -605,8 +784,8 @@ export function mergeAssayData(
     if (i === smilesCol || i === nameCol) continue;
     if (BUILTIN.has(headers[i]) || existingCustomPropNames.includes(headers[i])) continue;
     let numCount = 0;
-    for (let r = 0; r < Math.min(3, dataRows.length); r++) {
-      if (parseAssayValue(dataRows[r][i]) !== null) numCount++;
+    for (let r = 1; r <= Math.min(3, lines.length - 1); r++) {
+      if (parseAssayValue(cellsOf(lines[r])[i]) !== null) numCount++;
     }
     if (numCount > 0) valueCols.push({ idx: i, name: headers[i] });
   }
@@ -632,8 +811,8 @@ export function mergeAssayData(
   };
 
   let rowsParsed = 0;
-  for (let r = 0; r < dataRows.length; r++) {
-    const cells = dataRows[r];
+  for (let r = 1; r < lines.length; r++) {
+    const cells = cellsOf(lines[r]);
     const rawSmiles = smilesCol >= 0 ? cells[smilesCol] ?? '' : '';
     const rawName = nameCol >= 0 ? (cells[nameCol] ?? '') : '';
     if (!rawSmiles && !rawName) continue;
@@ -735,7 +914,6 @@ export interface ParseResult {
   errors: number;
   failedLookups: number;
   customPropNames: string[];
-  notes: string[];
 }
 
 /** Batch PubChem lookups with concurrency limit for speed. */
@@ -787,6 +965,48 @@ async function resolveNamesInBatch(
   return { resolvedLines, failedLookups };
 }
 
+/** Parse a single resolved SMILES line into a Molecule (no SVG — deferred). */
+// ─── Synthetic complexity (transparent client-side make-ability heuristic) ────
+// A fast, interpretable estimate of synthetic difficulty (1 = trivial, 10 = very
+// hard) from structural drivers chemists recognize: stereocenters, spiro/
+// bridged/non-aromatic ring systems, molecular size, and 3-D (sp3) character.
+// A triage proxy — NOT a retrosynthetic route or building-block price (those are
+// the planned opt-in cost tier). Lower = easier / cheaper to make.
+
+export interface SynthComplexity { score: number; factors: string[]; }
+
+/** Synthetic-complexity score (1–10) + dominant contributing factors, from an
+ *  RDKit get_descriptors() object. */
+export function syntheticComplexityFromDescriptors(desc: Record<string, number>): SynthComplexity {
+  const stereo = desc.NumAtomStereoCenters || 0;          // total potential stereocenters
+  const spiro = desc.NumSpiroAtoms || 0;
+  const bridge = desc.NumBridgeheadAtoms || 0;
+  const nonAromRings = (desc.NumAliphaticRings || 0) + (desc.NumSaturatedRings || 0);
+  const heavy = desc.NumHeavyAtoms || desc.HeavyAtomCount || 0;
+  const fsp3 = desc.FractionCSP3 || 0;
+
+  const raw = 1.0
+    + 0.90 * stereo
+    + 1.30 * spiro
+    + 1.30 * bridge
+    + 0.40 * nonAromRings
+    + 0.10 * Math.max(0, heavy - 28)
+    + 1.20 * fsp3;
+  // Saturating map to 1–10 (T tuned so stereocenter-rich natural products ≈ 10).
+  const score = 1 + 9 * (1 - Math.exp(-(raw - 1) / 6.6));
+
+  const contrib = [
+    { label: `${stereo} stereocentre${stereo === 1 ? '' : 's'}`, w: 0.90 * stereo },
+    { label: `${bridge} bridgehead atom${bridge === 1 ? '' : 's'}`, w: 1.30 * bridge },
+    { label: `${spiro} spiro atom${spiro === 1 ? '' : 's'}`, w: 1.30 * spiro },
+    { label: `${nonAromRings} non-aromatic ring${nonAromRings === 1 ? '' : 's'}`, w: 0.40 * nonAromRings },
+    { label: 'large size', w: 0.10 * Math.max(0, heavy - 28) },
+    { label: 'high 3-D (sp³) character', w: 1.20 * fsp3 },
+  ];
+  const factors = contrib.filter(c => c.w >= 0.45).sort((a, b) => b.w - a.w).slice(0, 3).map(c => c.label);
+  return { score: Math.min(10, Math.max(1, score)), factors };
+}
+
 /** Recompute synthetic complexity for a SMILES on demand (e.g. for a tooltip). */
 export function getSyntheticComplexity(smiles: string): SynthComplexity | null {
   const RDKit = (globalThis as { RDKitModule?: { get_mol: (s: string) => { is_valid: () => boolean; delete: () => void; get_descriptors: () => string } | null } }).RDKitModule;
@@ -800,6 +1020,88 @@ export function getSyntheticComplexity(smiles: string): SynthComplexity | null {
   } catch { return null; }
 }
 
+function parseMolecule(
+  line: string,
+  index: number,
+  RDKit: any,
+  customPropValues: Record<string, number>[]
+): Molecule | null {
+  const parts = line.trim().split(/\s+/);
+  const smiles = parts[0];
+  const name = (parts.slice(1).join(' ') || `mol_${index + 1}`).replace(/_/g, ' ');
+
+  try {
+    const mol = RDKit.get_mol(smiles);
+    if (!mol || !mol.is_valid()) return null;
+
+    const desc = JSON.parse(mol.get_descriptors());
+    const numAtoms = (desc.NumHeavyAtoms || desc.HeavyAtomCount || 0) + (desc.NumHs || 0);
+
+    let fingerprint = '';
+    try { fingerprint = mol.get_morgan_fp(JSON.stringify({ radius: 2, nBits: 2048 })); } catch { /* fingerprint unavailable */ }
+
+    // Counted while the molecule is still alive — QED needs it below.
+    const nAlerts = countQEDAlerts(mol, RDKit);
+
+    mol.delete();
+
+    // Average molecular weight, not the monoisotopic exact mass. Lipinski's
+    // Ro5 (MW <= 500) is defined on average MW, and the reference datasets
+    // used throughout are built with RDKit's Descriptors.MolWt (also average),
+    // so `exactmw` made the app disagree with both by ~0.4 Da.
+    const mw = desc.amw || desc.exactmw || 0;
+    const logp = desc.CrippenClogP || 0;
+    const hbd = desc.NumHBD || 0;
+    const hba = desc.NumHBA || 0;
+    const tpsa = desc.tpsa || 0;
+    const rotBonds = desc.NumRotatableBonds || 0;
+    const arom = desc.NumAromaticRings || 0;
+    const { qedWeighted } = computeQED({ MW: mw, ALOGP: logp, HBA: hba, HBD: hbd, PSA: tpsa, ROTB: rotBonds, AROM: arom, ALERTS: nAlerts });
+    const sc = syntheticComplexityFromDescriptors(desc);
+
+    const props: MolProps = {
+      MW: mw,
+      LogP: logp,
+      HBD: hbd,
+      HBA: hba,
+      TPSA: tpsa,
+      RotBonds: rotBonds,
+      FrCSP3: desc.FractionCSP3 || 0,
+      Rings: desc.NumRings || 0,
+      AromaticRings: arom,
+      HeavyAtoms: desc.NumHeavyAtoms || desc.HeavyAtomCount || 0,
+      MR: desc.CrippenMR || 0,
+      NumAtoms: numAtoms > 0 ? numAtoms : (desc.NumHeavyAtoms || 0),
+      QED: Math.round(qedWeighted * 1000) / 1000,
+      SC: Math.round(sc.score * 10) / 10,
+    };
+
+    const filters: Record<string, FilterResult> = {};
+    for (const filterName of Object.keys(DRUG_FILTERS)) {
+      filters[filterName] = checkFilter(filterName, props);
+    }
+
+    return {
+      name,
+      smiles,
+      svg: '', // deferred — use getMolSvg(smiles) on demand
+      formula: desc.MolFormula || '',
+      fingerprint,
+      fpPacked: packFingerprint(fingerprint),
+      props,
+      customProps: customPropValues[index] || {},
+      filters,
+      lipinski: filters.lipinski,
+      scFactors: sc.factors,
+      paretoRank: null,
+      dominates: [],
+      dominatedBy: [],
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function parseAndAnalyze(input: string): Promise<ParseResult> {
   const RDKit = await initRDKitCache();
 
@@ -808,14 +1110,12 @@ export async function parseAndAnalyze(input: string): Promise<ParseResult> {
   let smilesLines: string[];
   let customPropNames: string[] = [];
   let customPropValues: Record<string, number>[] = [];
-  let notes: string[] = [];
 
   if (csv) {
     const parsed = parseCSVData(csv);
     smilesLines = parsed.smilesLines;
     customPropNames = parsed.customPropNames;
     customPropValues = parsed.customPropValues;
-    notes = parsed.notes;
   } else {
     smilesLines = input.split('\n').filter(l => l.trim());
   }
@@ -828,7 +1128,7 @@ export async function parseAndAnalyze(input: string): Promise<ParseResult> {
 
   // 2. Compute properties using RDKit (SVG deferred)
   for (let i = 0; i < resolvedLines.length; i++) {
-    const mol = analyzeMolecule(resolvedLines[i], i, RDKit, customPropValues);
+    const mol = parseMolecule(resolvedLines[i], i, RDKit, customPropValues);
     if (mol) {
       newMolecules.push(mol);
     } else {
@@ -839,7 +1139,7 @@ export async function parseAndAnalyze(input: string): Promise<ParseResult> {
   // 3. Compute Pareto ranks & Dominance (single pass)
   computeParetoAndDominance(newMolecules);
 
-  return { molecules: newMolecules, errors, failedLookups, customPropNames, notes };
+  return { molecules: newMolecules, errors, failedLookups, customPropNames };
 }
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -859,14 +1159,12 @@ export async function parseAndAnalyzeChunked(
   let smilesLines: string[];
   let customPropNames: string[] = [];
   let customPropValues: Record<string, number>[] = [];
-  let notes: string[] = [];
 
   if (csv) {
     const parsed = parseCSVData(csv);
     smilesLines = parsed.smilesLines;
     customPropNames = parsed.customPropNames;
     customPropValues = parsed.customPropValues;
-    notes = parsed.notes;
   } else {
     smilesLines = input.split('\n').filter((l) => l.trim());
   }
@@ -883,7 +1181,7 @@ export async function parseAndAnalyzeChunked(
   for (let start = 0; start < resolvedLines.length; start += chunkSize) {
     const end = Math.min(start + chunkSize, resolvedLines.length);
     for (let i = start; i < end; i++) {
-      const mol = analyzeMolecule(resolvedLines[i], i, RDKit, customPropValues);
+      const mol = parseMolecule(resolvedLines[i], i, RDKit, customPropValues);
       if (mol) {
         newMolecules.push(mol);
       } else {
@@ -895,15 +1193,232 @@ export async function parseAndAnalyzeChunked(
   }
 
   computeParetoAndDominance(newMolecules);
-  return { molecules: newMolecules, errors, failedLookups, customPropNames, notes };
+  return { molecules: newMolecules, errors, failedLookups, customPropNames };
 }
 
-/** Non-dominated fronts + dominance edges. The algorithm lives in
- *  @paretomol/core; this wrapper only adds the analytics event. */
-export function computeParetoAndDominance(molecules: Molecule[], objectives?: ParetoObjective[]) {
-  coreComputeParetoAndDominance(molecules, objectives);
-  if (molecules.length > 0) track('pareto');
+/** Get a molecule's value for a Pareto objective key (built-in or custom).
+ *  Returns null when the value is absent or non-finite. A missing value must
+ *  never be substituted with a number: for a minimised objective such as a
+ *  predicted hERG risk on [0,1], an imputed 0 is the infimum, so a *failed*
+ *  prediction would weakly dominate every real measurement. */
+function getMolValue(m: Molecule, key: string): number | null {
+  const v = key in m.props
+    ? (m.props[key as keyof MolProps] as number)
+    : m.customProps[key];
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
 }
+
+/** Non-dominated fronts + dominance edges in a single O(n²) pass.
+ *
+ *  Missing values follow a complete-case policy: a molecule lacking a usable
+ *  value for any active objective is excluded from the dominance relation
+ *  entirely — it can neither dominate nor be dominated — and is left unranked
+ *  (`paretoRank === null`) with the offending keys recorded in
+ *  `missingObjectives` so the interface can report it. Excluding pairwise
+ *  instead (comparing each pair on whichever objectives they happen to share)
+ *  would break transitivity of the dominance relation and yield incoherent
+ *  fronts, so it is deliberately not done.
+ *
+ *  Ranks are true non-dominated fronts (NSGA-II fast non-dominated sorting):
+ *  rank 1 is the Pareto front, rank 2 the front remaining once rank 1 is
+ *  removed, and so on. Rank 1 is identical to the previous front-membership
+ *  flag, so every `paretoRank === 1` consumer is unaffected. Layering reuses
+ *  the dominance edges materialised by the pairwise pass and costs O(n + |E|).
+ */
+export function computeParetoAndDominance(molecules: Molecule[], objectives?: ParetoObjective[]) {
+  const objs = objectives ?? DEFAULT_PARETO_OBJECTIVES;
+  const n = molecules.length;
+  const k = objs.length;
+  const minimise = objs.map(o => o.direction === 'min');
+
+  // Resolve all objectives up front; `null` marks an incomplete molecule.
+  const vals: (number[] | null)[] = new Array(n);
+  const ranked: number[] = [];
+
+  for (let i = 0; i < n; i++) {
+    const m = molecules[i];
+    m.dominates = [];
+    m.dominatedBy = [];
+    const row: number[] = [];
+    const missing: string[] = [];
+    for (const obj of objs) {
+      const v = getMolValue(m, obj.key);
+      if (v === null) missing.push(obj.key);
+      else row.push(v);
+    }
+    if (missing.length > 0) {
+      vals[i] = null;
+      m.missingObjectives = missing;
+      m.paretoRank = null;
+    } else {
+      vals[i] = row;
+      delete m.missingObjectives;
+      ranked.push(i);
+    }
+  }
+
+  for (let a = 0; a < ranked.length; a++) {
+    const i = ranked[a];
+    const vi = vals[i]!;
+    for (let b = a + 1; b < ranked.length; b++) {
+      const j = ranked[b];
+      const vj = vals[j]!;
+      let iBetter = 0, jBetter = 0;
+      for (let o = 0; o < k; o++) {
+        const x = vi[o], y = vj[o];
+        if (x === y) continue;
+        if (minimise[o] ? x < y : x > y) iBetter++;
+        else jBetter++;
+      }
+      if (iBetter > 0 && jBetter === 0) {
+        molecules[i].dominates.push(j);
+        molecules[j].dominatedBy.push(i);
+      } else if (jBetter > 0 && iBetter === 0) {
+        molecules[j].dominates.push(i);
+        molecules[i].dominatedBy.push(j);
+      }
+    }
+  }
+
+  // Peel fronts: a molecule enters front r once every molecule dominating it
+  // has been assigned to an earlier front.
+  const dominatingCount = new Array<number>(n).fill(0);
+  for (const i of ranked) dominatingCount[i] = molecules[i].dominatedBy.length;
+
+  let front = ranked.filter(i => dominatingCount[i] === 0);
+  let rank = 1;
+  while (front.length > 0) {
+    const next: number[] = [];
+    for (const i of front) {
+      molecules[i].paretoRank = rank;
+      for (const j of molecules[i].dominates) {
+        if (--dominatingCount[j] === 0) next.push(j);
+      }
+    }
+    front = next;
+    rank++;
+  }
+}
+
+/** Compute n×n Tanimoto similarity matrix from molecules (fast packed fingerprints). */
+export function computeTanimotoMatrix(molecules: Molecule[]): number[][] {
+  const n = molecules.length;
+  const matrix: number[][] = Array.from({ length: n }, () => new Array(n).fill(0));
+  for (let i = 0; i < n; i++) {
+    matrix[i][i] = 1;
+    for (let j = i + 1; j < n; j++) {
+      const t = tanimotoPacked(molecules[i].fpPacked, molecules[j].fpPacked);
+      matrix[i][j] = matrix[j][i] = t;
+    }
+  }
+  return matrix;
+}
+
+/** Diversity score = mean(1 - T) over upper triangle. Higher = more diverse. */
+export function getDiversityScore(matrix: number[][]): number {
+  const n = matrix.length;
+  if (n < 2) return 0;
+  let sum = 0, count = 0;
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      sum += 1 - matrix[i][j];
+      count++;
+    }
+  }
+  return count === 0 ? 0 : sum / count;
+}
+
+/** Default cliff-score property set (physicochemical profile). */
+export const DEFAULT_CLIFF_KEYS: string[] = ['MW', 'LogP', 'HBD', 'HBA', 'TPSA', 'RotBonds'];
+
+/** Read a numeric property (built-in descriptor or custom/ADMET/activity column) for a molecule. */
+export function readMolProp(m: Molecule, key: string): number | undefined {
+  const v = (m.props as unknown as Record<string, number | undefined>)[key];
+  if (typeof v === 'number' && isFinite(v)) return v;
+  const cv = m.customProps?.[key];
+  return typeof cv === 'number' && isFinite(cv) ? cv : undefined;
+}
+
+export interface ActivityCliff {
+  i: number;
+  j: number;
+  tanimoto: number;
+  propDistance: number;
+  cliffScore: number;
+  topDifferingProps: string[];
+}
+
+/**
+ * Activity cliffs: structurally similar pairs with divergent properties.
+ *
+ * Cliff score (Structure–Activity Similarity, SAS):
+ *   SAS_ij = T_ij · ||x̂_i − x̂_j||₂
+ * where T_ij is the pairwise structural (or semantic) similarity supplied in
+ * `tanimotoMatrix`, and x̂ is the per-property vector min–max normalized to [0,1]
+ * across the loaded set. Min–max (rather than fixed) normalization lets any
+ * property — including imported activity (pChEMBL/IC50) or predicted ADMET
+ * endpoints — contribute on a comparable scale, enabling classic SAR activity
+ * cliffs when a single activity property is selected (`propKeys = ['pChEMBL']`).
+ */
+export function computeActivityCliffs(
+  molecules: Molecule[],
+  tanimotoMatrix: number[][],
+  threshold = 0.5,
+  topN = 10,
+  propKeys: string[] = DEFAULT_CLIFF_KEYS,
+): ActivityCliff[] {
+  const n = molecules.length;
+  const cliffs: ActivityCliff[] = [];
+  const keys = propKeys.length ? propKeys : DEFAULT_CLIFF_KEYS;
+
+  // Per-property min/max over the loaded set for data-range normalization.
+  const ranges: Record<string, { min: number; max: number }> = {};
+  for (const k of keys) {
+    let mn = Infinity, mx = -Infinity;
+    for (const m of molecules) {
+      const v = readMolProp(m, k);
+      if (v === undefined) continue;
+      if (v < mn) mn = v;
+      if (v > mx) mx = v;
+    }
+    ranges[k] = { min: mn, max: mx };
+  }
+
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const t = tanimotoMatrix[i][j];
+      if (t <= threshold) continue;
+
+      let sumSq = 0;
+      const diffs: { key: string; diff: number }[] = [];
+      for (const k of keys) {
+        const v1 = readMolProp(molecules[i], k);
+        const v2 = readMolProp(molecules[j], k);
+        if (v1 === undefined || v2 === undefined) continue;
+        const r = ranges[k];
+        const span = r.max - r.min;
+        const d = span > 1e-9 ? (v1 - v2) / span : 0;
+        sumSq += d * d;
+        diffs.push({ key: k, diff: Math.abs(d) });
+      }
+      if (diffs.length === 0) continue; // no comparable properties for this pair
+      const propDist = Math.sqrt(sumSq);
+      diffs.sort((a, b) => b.diff - a.diff);
+      cliffs.push({
+        i,
+        j,
+        tanimoto: t,
+        propDistance: propDist,
+        cliffScore: t * propDist,
+        topDifferingProps: diffs.slice(0, 3).map((x) => x.key),
+      });
+    }
+  }
+
+  cliffs.sort((a, b) => b.cliffScore - a.cliffScore);
+  return cliffs.slice(0, topN);
+}
+
 
 /**
  * Returns the indices of molecules that match the given SMARTS pattern.

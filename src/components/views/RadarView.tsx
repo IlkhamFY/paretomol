@@ -1,9 +1,8 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Radar } from 'react-chartjs-2';
-import type { Molecule } from '@paretomol/core';
-import { PROPERTIES } from '@paretomol/core';
-import { downloadCanvasPng } from '../../utils/export';
+import type { Molecule } from '../../utils/types';
+import { PROPERTIES } from '../../utils/types';
 import {
   Chart as ChartJS,
   RadialLinearScale,
@@ -34,7 +33,7 @@ function DownloadIcon({ size = 12 }: { size?: number }) {
 type FilterMode = 'all' | 'pareto' | 'starred';
 
 function RadarView({ molecules, selectedMolIdx, setSelectedMolIdx, shortlist }: { molecules: Molecule[], selectedMolIdx: number | null, setSelectedMolIdx?: (idx: number | null) => void, shortlist?: Set<number> }) {
-  useTheme();
+  const { themeVersion } = useTheme();
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chartRef = useRef<any>(null);
@@ -47,7 +46,7 @@ function RadarView({ molecules, selectedMolIdx, setSelectedMolIdx, shortlist }: 
   // Keep original indices for color consistency
   const visibleWithIdx = visibleMolecules.map(m => ({ m, origIdx: molecules.indexOf(m) }));
 
-  const labels = useMemo(() => ['MW', 'LogP', 'HBD', 'HBA', 'TPSA', 'RotBonds', 'FrCSP3'], []);
+  const labels = ['MW', 'LogP', 'HBD', 'HBA', 'TPSA', 'RotBonds', 'FrCSP3'];
 
   const maxVals: Record<string, number> = {};
   labels.forEach(k => {
@@ -78,9 +77,13 @@ function RadarView({ molecules, selectedMolIdx, setSelectedMolIdx, shortlist }: 
 
   /** Download the full combined radar chart as PNG via chart.toBase64Image() */
   const downloadFullRadar = useCallback(() => {
-    const canvas = chartRef.current?.canvas as HTMLCanvasElement | undefined;
-    if (!canvas) return;
-    downloadCanvasPng(canvas, 'radar_all.png');
+    const chart = chartRef.current;
+    if (!chart) return;
+    const url = chart.toBase64Image('image/png', 1);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'radar_all.png';
+    a.click();
   }, []);
 
   /**
@@ -147,12 +150,16 @@ function RadarView({ molecules, selectedMolIdx, setSelectedMolIdx, shortlist }: 
     // Two rAF ticks to ensure Chart.js finishes rendering
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        const safeName = molName.replace(/[^a-zA-Z0-9_-]/g, '_');
-        downloadCanvasPng(offscreen, `${safeName}_radar.png`);
+        const url = offscreen.toDataURL('image/png');
         tempChart.destroy();
+        const safeName = molName.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${safeName}_radar.png`;
+        a.click();
       });
     });
-  }, [datasets, labels]);
+  }, [datasets, labels, themeVersion]);
 
   return (
     <div className="bg-[var(--surface)] border border-[var(--border-5)] rounded-lg p-5">

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { activityColumns, parseAssayValue, normaliseUnit, isCensored, aggregate, isConflicting, pFromNanomolar } from '@paretomol/core';
+import { parseAssayValue, normaliseUnit, isCensored, aggregate, isConflicting } from '../assayValue';
 
 /**
  * Assay value parsing.
@@ -129,24 +129,5 @@ describe('detecting disagreement between replicates', () => {
 
   it('never flags a single measurement', () => {
     expect(isConflicting([42])).toBe(false);
-  });
-});
-
-describe('p-scale conversion', () => {
-  it('turns 10 uM into p 5 and keeps the nM column', () => {
-    expect(pFromNanomolar(10000)).toBeCloseTo(5);
-    const cols = activityColumns('IC50', ['10 uM', '1 uM', '>100 uM']);
-    expect(cols?.pName).toBe('pIC50');
-    expect(cols?.raw[0]).toBeCloseTo(10000);
-    expect(cols?.p[0]).toBeCloseTo(5);
-    expect(cols?.p[1]).toBeCloseTo(6);
-    expect(cols?.p[2]).toBeNull();
-    expect(cols?.note).toMatch(/censored/);
-  });
-
-  it('refuses mixed units', () => {
-    const cols = activityColumns('Ki (nM)', ['10', '1 uM']);
-    expect(cols?.raw).toEqual([]);
-    expect(cols?.note).toMatch(/mixed units/);
   });
 });

@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import type { Molecule } from '@paretomol/core';
+import type { Molecule } from '../../utils/types';
 import { computeSimilarityMatrix, getDiversityScore, type SimilarityMetric } from '../../utils/chem';
 import { computeSelfiesTEDMatrix } from '../../utils/selfies';
 

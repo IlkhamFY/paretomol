@@ -14,8 +14,10 @@ import {
   ScatterController,
   Title
 } from 'chart.js';
-import type { Molecule, ParetoObjective, ScoringPreset } from '@paretomol/core';
-import { DRUG_FILTERS, findBestCompromise, presetBlurb, pruneSummary, readFront } from '@paretomol/core';
+import type { Molecule, ParetoObjective } from '../../utils/types';
+import { DRUG_FILTERS } from '../../utils/types';
+import { findBestCompromise } from '../../utils/paretoKnee';
+import { readFront } from '../../utils/paretoNarrative';
 import { nearestBetterAnalog } from '../../utils/designHint';
 import type { FDADrug } from '../../utils/fda_reference';
 import { PROP_TO_FDA } from '../../utils/fda_reference';
@@ -75,7 +77,7 @@ const FILTER_COLORS: Record<string, string> = {
   leadlike: '#22c55e',
 };
 
-function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, customPropNames = [], paretoObjectives = [], scoringPreset = 'oral@1', onScoringPreset, robustFront = false, onRobustFront }: { molecules: Molecule[]; onSelectMolecule?: (idx: number) => void; selectedMolIdx?: number | null; fdaData?: FDADrug[]; customPropNames?: string[]; paretoObjectives?: ParetoObjective[]; scoringPreset?: ScoringPreset; onScoringPreset?: (preset: ScoringPreset) => void; robustFront?: boolean; onRobustFront?: (on: boolean) => void }) {
+function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, customPropNames = [], paretoObjectives = [] }: { molecules: Molecule[]; onSelectMolecule?: (idx: number) => void; selectedMolIdx?: number | null; fdaData?: FDADrug[]; customPropNames?: string[]; paretoObjectives?: ParetoObjective[] }) {
   // Best-compromise ("knee") molecule across the active objectives — the one to pick.
   const knee = useMemo(() => findBestCompromise(molecules, paretoObjectives), [molecules, paretoObjectives]);
   // Deterministic "reading" of the front: size, objectives, sharpest trade-off.
@@ -87,9 +89,9 @@ function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, cust
   );
   const [axes, setAxes] = useState<ScatterAxes[]>(DEFAULT_AXES);
   const [showAll, setShowAll] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<string | null>('lipinski');
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
-  const visibleAxes = showAll ? axes : axes.slice(0, 1);
+  const visibleAxes = showAll ? axes : axes.slice(0, 2);
 
   // Grouped, human-labelled axis options — make-ability & cost surfaced first,
   // then physicochemical, then any ADMET / imported columns that are present.
@@ -143,17 +145,18 @@ function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, cust
           </button>
           {Object.entries(DRUG_FILTERS).map(([fname, fdef]) => {
             const isActive = activeFilter === fname;
+            const color = FILTER_COLORS[fname] ?? '#22c55e';
             return (
               <button
                 key={fname}
                 onClick={() => setActiveFilter(isActive ? null : fname)}
                 title={(fdef as any).desc}
-                aria-pressed={isActive}
-                className={`px-2.5 py-1 text-[11px] transition-colors ${
+                className={`px-2.5 py-1 text-[11px] font-medium transition-colors ${
                   isActive
-                    ? 'text-[var(--text)] font-medium'
+                    ? 'text-white'
                     : 'text-[var(--text2)] hover:text-[var(--text)]'
                 }`}
+                style={isActive ? { backgroundColor: color, color: '#fff' } : undefined}
               >
                 {fdef.label}
               </button>
@@ -187,28 +190,7 @@ function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, cust
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]" role="group" aria-label="Scoring profile">
-        {([['oral@1', 'Oral'], ['cns@1', 'CNS'], ['leadlike@1', 'Lead-like'], ['paper', 'Paper reproduction']] as const).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            aria-pressed={scoringPreset === id}
-            onClick={() => onScoringPreset?.(id)}
-            className={scoringPreset === id ? 'text-[var(--text)] font-medium' : 'text-[var(--text2)] hover:text-[var(--text)]'}
-          >
-            {label}
-          </button>
-        ))}
-        {scoringPreset === 'custom' && <span className="text-[var(--text)] font-medium">Custom windows</span>}
-        <button type="button" aria-pressed={robustFront} onClick={() => onRobustFront?.(!robustFront)} className={robustFront ? 'text-[var(--text)] font-medium' : 'text-[var(--text2)] hover:text-[var(--text)]'}>
-          Robust front
-        </button>
-      </div>
-      {robustFront && <p className="text-[12px] text-[var(--text2)] leading-relaxed">Predicted probabilities within 0.05 do not change dominance. 0.05 is the gap used in the paper. It is not a confidence interval for one compound.</p>}
-      <p className="text-[12px] text-[var(--text2)] leading-relaxed">{presetBlurb(scoringPreset)}</p>
-      {pruneSummary(molecules) && <p className="text-[12px] text-[var(--text)] leading-relaxed">{pruneSummary(molecules)}</p>}
-
-      {/* Reading: a deterministic narration of the front */}
+      {/* Reading — a deterministic narration of the front */}
       {reading && (
         <p className="text-[12px] text-[var(--text2)] leading-relaxed">
           <span className="text-[var(--text-heading)] font-medium">{reading.paretoCount}</span> of {reading.total} compounds are Pareto-optimal across {reading.objectiveKeys.length} objective{reading.objectiveKeys.length === 1 ? '' : 's'} ({reading.objectiveKeys.map(labelFor).join(', ')}).
@@ -230,7 +212,7 @@ function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, cust
           <span className="text-[12px] min-w-0 truncate">
             <span className="uppercase tracking-[1px] text-[10px] text-[var(--text2)]/70 mr-2">Best compromise</span>
             <span className="text-[var(--text-heading)] font-medium">{molecules[knee.index].name.replace(/_/g, ' ')}</span>
-            <span className="text-[var(--text2)]">, nearest the ideal across {knee.nObjectives} objective{knee.nObjectives === 1 ? '' : 's'}</span>
+            <span className="text-[var(--text2)]"> — nearest the ideal across {knee.nObjectives} objective{knee.nObjectives === 1 ? '' : 's'}</span>
           </span>
           <span className="text-[11px] text-[var(--accent)] shrink-0">{selectedMolIdx === knee.index ? 'selected' : 'select'}</span>
         </button>
@@ -257,7 +239,7 @@ function ParetoView({ molecules, onSelectMolecule, selectedMolIdx, fdaData, cust
           return (
           <div key={`${axis.x}-${axis.y}-${i}`} className={`bg-[var(--surface)] border border-[var(--border-5)] rounded-lg p-4 flex flex-col min-w-0 ${expandedIdx === i ? 'h-[560px]' : 'h-[380px]'}`}>
             <div className="flex justify-between items-center gap-2 mb-4 min-w-0">
-              <div className="text-[13px] font-medium shrink-0" title={`${labelFor(axis.x)} vs ${labelFor(axis.y)}`}>{labelFor(axis.x)} vs {labelFor(axis.y)}</div>
+              <div className="text-[13px] font-medium min-w-0 truncate shrink" title={`${labelFor(axis.x)} vs ${labelFor(axis.y)}`}>{labelFor(axis.x)} vs {labelFor(axis.y)}</div>
               <div className="flex gap-2 items-center text-[11px] shrink-0">
                 <label className="flex items-center gap-1 text-[var(--text2)]">
                   X:
@@ -476,7 +458,6 @@ function ScatterChart({ molecules, xKey, yKey, activeFilter, onSelectMolecule, s
       ctx.beginPath();
       ctx.rect(left, top, width, height);
       ctx.clip();
-      const pending: { x: number; y: number; text: string }[] = [];
 
       for (let dsIdx = 0; dsIdx < chart.data.datasets.length; dsIdx++) {
         const meta = chart.getDatasetMeta(dsIdx);
@@ -495,8 +476,6 @@ function ScatterChart({ molecules, xKey, yKey, activeFilter, onSelectMolecule, s
             ctx.strokeStyle = '#fbbf24';
             ctx.lineWidth = 2.5;
             ctx.stroke();
-            const text = String(raw.label || '').replace(/_.*/g, '').slice(0, 14);
-            if (text) pending.push({ x: ex, y: ey, text });
           }
 
           if (selIdx != null && raw.molIndex === selIdx) {
@@ -511,23 +490,13 @@ function ScatterChart({ molecules, xKey, yKey, activeFilter, onSelectMolecule, s
         });
       }
 
-      ctx.font = '11px Geist, sans-serif';
-      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#E8E6E3';
-      ctx.textBaseline = 'bottom';
-      const placed: { x: number; y: number }[] = [];
-      for (const p of pending) {
-        if (placed.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < 36)) continue;
-        ctx.fillText(p.text, p.x + 10, p.y - 4);
-        placed.push(p);
-      }
-
       ctx.restore();
     },
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), []);
 
   return (
-    <div data-pareto-chart tabIndex={0} className="relative w-full h-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--text)]" role="img" aria-label={`${labelFor(xKey)} versus ${labelFor(yKey)}. Named points are on the Pareto front. Arrow keys move the selection.`}>
+    <div className="relative w-full h-full">
       <div
         ref={tooltipRef}
         id="pareto-tooltip"
@@ -636,17 +605,7 @@ function ScatterChart({ molecules, xKey, yKey, activeFilter, onSelectMolecule, s
             x: {
               title: { display: true, text: labelFor(xKey), color: getComputedStyle(document.documentElement).getPropertyValue('--canvas-sublabel').trim() },
               grid: { color: getComputedStyle(document.documentElement).getPropertyValue('--border-10').trim() },
-              ticks: {
-                color: getComputedStyle(document.documentElement).getPropertyValue('--canvas-sublabel').trim(),
-                callback: (value: string | number) => {
-                  const n = typeof value === 'number' ? value : Number(value);
-                  if (!Number.isFinite(n)) return String(value);
-                  const abs = Math.abs(n);
-                  if (abs >= 100) return String(Math.round(n));
-                  if (abs >= 10) return String(Math.round(n * 10) / 10);
-                  return String(Math.round(n * 100) / 100);
-                },
-              },
+              ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--canvas-sublabel').trim() },
               ...((() => {
                 const vals = molecules.map(m => getMolPropValue(m, xKey));
                 const fdaXKey = PROP_TO_FDA[xKey as string];
@@ -663,17 +622,7 @@ function ScatterChart({ molecules, xKey, yKey, activeFilter, onSelectMolecule, s
             y: {
               title: { display: true, text: labelFor(yKey), color: getComputedStyle(document.documentElement).getPropertyValue('--canvas-sublabel').trim() },
               grid: { color: getComputedStyle(document.documentElement).getPropertyValue('--border-10').trim() },
-              ticks: {
-                color: getComputedStyle(document.documentElement).getPropertyValue('--canvas-sublabel').trim(),
-                callback: (value: string | number) => {
-                  const n = typeof value === 'number' ? value : Number(value);
-                  if (!Number.isFinite(n)) return String(value);
-                  const abs = Math.abs(n);
-                  if (abs >= 100) return String(Math.round(n));
-                  if (abs >= 10) return String(Math.round(n * 10) / 10);
-                  return String(Math.round(n * 100) / 100);
-                },
-              },
+              ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--canvas-sublabel').trim() },
               ...((() => {
                 const vals = molecules.map(m => getMolPropValue(m, yKey));
                 const fdaYKey = PROP_TO_FDA[yKey as string];

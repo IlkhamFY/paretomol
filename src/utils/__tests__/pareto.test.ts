@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { computeParetoAndDominance } from '../chem';
-import type { Molecule, ParetoObjective } from '@paretomol/core';
+import type { Molecule, ParetoObjective } from '../types';
 
 /**
  * Pareto-front tests.

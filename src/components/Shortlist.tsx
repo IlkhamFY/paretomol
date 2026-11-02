@@ -1,9 +1,7 @@
 import { useMemo, useCallback } from 'react';
-import type { Molecule } from '@paretomol/core';
-import { DRUG_FILTERS } from '@paretomol/core';
+import type { Molecule } from '../utils/types';
+import { DRUG_FILTERS } from '../utils/types';
 import { getMolSvg } from '../utils/chem';
-import { withCitationColumn } from '../utils/export';
-import { track } from '../lib/track';
 
 /* ═══════════════════════════════════════════════════════
    Shortlist — Persistent compound accumulator
@@ -77,21 +75,20 @@ export default function Shortlist({
 
   const exportShortlist = useCallback(() => {
     if (shortlistMols.length === 0) { onToast?.('Star molecules in the sidebar first'); return; }
-    const header = 'Name,SMILES,MW,LogP,HBD,HBA,TPSA,RotBonds,Pareto,Rationale';
-    const rows = shortlistMols.map(({ molecule: m }) => {
+    const lines = ['Name,SMILES,MW,LogP,HBD,HBA,TPSA,RotBonds,Pareto,Rationale'];
+    shortlistMols.forEach(({ molecule: m }) => {
       const rationale = getMolRationale(m).replace(/"/g, "'");
-      return (
+      lines.push(
         `"${m.name}","${m.smiles}",${m.props.MW.toFixed(1)},${m.props.LogP.toFixed(2)},` +
         `${m.props.HBD},${m.props.HBA},${m.props.TPSA.toFixed(1)},${m.props.RotBonds},` +
-        `${m.paretoRank === 1 ? 'yes' : 'no'},"${rationale}"`
+        `${m.paretoRank === 1 ? 'yes' : 'no'},"${rationale}"`,
       );
     });
-    const blob = new Blob([withCitationColumn(header, rows)], { type: 'text/csv' });
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = 'paretomol_shortlist.csv'; a.click();
     URL.revokeObjectURL(url);
-    track('export/csv');
     onToast?.(`Exported ${shortlistMols.length} compound${shortlistMols.length !== 1 ? 's' : ''}`);
   }, [shortlistMols, onToast]);
 

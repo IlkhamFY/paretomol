@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import CiteDetails from './CiteDetails';
 import { useTheme } from '../contexts/ThemeContext';
 import { Sun, Moon, X } from 'lucide-react';
 
@@ -19,7 +18,7 @@ const sections: Section[] = [
         q: 'What is ParetoMol?',
         a: (
           <>
-            <p>ParetoMol is a free, open-source web tool for multi-objective analysis of drug-like molecules. You paste SMILES (or upload a file), and the tool instantly computes molecular properties, identifies Pareto-optimal candidates, predicts ADMET profiles, and lets you explore the chemical space — computed in your browser, with no account. ADMET predictions and name lookups are the only routine calls to outside services (see Privacy below).</p>
+            <p>ParetoMol is a free, open-source web tool for multi-objective analysis of drug-like molecules. You paste SMILES (or upload a file), and the tool instantly computes molecular properties, identifies Pareto-optimal candidates, predicts ADMET profiles, and lets you explore the chemical space — all in your browser, with no server, no account, and no data leaving your machine.</p>
             <p className="mt-2">It is designed for medicinal chemists, computational chemists, and drug discovery scientists who need to quickly triage compound sets against multiple competing objectives (potency, safety, permeability, metabolic stability, etc.).</p>
           </>
         ),
@@ -39,7 +38,7 @@ const sections: Section[] = [
       {
         id: 'privacy',
         q: 'Is my data private?',
-        a: <div className="space-y-2"><p>Properties, Pareto ranking and scoring run in your browser (RDKit.js WebAssembly). There is no account and no database. Molecules leave the browser only in these cases:</p><ul className="list-disc pl-5 space-y-1"><li><strong>ADMET predictions</strong> send the SMILES you predict to the Hugging Face Space ilkhamfy/admet-ai-api (or your own Space or local server). Each visit also sends one empty health-check to wake it.</li><li><strong>Name lookup</strong>: SMILES without a name are sent to PubChem to fetch a common name.</li><li><strong>Features you invoke</strong>: ChEMBL, ZINC cost, RAscore, SELFIES-TED and the AI copilot (your own key) send the relevant molecules only when you use them.</li></ul><p>Page and event counts are anonymous and cookie-free (GoatCounter) and never include molecule data.</p></div>,
+        a: <p>Yes. ParetoMol runs entirely in your browser using WebAssembly (RDKit.js). Your SMILES, structures, and properties never leave your machine. No backend, no database, no tracking beyond standard analytics. The only external calls are optional PubChem name lookups and ADMET-AI predictions (which you control).</p>,
       },
       {
         id: 'open-source',
@@ -136,7 +135,7 @@ CC(=O)Oc1ccccc1C(=O)O,aspirin,45.2,12.1`}</pre>
       {
         id: 'objectives',
         q: 'How do I select Pareto objectives?',
-        a: <p>The front starts on the Oral windows: a value inside each ideal band is better. The same windows score MPO. Open <strong>Properties</strong> to check a property or to switch it to minimize or maximize. The front updates as you change it. <strong>Paper reproduction</strong> minimizes MW, LogP, HBD, HBA, TPSA and rotatable bonds, the directions in the Digital Discovery FDA figures. Green-bordered molecules in the list are on the Pareto front.</p>,
+        a: <p>Open the <strong>Properties</strong> panel in the sidebar. Check any property to include it as a Pareto objective. Toggle the direction button (<strong>min</strong> / <strong>max</strong>) next to each property. Click <strong>Recompute Pareto</strong> to update the analysis. Green-bordered molecules in the list are on the Pareto front.</p>,
       },
       {
         id: 'fda-ref',
@@ -192,7 +191,7 @@ CC(=O)Oc1ccccc1C(=O)O,aspirin,45.2,12.1`}</pre>
       {
         id: 'tab-scaffold',
         q: 'Scaffolds — how are scaffolds grouped?',
-        a: <p>Scaffolds groups molecules by a Bemis-Murcko scaffold: rings, the atoms that link the rings, and exocyclic double bonds. Side chains are removed. Acyclic molecules stay in a no-ring group. Generic draws the same skeleton with every atom as carbon and every bond single. Pairs lists single-cut matched molecular pairs and the change in properties and activity. Cliffs scores an activity column only.</p>,
+        a: <p>The Scaffolds tab uses Bemis-Murcko scaffold decomposition (via RDKit) to group your molecules by core scaffold. Each scaffold shows the member count, average properties, and the fraction of Pareto-optimal members. Useful for quickly identifying which chemotypes dominate your Pareto front.</p>,
       },
       {
         id: 'tab-chemspace',
@@ -218,7 +217,7 @@ CC(=O)Oc1ccccc1C(=O)O,aspirin,45.2,12.1`}</pre>
       {
         id: 'tab-cliffs',
         q: 'Activity Cliffs — what does this show?',
-        a: <p>Cliffs are computed only after you import an activity column such as pIC50, pKi, or pChEMBL. The score is SALI: the absolute activity change divided by one minus the Morgan similarity. The similarity threshold is shown and can be moved. Pairs below it, and pairs with the same fingerprint, are left out. Physicochemical properties are not used as the cliff column.</p>,
+        a: <p>Activity Cliffs identifies pairs of structurally similar molecules (default Tanimoto ≥ 0.3, adjustable via slider) that have large differences in a selected property (e.g. LogP, TPSA, or any custom property). These pairs represent SAR leverage points — small structural changes with large property consequences. Pairs are visualized as a network: nodes are molecules, edges connect similar pairs, edge thickness encodes the property difference.</p>,
       },
       {
         id: 'tab-compare',
@@ -315,67 +314,6 @@ score = 1 + 9 · (1 − exp(−(raw − 1) / 6.6))   → clamped to 1–10`}</pr
               <li><strong>Check availability (ZINC)</strong> — ZINC-22 catalogue availability (in-stock + make-on-demand, e.g. Enamine REAL), catching compounds PubChem misses. ZINC list prices are nominal placeholders — request a vendor quote for real pricing.</li>
             </ul>
             <p className="mt-2">Both are free and require no API key; results feed the make-vs-buy call in the ranked list.</p>
-          </>
-        ),
-      },
-    ],
-  },
-  {
-    id: 'agents',
-    title: 'Agents and automation',
-    questions: [
-      {
-        id: 'llms-txt',
-        q: 'Can an AI agent use ParetoMol?',
-        a: (
-          <>
-            <p>Yes. <a href="/llms.txt" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline">/llms.txt</a> describes the app, the core library, the CLI, scoring profiles, the decision record and the claim verifier in one page an agent can read. Point your agent at <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">https://paretomol.com/llms.txt</code>.</p>
-            <p className="mt-2">The pieces an agent needs: <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">paretomol rank</code> to rank offline with the same RDKit.js build as this app, the <strong>decision record</strong> (Export &gt; Decision record) so its result can be opened here and checked, and <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">paretomol verify</code> to recompute the numbers it claims. <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">paretomol verify-decision</code> checks a record&apos;s hashes and recomputes its front. The CLI is not on npm yet; run it from a clone (<code className="bg-[var(--surface2)] px-1 rounded text-[12px]">npm install &amp;&amp; npm run build</code>).</p>
-            <p className="mt-2">The same clone can run the MCP server: <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">npx paretomol-mcp</code>. It is not published. An experimental review tool can show the shortlist inside a host that supports MCP Apps. Otherwise the agent should send the review link.</p>
-          </>
-        ),
-      },
-      {
-        id: 'decision-record',
-        q: 'What is a decision record?',
-        a: <p>One JSON file with the input molecules and their SHA-256, the scoring profile and its hash, the MPO curve, the software versions, the objectives, each molecule&apos;s Pareto rank and MPO score, the molecules you picked and why. <strong>Export &gt; Decision record (JSON)</strong> writes it; <strong>Open record</strong> restores the exact view. A record edited after export is rejected. The file uses the profile and curve selected on the MPO tab (<code className="bg-[var(--surface2)] px-1 rounded text-[12px]">oral@1</code> and linear until you change them).</p>,
-      },
-      {
-        id: 'review-url',
-        q: 'What is a review link?',
-        a: <p>An agent can send you a link of the form <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">https://paretomol.com/#r=...</code> with its molecules, objectives and profile packed into the fragment (never sent to the server). It opens in review mode: Accept or Reject each molecule, add why, and <strong>Export decision record</strong>. Nothing is accepted until you click. A link that would be too long for a browser is refused, and the agent is told to send a decision record file instead. Spec: docs/review-url.md.</p>,
-      },
-      {
-        id: 'prompt-claude',
-        q: 'Prompt for Claude',
-        a: (
-          <>
-            <p>Paste into Claude (Claude Code, or any Claude with a shell and file access):</p>
-            <pre className="mt-2 bg-[var(--surface2)] p-3 rounded text-[11px] font-mono overflow-x-auto whitespace-pre-wrap select-all">{`Read https://paretomol.com/llms.txt first.
-I have molecules in molecules.csv (SMILES column plus assay columns).
-1. Rank them with ParetoMol: npx paretomol rank molecules.csv --profile oral@1 --out record.json
-2. From record.json, pick at most 5 molecules from Pareto rank 1 and give one line per pick saying why.
-3. Write the picks back: npx paretomol rank molecules.csv --profile oral@1 --select <ids> --rationale "<why>" --out record.json
-4. Before you quote any MW, LogP, TPSA, HBD, HBA or QED value, put your claims in claims.json and run npx paretomol verify claims.json. Fix anything it flags.
-Do not invent descriptor values. Do not change objective directions without telling me.
-I will open record.json in ParetoMol (Open record) to check your picks.`}</pre>
-          </>
-        ),
-      },
-      {
-        id: 'prompt-cursor',
-        q: 'Prompt for Cursor',
-        a: (
-          <>
-            <p>Paste into Cursor&apos;s agent with the ParetoMol repository (or a project using <code className="bg-[var(--surface2)] px-1 rounded text-[12px]">@paretomol/core</code>) open:</p>
-            <pre className="mt-2 bg-[var(--surface2)] p-3 rounded text-[11px] font-mono overflow-x-auto whitespace-pre-wrap select-all">{`@Web https://paretomol.com/llms.txt
-Use @paretomol/core, not your own descriptor code.
-- Load RDKit.js (npm @rdkit/rdkit 2025.3.4-1.0.0) and call analyzeInput(csvText, RDKit).
-- Rank with computeParetoAndDominance(molecules, objectives). With no objectives, the front uses the Oral desirability windows. Pass objectivesForPreset('paper') to reproduce the published all-minimize FDA front. Add potency columns with potencyObjectives(names).
-- Score with mpoScore(props, getProfile('oral@1').desirability, 'linear').
-- Save the result with buildDecisionRecord({ molecules, objectives, profile: 'oral@1', selected, rationale, rdkitVersion: RDKit.version() }) and stringifyDecisionRecord.
-- Check every number you report with verifyClaims(claims, RDKit) and show me the flags.
-Write a test that the record round-trips through parseDecisionRecord.`}</pre>
           </>
         ),
       },
@@ -479,10 +417,11 @@ Write a test that the record round-trips through parseDecisionRecord.`}</pre>
         q: 'How do I cite ParetoMol?',
         a: (
           <>
-            <p>Cite the Digital Discovery paper. The same text is on the Cite control in the header and the footer, and it is written into every export.</p>
-            <div className="mt-3">
-              <CiteDetails />
-            </div>
+            <p>ParetoMol is described in a preprint on ChemRxiv. Please cite:</p>
+            <pre className="mt-2 bg-[var(--surface2)] p-3 rounded text-[11px] font-mono overflow-x-auto whitespace-pre-wrap">{`Yabbarov, I.; Vargas-Hernández, R. A. ParetoMol: A Free Web Application for
+Multi-Objective Pareto Analysis of Molecular Safety and Pharmacokinetics.
+ChemRxiv 2026. DOI: 10.26434/chemrxiv.15002217/v1`}</pre>
+            <p className="mt-2">Use the <strong>Cite</strong> button in the header to copy a BibTeX entry.</p>
           </>
         ),
       },
@@ -561,13 +500,6 @@ export default function DocsPage({ onClose }: DocsPageProps) {
         </div>
         <div className="flex items-center gap-3">
           <button
-            type="button"
-            onClick={() => scrollTo('technical', 'cite')}
-            className="px-3 py-1.5 text-xs font-medium text-[var(--text2)] bg-[var(--surface2)] border border-[var(--border-5)] rounded-md hover:border-[var(--border-20)] hover:text-[var(--text-heading)] transition-colors"
-          >
-            Cite
-          </button>
-          <button
             onClick={toggleTheme}
             className="flex items-center justify-center w-8 h-8 text-[var(--text2)] bg-[var(--surface2)] border border-[var(--border-5)] rounded-md hover:border-[var(--border-20)] transition-colors"
           >
@@ -639,8 +571,6 @@ export default function DocsPage({ onClose }: DocsPageProps) {
             {/* Footer */}
             <div className="border-t border-[var(--border-5)] pt-8 mt-4 text-[12px] text-[var(--text2)]/50 text-center space-x-2">
               <span>ParetoMol</span>
-              <span>·</span>
-              <button type="button" onClick={() => scrollTo('technical', 'cite')} className="hover:text-[var(--text2)] transition-colors">Cite</button>
               <span>·</span>
               <a href="https://github.com/IlkhamFY/paretomol" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text2)] transition-colors">GitHub</a>
               <span>·</span>

@@ -34,39 +34,6 @@ export function clearEndpointOverride(): void {
   } catch { /* storage unavailable */ }
 }
 
-/**
- * Bases already woken this page session. A repeat call for the same URL is a no-op
- * so startup, StrictMode, and remounts cannot ping the Space more than once.
- */
-const warmedAdmetBases = new Set<string>();
-
-/**
- * Wake the active ADMET endpoint with one GET /health.
- * Fire-and-forget: does not block, sends no molecule data, and swallows every failure.
- * Endpoint resolution matches predictions (manual override, then local > personal > shared).
- */
-export function warmupAdmetEndpoint(): void {
-  let base = '';
-  try {
-    base = getAdmetAIEndpoint().replace(/\/$/, '');
-  } catch {
-    return;
-  }
-  if (!base || warmedAdmetBases.has(base)) return;
-  warmedAdmetBases.add(base);
-  try {
-    void fetch(`${base}/health`, {
-      method: 'GET',
-      cache: 'no-store',
-      signal: AbortSignal.timeout(90_000),
-    }).catch(() => {
-      /* sleeping, offline, or aborted — prediction reports its own status */
-    });
-  } catch {
-    /* fetch unavailable — stay silent */
-  }
-}
-
 /** 
  * Mapping from ADMET-AI column names to human-readable labels.
  * Covers the 41 primary TDC endpoints + key physicochemical descriptors.
@@ -235,13 +202,14 @@ export function formatAdmetAIValue(
     const pct = (value * 100).toFixed(0);
     if (meta.safeDir === 'low') {
       // High probability = bad (toxicity, inhibition)
-      if (value >= 0.7) return { text: `${pct}%`, color: 'var(--red)', riskLevel: 'bad' };
-      if (value >= 0.4) return { text: `${pct}%`, color: 'var(--text)', riskLevel: 'warn' };
-      return { text: `${pct}%`, color: 'var(--green)', riskLevel: 'ok' };
+      if (value >= 0.7) return { text: `${pct}%`, color: '#ef4444', riskLevel: 'bad' };
+      if (value >= 0.4) return { text: `${pct}%`, color: '#f59e0b', riskLevel: 'warn' };
+      return { text: `${pct}%`, color: '#22c55e', riskLevel: 'ok' };
     } else if (meta.safeDir === 'high') {
-      if (value >= 0.7) return { text: `${pct}%`, color: 'var(--green)', riskLevel: 'ok' };
-      if (value >= 0.4) return { text: `${pct}%`, color: 'var(--text)', riskLevel: 'warn' };
-      return { text: `${pct}%`, color: 'var(--red)', riskLevel: 'bad' };
+      // High probability = good (absorption, bioavailability)
+      if (value >= 0.7) return { text: `${pct}%`, color: '#22c55e', riskLevel: 'ok' };
+      if (value >= 0.4) return { text: `${pct}%`, color: '#f59e0b', riskLevel: 'warn' };
+      return { text: `${pct}%`, color: '#ef4444', riskLevel: 'bad' };
     }
     return { text: `${pct}%`, color: 'var(--text2)', riskLevel: 'neutral' };
   }
@@ -278,11 +246,11 @@ const ADMET_AD_RANGES: Array<{
 ];
 
 export function checkApplicabilityDomain(
-  mol: import('@paretomol/core').Molecule,
+  mol: import('./types').Molecule,
 ): ApplicabilityDomainResult {
   const warnings: string[] = [];
   for (const { key, label, min, max } of ADMET_AD_RANGES) {
-    const v = mol.props[key as keyof import('@paretomol/core').MolProps] as number | undefined;
+    const v = mol.props[key as keyof import('./types').MolProps] as number | undefined;
     if (v === undefined) continue;
     if (v < min || v > max) {
       warnings.push(`${label}=${v.toFixed(1)} outside typical range (${min}–${max})`);

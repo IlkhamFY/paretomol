@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
-import type { Molecule } from '@paretomol/core';
+import type { Molecule } from '../../utils/types';
 import { getMolSvg, getMolSvgHighlighted, detectStructuralAlerts, type AlertHit } from '../../utils/chem';
 import ApplicabilityDomain from './ApplicabilityDomain';
-import { track } from '../../lib/track';
 import {
   checkAdmetAIHealth,
   predictWithAdmetAI,
@@ -20,15 +19,10 @@ import {
   type AtomAttribution,
 } from '../../utils/admetAI';
 import AdmetTierModal from '../AdmetTierModal';
-import { withCitationColumn } from '../../utils/export';
 import { getTierState, clearPersonalSpace, setLocalDetected, getActiveEndpoint, type TierState } from '../../utils/admetTiers';
 
 type Category = 'all' | 'absorption' | 'distribution' | 'metabolism' | 'excretion' | 'toxicity';
 type ApiStatus = 'idle' | 'checking' | 'connected' | 'error';
-
-/** A cold Space often answers after this; say so instead of leaving only a spinner. */
-const ADMET_WAKE_NOTE_MS = 8_000;
-const ADMET_WAKE_NOTE = 'Waking the ADMET server, first run can take ~30 s';
 
 // ---------------------------------------------------------------------------
 // Radar chart — 8 key ADMET endpoints
@@ -617,12 +611,6 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [error, setError] = useState<string | null>(null);
-  const [showWakeNote, setShowWakeNote] = useState(false);
-  const wakeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => () => {
-    if (wakeTimerRef.current) clearTimeout(wakeTimerRef.current);
-  }, []);
 
   // Restore predictions from customProps if they already exist (survives tab switches)
   const [predictions, setPredictions] = useState<Map<string, Record<string, number>>>(() => {
@@ -698,14 +686,7 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
     predictedForRef.current = molecules.map(m => m.smiles).sort().join('|');
     setLoading(true);
     setError(null);
-    setShowWakeNote(false);
-    if (wakeTimerRef.current) clearTimeout(wakeTimerRef.current);
-    wakeTimerRef.current = setTimeout(() => {
-      wakeTimerRef.current = null;
-      setShowWakeNote(true);
-    }, ADMET_WAKE_NOTE_MS);
     setProgress({ done: 0, total: molecules.length });
-    track('admet/requested');
     try {
       const results = await predictWithAdmetAI(
         molecules.map(m => ({ name: m.name, smiles: m.smiles })),
@@ -735,16 +716,9 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
       setStructuralAlerts(alertMap);
       onPredictionsReady?.(predMap);
       setApiStatus('connected'); // mark as connected after successful prediction (e.g. Space woke up)
-      track('admet/succeeded');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-      track('admet/failed');
     } finally {
-      if (wakeTimerRef.current) {
-        clearTimeout(wakeTimerRef.current);
-        wakeTimerRef.current = null;
-      }
-      setShowWakeNote(false);
       setLoading(false);
     }
   }, [molecules, onPredictionsReady]);
@@ -791,7 +765,7 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
         ...keys.map(k => pred?.[k] != null ? String(pred[k]) : ''),
       ].join(',');
     });
-    const csv = withCitationColumn(header.map(h => escape(h)).join(','), rows);
+    const csv = [header.map(h => escape(h)).join(','), ...rows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -799,7 +773,6 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
     a.download = `paretomol_admet_${molecules.length}mol.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    track('export/csv');
   }, [predictions, molecules]);
 
   // Risk summary
@@ -857,6 +830,15 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
         >
           Configure endpoint
         </button>
+        {tierState.tier === 'shared' && (
+          <button
+            onClick={() => setShowTierModal(true)}
+            className="px-2 py-1 text-[10px] text-[#5F7367] border border-[#5F7367]/40 rounded hover:bg-[#5F7367]/10 transition-colors"
+            title="Deploy your own ADMET-AI Space for unlimited predictions"
+          >
+            Get Unlimited
+          </button>
+        )}
         <div className="flex-1" />
         {predictions.size > 0 && (
           <div className="flex items-center gap-2">
@@ -902,11 +884,6 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
               ? `Predicting ${progress.done} / ${progress.total} molecules...`
               : `Predicting ${molecules.length} molecule${molecules.length !== 1 ? 's' : ''}...`}
           </div>
-          {showWakeNote && progress.done === 0 && (
-            <div role="status" className="text-[11px] text-[var(--text2)]">
-              {ADMET_WAKE_NOTE}
-            </div>
-          )}
         </div>
       )}
 
@@ -920,18 +897,7 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
       {/* Configure endpoint */}
       {showConfig && (
         <div className="p-4 bg-[var(--surface)] border border-[var(--border-5)] rounded-lg space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="text-[11px] text-[var(--text2)] uppercase tracking-wider font-medium">Endpoint</div>
-            {tierState.tier === 'shared' && (
-              <button
-                type="button"
-                onClick={() => setShowTierModal(true)}
-                className="text-[11px] text-[var(--text2)] hover:text-[var(--text)]"
-              >
-                Get Unlimited
-              </button>
-            )}
-          </div>
+          <div className="text-[11px] text-[var(--text2)] uppercase tracking-wider font-medium">Endpoint</div>
           <div className="flex gap-2">
             <input
               type="text"
@@ -979,7 +945,7 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
         </div>
       )}
 
-      {predictions.size > 0 && (
+      {/* Category filter tabs */}
       <div className="flex gap-1.5 flex-wrap">
         {CATEGORIES.map(c => (
           <button
@@ -995,11 +961,6 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
           </button>
         ))}
       </div>
-      )}
-
-      {predictions.size > 0 && (
-        <p className="text-[12px] text-[var(--text2)] leading-relaxed">Classification values are probabilities. The robust front treats a gap of 0.05 as a tie. That gap is not a confidence interval for one compound.</p>
-      )}
 
       {/* Applicability domain — reliability cue for the predictions */}
       {predictions.size > 0 && <ApplicabilityDomain molecules={molecules} />}
@@ -1113,15 +1074,18 @@ function ADMETAIView({ molecules, selectedMolIdx, setSelectedMolIdx, onPredictio
       )}
 
       {/* No predictions yet */}
-      {predictions.size === 0 && (
+      {predictions.size === 0 && !loading && (
         <div className="flex flex-col items-center justify-center py-12 gap-3 text-[var(--text2)] text-[13px]">
-          {apiStatus === 'connected' || apiStatus === 'checking' || loading ? (
-            <div className="w-full max-w-lg space-y-2" role="status">
-              <p className="text-[13px] text-[var(--text)]">{ADMET_WAKE_NOTE}</p>
-              {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="h-8 rounded bg-[var(--surface2)]" />
-              ))}
-            </div>
+          {apiStatus === 'connected' ? (
+            <>
+              <div className="w-4 h-4 border-2 border-[#5F7367]/30 border-t-[#5F7367] rounded-full animate-spin" />
+              <span>Starting predictions...</span>
+            </>
+          ) : apiStatus === 'checking' ? (
+            <>
+              <div className="w-4 h-4 border-2 border-[var(--text2)]/20 border-t-[var(--text2)]/60 rounded-full animate-spin" />
+              <span>Connecting to ADMET-AI endpoint...</span>
+            </>
           ) : apiStatus === 'error' && tierState.tier === 'personal' ? (
             <>
               <span>Your Space is sleeping. Click to wake it up.</span>

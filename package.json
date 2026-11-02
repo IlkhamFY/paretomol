@@ -3,12 +3,9 @@
   "private": true,
   "version": "0.22.0",
   "type": "module",
-  "workspaces": [
-    "packages/*"
-  ],
   "scripts": {
     "dev": "vite",
-    "build": "npm run build -w @paretomol/core -w @paretomol/cli -w @paretomol/mcp && tsc -b && vite build",
+    "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -18,7 +15,6 @@
   "dependencies": {
     "@fontsource/geist": "^5.2.8",
     "@fontsource/geist-mono": "^5.2.7",
-    "@paretomol/core": "0.1.0",
     "chart.js": "^4.5.1",
     "chartjs-plugin-annotation": "^3.1.0",
     "chartjs-plugin-zoom": "^2.2.0",
@@ -33,7 +29,6 @@
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@playwright/test": "^1.62.0",
-    "@rdkit/rdkit": "2025.3.4-1.0.0",
     "@types/node": "^24.12.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

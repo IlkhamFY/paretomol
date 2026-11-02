@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
-import type { Molecule } from '@paretomol/core';
+import type { Molecule } from '../../utils/types';
 
 interface CorrelationViewProps {
   molecules: Molecule[];

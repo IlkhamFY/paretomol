@@ -1,13 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import type { Molecule, ParetoObjective } from '@paretomol/core';
-import { DRUG_FILTERS, LIPINSKI_CONSTRAINTS, MAX_MOLECULES, objectivesForPreset, potencyObjectives, cycleObjective, directionWord, checkedObjective, pruneSummary, rankUnder } from '@paretomol/core';
-import type { Constraint, ObjectiveWindow, ScoringPreset } from '@paretomol/core';
-import { EXAMPLES } from '../data/examples';
-import { initRDKitCache, parseAndAnalyze, parseAndAnalyzeChunked, parseSDFFile, fetchChEMBLBatch, getMolSvg, filterBySubstructure, mergeAssayData, enrichMoleculeNames } from '../utils/chem';
+import type { Molecule, ParetoObjective } from '../utils/types';
+import { EXAMPLES, DEFAULT_PARETO_OBJECTIVES, DRUG_FILTERS } from '../utils/types';
+import { initRDKitCache, parseAndAnalyze, parseAndAnalyzeChunked, parseSDFFile, fetchChEMBLBatch, computeParetoAndDominance, getMolSvg, filterBySubstructure, mergeAssayData, enrichMoleculeNames } from '../utils/chem';
 import { useTheme } from '../contexts/ThemeContext';
-import { inferObjectiveDirection } from '@paretomol/core';
-import { ADMET_AI_PROPERTY_META } from '../utils/admetAI';
-import { track } from '../lib/track';
+import { inferObjectives, inferObjectiveDirection } from '../utils/objectives';
 import { loadFDAReference, getFDAPercentile, PROP_TO_FDA } from '../utils/fda_reference';
 import type { FDADrug } from '../utils/fda_reference';
 import Mol3DViewer from './Mol3DViewer';
@@ -37,11 +33,6 @@ interface SidebarProps {
   substructureInputRef?: React.RefObject<HTMLInputElement | null>;
   shortlist?: Set<number>;
   toggleShortlist?: (idx: number) => void;
-  scoringPreset?: ScoringPreset;
-  onScoringPreset?: (preset: ScoringPreset, windows?: Record<string, ObjectiveWindow> | null) => void;
-  objectiveWindows?: Record<string, ObjectiveWindow> | null;
-  constraints?: Constraint[];
-  onConstraints?: (constraints: Constraint[]) => void;
 }
 
 export default function Sidebar({
@@ -67,23 +58,18 @@ export default function Sidebar({
   substructureInputRef,
   shortlist,
   toggleShortlist,
-  scoringPreset = 'oral@1',
-  onScoringPreset,
-  objectiveWindows = null,
-  constraints = [],
-  onConstraints,
 }: SidebarProps) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRDKitReady, setIsRDKitReady] = useState(false);
-  const [status, setStatus] = useState<{msg: string, type: 'success'|'error'|'info'}>({ msg: 'Getting the chemistry library ready.', type: 'info' });
+  const [status, setStatus] = useState<{msg: string, type: 'success'|'error'|'info'}>({ msg: 'loading rdkit...', type: 'info' });
   const [progress, setProgress] = useState<{ done: number; total: number; phase?: 'resolve' | 'analyze' } | null>(null);
   const [chemblInput, setChemblInput] = useState('');
   const [chemblOpen, setChemblOpen] = useState(false);
   const [targetInput, setTargetInput] = useState('');
   const [targetOpen, setTargetOpen] = useState(false);
   // Which tool panel is open in the single-row tool strip (null = none); the cards lead.
-  const [openTool, setOpenTool] = useState<'props' | 'substr' | 'range' | 'constraints' | null>(null);
+  const [openTool, setOpenTool] = useState<'props' | 'substr' | 'range' | null>(null);
   // ChEMBL assay-format filter: avoid mixing biochemical binding/functional with
   // cellular readouts (BAO_LABEL). Defaults to binding (single-protein) assays.
   const [assayFormat, setAssayFormat] = useState<'B' | 'F' | 'all'>('B');
@@ -112,11 +98,11 @@ export default function Sidebar({
     initRDKitCache()
       .then(() => {
         setIsRDKitReady(true);
-        setStatus({ msg: 'Ready. Paste SMILES, or try kinase inhibitors.', type: 'success' });
+        setStatus({ msg: 'rdkit loaded — paste SMILES and click analyze', type: 'success' });
         onInitialLoadComplete?.();
       })
       .catch((e) => {
-        setStatus({ msg: 'The chemistry library did not start. ' + e.message, type: 'error' });
+        setStatus({ msg: 'failed to load rdkit: ' + e.message, type: 'error' });
         onInitialLoadComplete?.();
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -148,12 +134,14 @@ export default function Sidebar({
       });
   }, [isRDKitReady, initialPayloadFromUrl, onUrlPayloadConsumed, setMolecules, setCompareIndices, setSelectedMolIdx, onToast]);
 
+  const MOL_LIMIT = 2000;
+
   const handleAnalyze = async () => {
     if (!input.trim() || !isRDKitReady) return;
     const lineCount = input.trim().split('\n').filter((l) => l.trim()).length;
-    if (lineCount > MAX_MOLECULES) {
+    if (lineCount > MOL_LIMIT) {
       const proceed = window.confirm(
-        `You're about to analyze ${lineCount.toLocaleString()} molecules. Above ${MAX_MOLECULES.toLocaleString()}, performance may degrade significantly (slow parsing, unreadable scatter plots, large memory use).\n\nConsider filtering your dataset first.\n\nContinue anyway?`
+        `You're about to analyze ${lineCount.toLocaleString()} molecules. Above ${MOL_LIMIT.toLocaleString()}, performance may degrade significantly (slow parsing, unreadable scatter plots, large memory use).\n\nConsider filtering your dataset first.\n\nContinue anyway?`
       );
       if (!proceed) return;
     }
@@ -173,19 +161,14 @@ export default function Sidebar({
             },
           })
         : await parseAndAnalyze(input);
-      const { molecules: newMols, errors, failedLookups, customPropNames: newCustomProps, notes } = result;
+      const { molecules: newMols, errors, failedLookups, customPropNames: newCustomProps } = result;
       setCustomPropNames(newCustomProps);
       // Reset objectives: keep defaults + add new custom props as maximize
       // Loaded columns are made available, not silently optimised. Only those
       // whose direction can be established from the name become active
       // objectives; registering every column as 'max' meant an imported IC50
       // column was maximised, so the front selected the least potent compounds.
-      const objs = objectivesForPreset(scoringPreset, newCustomProps, objectiveWindows);
-      // Rank under the objectives being shown: parseAndAnalyze ranks under the
-      // defaults only, so inferred columns (e.g. pIC50) were listed as active
-      // objectives but ignored by the front until the user toggled something.
-      rankUnder(newMols, objs, constraints);
-      setParetoObjectives(objs);
+      setParetoObjectives([...DEFAULT_PARETO_OBJECTIVES, ...inferObjectives(newCustomProps)]);
       setMolecules(newMols);
       setCompareIndices([]);
       setSelectedMolIdx(null);
@@ -195,17 +178,12 @@ export default function Sidebar({
       enrichMoleculeNames(newMols, (enriched) => setMolecules(enriched));
 
       let finalMsg = `${newMols.length} molecules analyzed`;
-      if (notes?.length) finalMsg += `. ${notes.join(' ')}`;
       if (newCustomProps.length > 0) finalMsg += ` · ${newCustomProps.length} custom props`;
       if (errors > 0 || failedLookups > 0) {
         finalMsg += ` (${errors} errors, ${failedLookups} lookup failures)`;
         setStatus({ msg: finalMsg, type: 'error' });
       } else {
         setStatus({ msg: finalMsg, type: 'success' });
-      }
-      if (newMols.length > 0) {
-        const example = (Object.values(EXAMPLES) as string[]).some((value) => value.trim() === input.trim());
-        track(example ? 'molecules/example' : 'molecules/paste');
       }
     } catch (e: unknown) {
       setProgress(null);
@@ -241,12 +219,12 @@ export default function Sidebar({
     }
     setCustomPropNames(merged);
     // Activate only the columns whose direction can be established by name.
-    const newObjs = potencyObjectives(
+    const newObjs = inferObjectives(
       result.newPropNames.filter(n => !paretoObjectives.find(o => o.key === n)),
     );
     if (newObjs.length > 0) setParetoObjectives([...paretoObjectives, ...newObjs]);
     // Update molecules + recompute Pareto
-    rankUnder(result.molecules, [...paretoObjectives, ...newObjs], constraints);
+    computeParetoAndDominance(result.molecules, [...paretoObjectives, ...newObjs]);
     setMolecules([...result.molecules]);
     // Report what actually happened per record rather than a bare count: which
     // key each match was made on, what was aggregated, what disagreed, what was
@@ -327,7 +305,7 @@ export default function Sidebar({
         }
         const { molecules: newMols, errors, failedLookups } = await parseAndAnalyze(lines.join('\n'));
         setCustomPropNames([]);
-        setParetoObjectives(objectivesForPreset(scoringPreset, [], objectiveWindows));
+        setParetoObjectives(DEFAULT_PARETO_OBJECTIVES);
         setMolecules(newMols);
         setCompareIndices([]);
         setSelectedMolIdx(null);
@@ -336,27 +314,22 @@ export default function Sidebar({
         if (errors > 0 || failedLookups > 0) finalMsg += ` (${errors} errors, ${failedLookups} lookup failures)`;
         setStatus({ msg: finalMsg, type: errors + failedLookups > 0 ? 'error' : 'success' });
         onToast?.(`Loaded ${newMols.length} from SDF`);
-        if (newMols.length > 0) track('molecules/upload');
       } else {
         // CSV/TSV — paste the raw text into input and trigger analyze
         setInput(text);
         const result = await parseAndAnalyze(text);
-        const { molecules: newMols, errors, failedLookups, customPropNames: newCustomProps, notes } = result;
+        const { molecules: newMols, errors, failedLookups, customPropNames: newCustomProps } = result;
         setCustomPropNames(newCustomProps);
         // See the note above: columns are offered, not silently optimised.
-        const objs = objectivesForPreset(scoringPreset, newCustomProps, objectiveWindows);
-        rankUnder(newMols, objs, constraints);
-        setParetoObjectives(objs);
+        setParetoObjectives([...DEFAULT_PARETO_OBJECTIVES, ...inferObjectives(newCustomProps)]);
         setMolecules(newMols);
         setCompareIndices([]);
         setSelectedMolIdx(null);
         let finalMsg = `Loaded ${newMols.length} molecules from ${file.name}`;
-        if (notes?.length) finalMsg += `. ${notes.join(' ')}`;
         if (newCustomProps.length > 0) finalMsg += ` + ${newCustomProps.length} custom properties`;
         if (errors > 0 || failedLookups > 0) finalMsg += ` (${errors} errors)`;
         setStatus({ msg: finalMsg, type: errors + failedLookups > 0 ? 'error' : 'success' });
         onToast?.(`Loaded ${newMols.length} from ${file.name}`);
-        if (newMols.length > 0) track('molecules/upload');
       }
     } catch (e: unknown) {
       setStatus({ msg: 'File parse error: ' + (e instanceof Error ? e.message : String(e)), type: 'error' });
@@ -418,12 +391,11 @@ export default function Sidebar({
       setInput(lines.join('\n'));
       const { molecules: newMols, errors, failedLookups } = await parseAndAnalyze(lines.join('\n'));
       setCustomPropNames([]);
-      setParetoObjectives(objectivesForPreset(scoringPreset, [], objectiveWindows));
+      setParetoObjectives(DEFAULT_PARETO_OBJECTIVES);
       setMolecules(newMols);
       setCompareIndices([]);
       setSelectedMolIdx(null);
       setStatus({ msg: `Loaded ${newMols.length} from ChEMBL${errors + failedLookups > 0 ? ` (${errors} errors, ${failedLookups} not found)` : ''}`, type: errors + failedLookups > 0 ? 'error' : 'success' });
-      if (newMols.length > 0) track('molecules/chembl');
       setChemblOpen(false);
       setChemblInput('');
     } catch (e: unknown) {
@@ -468,24 +440,18 @@ export default function Sidebar({
         .join(' · ');
 
       // Deduplicate by SMILES, keep best pChEMBL
-      const molMap = new Map<string, { smiles: string; name: string; pchembl: number; value: number; column: string }>();
-      const types = new Set<string>();
+      const molMap = new Map<string, { smiles: string; name: string; pchembl: number; ic50: number }>();
       for (const act of data.activities) {
         if (!act.canonical_smiles) continue;
         const existing = molMap.get(act.canonical_smiles);
         const pchembl = parseFloat(act.pchembl_value) || 0;
-        const standardType = String(act.standard_type || 'activity').replace(/\s+/g, '');
-        const standardUnits = String(act.standard_units || '').replace(/\s+/g, '');
-        const column = standardUnits ? `${standardType}_${standardUnits}` : standardType;
-        types.add(standardType);
-        const value = parseFloat(act.standard_value) || 0;
+        const ic50 = parseFloat(act.standard_value) || 0;
         if (!existing || pchembl > existing.pchembl) {
           molMap.set(act.canonical_smiles, {
             smiles: act.canonical_smiles,
             name: act.molecule_chembl_id || act.canonical_smiles.slice(0, 20),
             pchembl,
-            value,
-            column,
+            ic50,
           });
         }
       }
@@ -503,28 +469,25 @@ export default function Sidebar({
         if (entry) {
           mol.customProps = mol.customProps || {};
           mol.customProps['pChEMBL'] = entry.pchembl;
-          if (entry.value > 0) mol.customProps[entry.column] = entry.value;
+          if (entry.ic50 > 0) mol.customProps['IC50_nM'] = entry.ic50;
         }
       }
 
       const customProps = ['pChEMBL'];
-      for (const entry of entries) {
-        if (entry.value > 0 && !customProps.includes(entry.column)) customProps.push(entry.column);
-      }
+      if (entries.some(e => e.ic50 > 0)) customProps.push('IC50_nM');
 
       setCustomPropNames([...result.customPropNames, ...customProps]);
-      const ranked = objectivesForPreset(scoringPreset, customProps, objectiveWindows);
-      rankUnder(result.molecules, ranked, constraints);
-      setParetoObjectives(ranked);
+      setParetoObjectives([
+        ...DEFAULT_PARETO_OBJECTIVES,
+        { key: 'pChEMBL', direction: 'max' as const },
+      ]);
       setMolecules(result.molecules);
       setCompareIndices([]);
       setSelectedMolIdx(null);
       setInput(lines);
       const fmtLabel = assayFormat === 'B' ? 'binding' : assayFormat === 'F' ? 'functional' : 'all formats';
-      const typeNote = [...types].join(', ') || 'activity';
-      setStatus({ msg: `Loaded ${result.molecules.length} compounds from ${targetId} (${data.activities.length} ${fmtLabel} activities). pChEMBL is the objective. Raw values keep the ChEMBL type and units (${typeNote}). Assays: ${baoSummary}`, type: 'success' });
+      setStatus({ msg: `Loaded ${result.molecules.length} compounds from ${targetId} (${data.activities.length} ${fmtLabel} activities) — assays: ${baoSummary}`, type: 'success' });
       onToast?.(`${result.molecules.length} compounds from ${targetId} (${fmtLabel})`);
-      if (result.molecules.length > 0) track('molecules/chembl');
     } catch (e: unknown) {
       setStatus({ msg: `ChEMBL error: ${e instanceof Error ? e.message : String(e)}`, type: 'error' });
     } finally {
@@ -781,7 +744,7 @@ export default function Sidebar({
       {/* Tools — one quiet row of triggers; single-open, so the molecule cards lead */}
       {molecules.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px]">
-          {([['props', 'Properties'], ['constraints', 'Constraints'], ['substr', 'Substructure'], ['range', 'Ranges']] as const).map(([id, label]) => (
+          {([['props', 'Properties'], ['substr', 'Substructure'], ['range', 'Ranges']] as const).map(([id, label]) => (
             <button
               key={id}
               onClick={() => setOpenTool(o => (o === id ? null : id))}
@@ -811,20 +774,22 @@ export default function Sidebar({
                       if (isActive) {
                         setParetoObjectives(paretoObjectives.filter(o => o.key !== key));
                       } else {
-                        setParetoObjectives([...paretoObjectives, checkedObjective(key, objectiveWindows, 'min')]);
+                        setParetoObjectives([...paretoObjectives, { key, direction: 'min' }]);
                       }
                     }}
                     className="accent-[#5F7367] w-3 h-3"
                   />
-                  <span className="text-[var(--text)] flex-1" title={key === 'SC' ? 'Untrained synthetic-complexity estimate (1 easy to 10 hard) computed from structure. Its coefficients were chosen by hand, not fitted to reaction or synthesis data, so it is a fast triage proxy rather than a validated score. Run ADMET for the Ertl SA score, RAScore and SCScore. Lower means easier to make.' : undefined}>{key === 'SC' ? 'Synth. (est., untrained)' : key}</span>
-                  {isActive && obj && (
+                  <span className="text-[var(--text)] flex-1" title={key === 'SC' ? 'Untrained synthetic-complexity estimate (1 easy – 10 hard) computed from structure. Its coefficients were chosen by hand, not fitted to reaction or synthesis data, so it is a fast triage proxy rather than a validated score. Run ADMET/Predict for the Ertl SA score, RAScore and SCScore. Lower = easier to make.' : undefined}>{key === 'SC' ? 'Synth. (est., untrained)' : key}</span>
+                  {isActive && (
                     <button
-                      type="button"
-                      aria-label={`${key}, ${directionWord(obj)}`}
-                      onClick={() => setParetoObjectives(paretoObjectives.map(o => o.key === key ? cycleObjective(o, objectiveWindows) : o))}
-                      className="text-[11px] text-[var(--text)]"
+                      onClick={() => setParetoObjectives(paretoObjectives.map(o => o.key === key ? { ...o, direction: o.direction === 'min' ? 'max' : 'min' } : o))}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${
+                        obj.direction === 'min'
+                          ? 'bg-[#5F7367]/15 border-[#5F7367]/40 text-[#9db8a5]'
+                          : 'bg-[#14b8a6]/15 border-[#14b8a6]/40 text-[#14b8a6]'
+                      }`}
                     >
-                      {directionWord(obj)}
+                      {obj.direction}
                     </button>
                   )}
                 </div>
@@ -841,19 +806,21 @@ export default function Sidebar({
                     checked={isActive}
                     onChange={() => {
                       if (isActive) setParetoObjectives(paretoObjectives.filter(o => o.key !== 'QED'));
-                      else setParetoObjectives([...paretoObjectives, checkedObjective('QED', objectiveWindows, 'max')]);
+                      else setParetoObjectives([...paretoObjectives, { key: 'QED', direction: 'max' }]);
                     }}
                     className="accent-[#5F7367] w-3 h-3"
                   />
                   <span className="text-[var(--text)] flex-1" title="Quantitative Estimate of Drug-likeness (Bickerton 2012); approx. — structural alerts counted as 0">QED ↑ *</span>
                   {isActive && (
                     <button
-                      type="button"
-                      aria-label={`QED, ${directionWord(obj)}`}
-                      onClick={() => setParetoObjectives(paretoObjectives.map(o => o.key === 'QED' ? cycleObjective(o, objectiveWindows) : o))}
-                      className="text-[11px] text-[var(--text)]"
+                      onClick={() => setParetoObjectives(paretoObjectives.map(o => o.key === 'QED' ? { ...o, direction: o.direction === 'min' ? 'max' : 'min' } : o))}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${
+                        obj.direction === 'min'
+                          ? 'bg-[#5F7367]/15 border-[#5F7367]/40 text-[#9db8a5]'
+                          : 'bg-[#14b8a6]/15 border-[#14b8a6]/40 text-[#14b8a6]'
+                      }`}
                     >
-                      {directionWord(obj)}
+                      {obj.direction}
                     </button>
                   )}
                 </div>
@@ -877,7 +844,7 @@ export default function Sidebar({
                           if (isActive) {
                             setParetoObjectives(paretoObjectives.filter(o => o.key !== key));
                           } else {
-                            setParetoObjectives([...paretoObjectives, checkedObjective(key, objectiveWindows, inferObjectiveDirection(key) ?? 'min')]);
+                            setParetoObjectives([...paretoObjectives, { key, direction: inferObjectiveDirection(key) ?? 'min' }]);
                           }
                         }}
                         className="accent-[#14b8a6] w-3 h-3"
@@ -886,12 +853,14 @@ export default function Sidebar({
                       <CoverageNote objKey={key} />
                       {isActive && (
                         <button
-                          type="button"
-                          aria-label={`${key}, ${directionWord(obj)}`}
-                          onClick={() => setParetoObjectives(paretoObjectives.map(o => o.key === key ? cycleObjective(o, objectiveWindows) : o))}
-                          className="text-[11px] text-[var(--text)]"
+                          onClick={() => setParetoObjectives(paretoObjectives.map(o => o.key === key ? { ...o, direction: o.direction === 'min' ? 'max' : 'min' } : o))}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${
+                            obj.direction === 'min'
+                              ? 'bg-[#5F7367]/15 border-[#5F7367]/40 text-[#9db8a5]'
+                              : 'bg-[#14b8a6]/15 border-[#14b8a6]/40 text-[#14b8a6]'
+                          }`}
                         >
-                          {directionWord(obj)}
+                          {obj.direction}
                         </button>
                       )}
                     </div>
@@ -902,9 +871,8 @@ export default function Sidebar({
             {/* ADMET Predictions */}
             {admetPropNames.length > 0 && (() => {
               const ADMET_PRESETS: { label: string; keys: { key: string; dir: 'min' | 'max' }[] }[] = [
-                { label: 'Safety', keys: [{ key: 'hERG', dir: 'min' }, { key: 'AMES', dir: 'min' }, { key: 'DILI', dir: 'min' }, { key: 'ClinTox', dir: 'min' }] },
-                { label: 'Oral absorption', keys: [{ key: 'HIA_Hou', dir: 'max' }, { key: 'Bioavailability_Ma', dir: 'max' }, { key: 'Solubility_AqSolDB', dir: 'max' }, { key: 'Pgp_Broccatelli', dir: 'min' }] },
-                { label: 'CNS (BBB high)', keys: [{ key: 'BBB_Martins', dir: 'max' }] },
+                { label: 'Drug Safety', keys: [{ key: 'hERG', dir: 'min' }, { key: 'AMES', dir: 'min' }, { key: 'DILI', dir: 'min' }, { key: 'ClinTox', dir: 'min' }] },
+                { label: 'Oral Profile', keys: [{ key: 'HIA_Hou', dir: 'max' }, { key: 'BBB_Martins', dir: 'max' }, { key: 'Pgp_Broccatelli', dir: 'min' }, { key: 'Bioavailability_Ma', dir: 'max' }] },
                 { label: 'Metabolism', keys: [{ key: 'CYP2C9_Veith', dir: 'min' }, { key: 'CYP2D6_Veith', dir: 'min' }, { key: 'CYP3A4_Veith', dir: 'min' }, { key: 'CYP1A2_Veith', dir: 'min' }] },
               ];
               return (
@@ -939,11 +907,10 @@ export default function Sidebar({
                               setParetoObjectives([...paretoObjectives, ...toAdd.map(k => ({ key: k.key, direction: k.dir }))]);
                             }
                           }}
-                          aria-pressed={allActive}
-                          className={`px-2 py-0.5 text-[11px] transition-colors ${
+                          className={`px-2 py-0.5 rounded text-[10px] font-medium border transition-colors ${
                             allActive
-                              ? 'text-[var(--text)] font-medium'
-                              : 'text-[var(--text2)] hover:text-[var(--text)]'
+                              ? 'bg-[#f59e0b]/15 border-[#f59e0b]/40 text-[#f59e0b]'
+                              : 'bg-[var(--surface2)] border-[var(--border-10)] text-[var(--text2)] hover:border-[#f59e0b]/40'
                           }`}
                         >
                           {preset.label}
@@ -963,9 +930,7 @@ export default function Sidebar({
                             if (isActive) {
                               setParetoObjectives(paretoObjectives.filter(o => o.key !== key));
                             } else {
-                              const meta = ADMET_AI_PROPERTY_META[key.replace(/ \(pred\)$/, '')];
-                              const dir: 'min' | 'max' = meta?.safeDir === 'high' ? 'max' : 'min';
-                              setParetoObjectives([...paretoObjectives, { key, direction: dir }]);
+                              setParetoObjectives([...paretoObjectives, { key, direction: 'min' }]);
                             }
                           }}
                           className="accent-[#f59e0b] w-3 h-3"
@@ -974,13 +939,14 @@ export default function Sidebar({
                         <CoverageNote objKey={key} />
                         {isActive && (
                           <button
-                            type="button"
-                            aria-label={`${key}, ${directionWord(obj)}`}
-                            title={ADMET_AI_PROPERTY_META[key.replace(/ \(pred\)$/, '')]?.safeDir == null ? 'No safer direction is defined for this endpoint. Minimize or maximize is your choice.' : undefined}
-                            onClick={() => setParetoObjectives(paretoObjectives.map(o => o.key === key ? cycleObjective(o, null) : o))}
-                            className="text-[11px] text-[var(--text)]"
+                            onClick={() => setParetoObjectives(paretoObjectives.map(o => o.key === key ? { ...o, direction: o.direction === 'min' ? 'max' : 'min' } : o))}
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${
+                              obj.direction === 'min'
+                                ? 'bg-[#5F7367]/15 border-[#5F7367]/40 text-[#9db8a5]'
+                                : 'bg-[#f59e0b]/15 border-[#f59e0b]/40 text-[#f59e0b]'
+                            }`}
                           >
-                            {directionWord(obj)}
+                            {obj.direction}
                           </button>
                         )}
                       </div>
@@ -989,76 +955,18 @@ export default function Sidebar({
                 </>
               );
             })()}
-            <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 text-[11px]" role="group" aria-label="Scoring profile">
-              {([['oral@1', 'Oral'], ['cns@1', 'CNS'], ['leadlike@1', 'Lead-like'], ['paper', 'Paper reproduction']] as const).map(([id, label]) => (
-                <button
-                  key={id}
-                  type="button"
-                  aria-pressed={scoringPreset === id}
-                  onClick={() => onScoringPreset?.(id)}
-                  className={scoringPreset === id ? 'text-[var(--text)] font-medium' : 'text-[var(--text2)] hover:text-[var(--text)]'}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <button
+              onClick={() => {
+                const updated = [...molecules];
+                computeParetoAndDominance(updated, paretoObjectives);
+                setMolecules(updated);
+                onToast?.('Pareto recomputed');
+              }}
+              className="w-full mt-1 py-1.5 bg-[#5F7367]/20 border border-[#5F7367]/30 text-[#9db8a5] text-[11px] font-medium rounded hover:bg-[#5F7367]/30 transition-colors"
+            >
+              Recompute Pareto
+            </button>
           </div>
-      )}
-
-      {molecules.length > 0 && openTool === 'constraints' && (
-        <div className="mt-2 p-2 bg-[var(--bg)] border border-[var(--border-5)] rounded-md space-y-2 text-[11px]">
-          <p className="text-[var(--text2)] leading-relaxed">Constraints remove compounds before the front is ranked. A missing value fails. Predicted cutoffs are model outputs.</p>
-          <button
-            type="button"
-            aria-pressed={LIPINSKI_CONSTRAINTS.every((rule) => constraints.some((c) => c.key === rule.key && c.op === rule.op && c.value === rule.value && !c.predicted))}
-            onClick={() => {
-              const on = LIPINSKI_CONSTRAINTS.every((rule) => constraints.some((c) => c.key === rule.key && c.op === rule.op && c.value === rule.value && !c.predicted));
-              if (on) onConstraints?.(constraints.filter((c) => !LIPINSKI_CONSTRAINTS.some((rule) => rule.key === c.key && rule.op === c.op && rule.value === c.value && !c.predicted)));
-              else onConstraints?.([...constraints, ...LIPINSKI_CONSTRAINTS.map((c) => ({ ...c }))]);
-            }}
-            className="text-[var(--text)]"
-          >
-            Lipinski, all four rules
-          </button>
-          {admetPropNames.map((key) => {
-            const meta = ADMET_AI_PROPERTY_META[key.replace(/ \(pred\)$/, '')];
-            const active = constraints.find((c) => c.key === key && c.predicted);
-            const op = meta?.safeDir === 'high' ? '>=' as const : '<=' as const;
-            return (
-              <div key={key} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  className="accent-[#5F7367] w-3 h-3"
-                  checked={!!active}
-                  aria-label={`Constraint on predicted ${key}`}
-                  onChange={() => {
-                    if (active) onConstraints?.(constraints.filter((c) => c !== active));
-                    else onConstraints?.([...constraints, { key, op, value: 0.5, predicted: true }]);
-                  }}
-                />
-                <span className="text-[var(--text)] flex-1 truncate" title="Predicted">{key} predicted</span>
-                {active && (
-                  <>
-                    <span className="text-[var(--text2)]">{active.op}</span>
-                    <input
-                      type="number"
-                      step="0.05"
-                      value={active.value}
-                      aria-label={`${key} cutoff`}
-                      onChange={(e) => {
-                        const value = Number(e.target.value);
-                        if (!Number.isFinite(value)) return;
-                        onConstraints?.(constraints.map((c) => c === active ? { ...c, value } : c));
-                      }}
-                      className="w-16 bg-[var(--surface)] border border-[var(--border-10)] rounded px-1 py-0.5 text-[var(--text)]"
-                    />
-                  </>
-                )}
-              </div>
-            );
-          })}
-          {pruneSummary(molecules) && <p className="text-[var(--text)] leading-relaxed">{pruneSummary(molecules)}</p>}
-        </div>
       )}
 
       {/* Substructure panel */}
@@ -1203,7 +1111,6 @@ function MoleculeList({ molecules, selectedMolIdx, setSelectedMolIdx, compareInd
   return (
     <div
       ref={containerRef}
-      data-mol-list
       className="mt-3 flex-1 min-h-0 overflow-y-auto custom-scrollbar pb-20"
       onScroll={handleScroll}
     >
@@ -1258,8 +1165,9 @@ function MoleculeCard({ molecule: m, isSelected, isCompared, isShortlisted, onSe
   }, [isSelected, fdaDrugs]);
   return (
     <div
+      onClick={onSelect}
       onContextMenu={(e) => { e.preventDefault(); onContextMenu(); }}
-      className={`p-3 bg-[var(--surface)] border rounded-md transition-colors ${
+      className={`p-3 bg-[var(--surface)] border rounded-md transition-colors cursor-pointer ${
         isCompared
           ? 'border-[#06b6d4] bg-[#06b6d4]/10'
           : isSelected
@@ -1276,7 +1184,7 @@ function MoleculeCard({ molecule: m, isSelected, isCompared, isShortlisted, onSe
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1">
-            <button type="button" onClick={onSelect} className="text-left text-[13px] font-medium text-[var(--text-heading)] truncate flex-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--text)]" title={m.name}>{m.name.replace(/_/g, ' ')}</button>
+            <div className="text-[13px] font-medium text-[var(--text-heading)] truncate flex-1" title={m.name}>{m.name.replace(/_/g, ' ')}</div>
             {onToggleShortlist && (
               <button
                 onClick={(e) => { e.stopPropagation(); onToggleShortlist(); }}
@@ -1284,19 +1192,10 @@ function MoleculeCard({ molecule: m, isSelected, isCompared, isShortlisted, onSe
                 className={`shrink-0 w-5 h-5 flex items-center justify-center text-[12px] rounded transition-colors ${
                   isShortlisted
                     ? 'text-[var(--accent)]'
-                    : 'text-[var(--text2)] hover:text-[var(--accent)]'
+                    : 'text-[var(--text2)]/30 hover:text-[var(--accent)]'
                 }`}
               >
                 {isShortlisted ? '★' : '☆'}
-              </button>
-            )}
-            {isSelected && (
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onContextMenu(); }}
-                className="text-[11px] text-[var(--text2)] hover:text-[var(--text)]"
-              >
-                Compare
               </button>
             )}
           </div>
@@ -1305,7 +1204,7 @@ function MoleculeCard({ molecule: m, isSelected, isCompared, isShortlisted, onSe
               <span title="Untrained synthetic-complexity estimate (1 easy – 10 hard) computed in-browser from structure (stereocentres, ring systems, size, 3-D character). Its coefficients were chosen by hand rather than fitted to synthesis data, so it is a fast triage proxy, not a validated score. Run ADMET/Predict for the Ertl SA score. Lower = easier to make.">Synth. est:</span>
               <span
                 title={m.scFactors && m.scFactors.length ? `Driven by: ${m.scFactors.join(', ')}` : 'no notable complexity drivers'}
-                className={`font-mono cursor-help ${m.props.SC <= 3 ? 'text-[var(--green)]' : m.props.SC <= 6 ? 'text-[var(--text)]' : 'text-[var(--red)]'}`}
+                className={`font-mono cursor-help ${m.props.SC <= 3 ? 'text-[#22c55e]' : m.props.SC <= 6 ? 'text-[#f59e0b]' : 'text-[#ef4444]'}`}
               >{m.props.SC.toFixed(1)}</span>
             </div>
             <div className="flex justify-between">
@@ -1317,8 +1216,8 @@ function MoleculeCard({ molecule: m, isSelected, isCompared, isShortlisted, onSe
               <span className="font-mono text-[var(--text-heading)]">{m.props.LogP.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
-              <span title="Quantitative Estimate of Drug-likeness (Bickerton 2012)">QED:</span>
-              <span className={`font-mono ${m.props.QED >= 0.6 ? 'text-[var(--green)]' : 'text-[var(--text-heading)]'}`}>{m.props.QED.toFixed(3)}</span>
+              <span title="Quantitative Estimate of Drug-likeness (Bickerton 2012; approx. — no PAINS alert count)">QED*:</span>
+              <span className={`font-mono ${m.props.QED >= 0.6 ? 'text-[#22c55e]' : 'text-[var(--text-heading)]'}`}>{m.props.QED.toFixed(3)}</span>
             </div>
           </div>
         </div>
@@ -1326,7 +1225,7 @@ function MoleculeCard({ molecule: m, isSelected, isCompared, isShortlisted, onSe
 
       <div className="mt-2 flex gap-1.5 flex-wrap">
         {m.paretoRank === 1 && (
-          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[var(--surface2)] text-[var(--green)]">
+          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#22c55e]/15 text-[#22c55e]">
             pareto
           </span>
         )}
@@ -1348,7 +1247,7 @@ function MoleculeCard({ molecule: m, isSelected, isCompared, isShortlisted, onSe
           )
         )}
         {Object.entries(m.filters).map(([fname, res]) => {
-          const shortNames: Record<string, string> = { lipinski: 'Lipinski', veber: 'Veber', ghose: 'Ghose', leadlike: 'Lead-like' };
+          const shortNames: Record<string, string> = { lipinski: 'Ro5', veber: 'veb', ghose: 'gho', leadlike: 'lead' };
           const short = shortNames[fname] ?? fname.slice(0, 3);
           // Build rich per-rule tooltip from DRUG_FILTERS definition
           const filterDef = DRUG_FILTERS[fname as keyof typeof DRUG_FILTERS];
@@ -1381,7 +1280,7 @@ function MoleculeCard({ molecule: m, isSelected, isCompared, isShortlisted, onSe
               key={fname}
               title={tooltip}
               className={`px-2 py-0.5 rounded text-[10px] font-medium cursor-help select-none ${
-                res.pass ? 'bg-[var(--border-10)] text-[var(--text)]' : 'bg-[var(--surface2)] text-[var(--red)]'
+                res.pass ? 'bg-[var(--border-10)] text-[var(--text-heading)]' : 'bg-[#ef4444]/15 text-[#ef4444]'
               }`}
             >
               {short} {res.pass ? 'pass' : 'fail'}

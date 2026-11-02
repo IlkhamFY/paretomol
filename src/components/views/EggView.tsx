@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
-import type { Molecule } from '@paretomol/core';
+import type { Molecule } from '../../utils/types';
 import type { FDADrug } from '../../utils/fda_reference';
 
 // Exact polygon coordinates from the supporting information of:
@@ -372,7 +372,7 @@ function EggView({ molecules, selectedMolIdx, setSelectedMolIdx, fdaData }: EggV
       }
     }
 
-  }, [molecules, selectedMolIdx, fdaData, zoom, panX, panY]);
+  }, [molecules, selectedMolIdx, fdaData, themeVersion, zoom, panX, panY]);
 
   // Redraw when data or container size changes
   useEffect(() => {

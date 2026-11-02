@@ -1,9 +1,7 @@
 ﻿import React, { useState, useMemo } from 'react';
-import type { Molecule, PropDesirability, CurveType } from '@paretomol/core';
+import type { Molecule } from '../../utils/types';
 import { useTheme } from '../../contexts/ThemeContext';
-import { desirability, geometricMean, sigmoidDesirability, getProfile } from '@paretomol/core';
-import { MPO_PROFILE_REFS, mpoKeyForRef } from '../../utils/scoringProfile';
-import type { MpoProfileKey } from '../../utils/scoringProfile';
+import { doubleSigmoidDesirability } from '../../utils/mpo';
 
 // ─── ADMET desirability ─────────────────────────────────────────────────────
 
@@ -17,39 +15,67 @@ const ADMET_MPO_DEFS = [
 
 // ΓöÇΓöÇΓöÇ Types ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
+interface PropDesirability {
+  idealMin: number;
+  idealMax: number;
+  acceptMin: number;
+  acceptMax: number;
+}
+
 type PropKey = 'MW' | 'LogP' | 'HBD' | 'HBA' | 'TPSA' | 'RotBonds';
 type MPOProfile = Record<PropKey, PropDesirability>;
+type CurveType = 'linear' | 'sigmoid';
 
 // ΓöÇΓöÇΓöÇ Profiles ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-
-// Thresholds come from the versioned profiles in @paretomol/core (oral@1, cns@1,
-// leadlike@1, custom@1); labels and descriptions stay here.
-function profileWindows(ref: string): MPOProfile {
-  const d = getProfile(ref).desirability;
-  return Object.fromEntries(PROP_KEYS_ORDER.map((k) => [k, { ...d[k] }])) as MPOProfile;
-}
-const PROP_KEYS_ORDER: PropKey[] = ['MW', 'LogP', 'HBD', 'HBA', 'TPSA', 'RotBonds'];
 
 const PROFILES: Record<string, { label: string; desc: string; profile: MPOProfile }> = {
   oral: {
     label: 'Oral Drug',
-    desc: 'Oral windows. The same bands rank the Pareto front.',
-    profile: profileWindows('oral@1'),
+    desc: 'Lipinski Ro5-based (MW Γëñ 500, LogP Γëñ 5, HBD Γëñ 5, HBA Γëñ 10)',
+    profile: {
+      MW:       { idealMin: 150, idealMax: 400, acceptMin: 100, acceptMax: 500 },
+      LogP:     { idealMin: 0,   idealMax: 3.5, acceptMin: -1,  acceptMax: 5   },
+      HBD:      { idealMin: 0,   idealMax: 3,   acceptMin: 0,   acceptMax: 5   },
+      HBA:      { idealMin: 0,   idealMax: 7,   acceptMin: 0,   acceptMax: 10  },
+      TPSA:     { idealMin: 40,  idealMax: 100, acceptMin: 20,  acceptMax: 140 },
+      RotBonds: { idealMin: 0,   idealMax: 5,   acceptMin: 0,   acceptMax: 10  },
+    },
   },
   cns: {
     label: 'CNS Drug',
-    desc: 'CNS window from cns@1. A sketch: logD and pKa are absent, so this is not Wager CNS MPO.',
-    profile: profileWindows('cns@1'),
+    desc: 'BBB-penetrant (MW Γëñ 400, LogP 1-4, TPSA Γëñ 90)',
+    profile: {
+      MW:       { idealMin: 150, idealMax: 330, acceptMin: 100, acceptMax: 400 },
+      LogP:     { idealMin: 1,   idealMax: 3.5, acceptMin: 0,   acceptMax: 5   },
+      HBD:      { idealMin: 0,   idealMax: 2,   acceptMin: 0,   acceptMax: 3   },
+      HBA:      { idealMin: 0,   idealMax: 5,   acceptMin: 0,   acceptMax: 7   },
+      TPSA:     { idealMin: 20,  idealMax: 70,  acceptMin: 0,   acceptMax: 90  },
+      RotBonds: { idealMin: 0,   idealMax: 4,   acceptMin: 0,   acceptMax: 8   },
+    },
   },
   leadlike: {
     label: 'Lead-like',
     desc: 'Optimization headroom (MW Γëñ 350, LogP Γëñ 3.5)',
-    profile: profileWindows('leadlike@1'),
+    profile: {
+      MW:       { idealMin: 120, idealMax: 280, acceptMin: 80,  acceptMax: 350 },
+      LogP:     { idealMin: -1,  idealMax: 2.5, acceptMin: -2,  acceptMax: 3.5 },
+      HBD:      { idealMin: 0,   idealMax: 2,   acceptMin: 0,   acceptMax: 4   },
+      HBA:      { idealMin: 0,   idealMax: 5,   acceptMin: 0,   acceptMax: 8   },
+      TPSA:     { idealMin: 20,  idealMax: 90,  acceptMin: 0,   acceptMax: 120 },
+      RotBonds: { idealMin: 0,   idealMax: 4,   acceptMin: 0,   acceptMax: 7   },
+    },
   },
   custom: {
     label: 'Custom',
     desc: 'Edit ranges below to match your target profile',
-    profile: profileWindows('custom@1'),
+    profile: {
+      MW:       { idealMin: 150, idealMax: 400, acceptMin: 100, acceptMax: 500 },
+      LogP:     { idealMin: 0,   idealMax: 3.5, acceptMin: -1,  acceptMax: 5   },
+      HBD:      { idealMin: 0,   idealMax: 3,   acceptMin: 0,   acceptMax: 5   },
+      HBA:      { idealMin: 0,   idealMax: 7,   acceptMin: 0,   acceptMax: 10  },
+      TPSA:     { idealMin: 40,  idealMax: 100, acceptMin: 20,  acceptMax: 140 },
+      RotBonds: { idealMin: 0,   idealMax: 5,   acceptMin: 0,   acceptMax: 10  },
+    },
   },
 };
 
@@ -65,6 +91,32 @@ const PROP_META: Record<PropKey, { label: string; short: string; unit: string; s
 const PROP_KEYS: PropKey[] = ['MW', 'LogP', 'HBD', 'HBA', 'TPSA', 'RotBonds'];
 
 // ΓöÇΓöÇΓöÇ Math ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+function linearDesirability(value: number, d: PropDesirability): number {
+  if (value < d.acceptMin || value > d.acceptMax) return 0;
+  if (value >= d.idealMin && value <= d.idealMax) return 1;
+  if (value < d.idealMin) {
+    const range = d.idealMin - d.acceptMin;
+    return range <= 0 ? 1 : (value - d.acceptMin) / range;
+  }
+  const range = d.acceptMax - d.idealMax;
+  return range <= 0 ? 1 : (d.acceptMax - value) / range;
+}
+
+function sigmoidDesirability(value: number, d: PropDesirability): number {
+  return doubleSigmoidDesirability(value, d.acceptMin, d.idealMin, d.idealMax, d.acceptMax);
+}
+
+function desirability(value: number, d: PropDesirability, curveType: CurveType = 'linear'): number {
+  return curveType === 'sigmoid' ? sigmoidDesirability(value, d) : linearDesirability(value, d);
+}
+
+function geometricMean(values: number[]): number {
+  if (values.length === 0) return 0;
+  // Floor at 0.01 so one bad property doesn't nuke the entire score to ~0
+  const product = values.reduce((acc, v) => acc * Math.max(v, 0.01), 1);
+  return Math.pow(product, 1 / values.length);
+}
 
 function dColor(d: number): string {
   if (d >= 0.8) return '#22c55e';
@@ -150,72 +202,41 @@ function DesirCurve({ d, value, profile, curveType = 'linear' }: { d: number; va
 
 // ΓöÇΓöÇΓöÇ Component ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
-function windowsFor(ref: string | undefined): MPOProfile {
-  if (!ref) return PROFILES.oral.profile;
-  try {
-    const d = getProfile(ref).desirability;
-    return Object.fromEntries(PROP_KEYS_ORDER.map((k) => [k, { ...d[k] }])) as MPOProfile;
-  } catch {
-    return PROFILES.oral.profile;
-  }
-}
-
 function MPOView({
   molecules,
   selectedMolIdx,
   setSelectedMolIdx,
-  profileRef,
-  onProfileRef,
-  curveType: curveProp,
-  onCurveType,
 }: {
   molecules: Molecule[];
   selectedMolIdx?: number | null;
   setSelectedMolIdx?: (idx: number | null) => void;
-  /** Versioned profile ref from the app, e.g. cns@1. */
-  profileRef?: string;
-  onProfileRef?: (ref: string) => void;
-  curveType?: CurveType;
-  onCurveType?: (curve: CurveType) => void;
 }) {
   useTheme(); // subscribe to theme changes
-  const [localProfileName, setLocalProfileName] = useState<MpoProfileKey>('oral');
+  const [profileName, setProfileName] = useState<keyof typeof PROFILES>('oral');
   const [customProfile, setCustomProfile] = useState<MPOProfile>({ ...PROFILES.custom.profile });
   const [showRangeEditor, setShowRangeEditor] = useState(false);
   const [sortBy, setSortBy] = useState<'mpo' | PropKey>('mpo');
-  const [localCurve, setLocalCurve] = useState<CurveType>('linear');
+  const [curveType, setCurveType] = useState<CurveType>('linear');
   const [includeAdmet, setIncludeAdmet] = useState(false);
-  const selectedKey: MpoProfileKey | null = profileRef !== undefined ? mpoKeyForRef(profileRef) : localProfileName;
-  const curveType = curveProp ?? localCurve;
 
   const admetPresent = useMemo(
     () => molecules.some(m => m.customProps && ADMET_MPO_DEFS.some(d => m.customProps![d.key] != null)),
     [molecules]
   );
 
-  const activeProfile: MPOProfile = selectedKey === 'custom'
-    ? customProfile
-    : selectedKey
-      ? PROFILES[selectedKey].profile
-      : windowsFor(profileRef);
+  const activeProfile: MPOProfile =
+    profileName === 'custom' ? customProfile : PROFILES[profileName].profile;
 
-  const selectProfile = (name: MpoProfileKey) => {
-    setLocalProfileName(name);
-    onProfileRef?.(MPO_PROFILE_REFS[name]);
+  const selectProfile = (name: keyof typeof PROFILES) => {
+    setProfileName(name);
     if (name !== 'custom') setCustomProfile({ ...PROFILES[name].profile });
-  };
-
-  const chooseCurve = (ct: CurveType) => {
-    setLocalCurve(ct);
-    onCurveType?.(ct);
   };
 
   const updateBoundary = (prop: PropKey, field: keyof PropDesirability, raw: string) => {
     const val = parseFloat(raw);
     if (isNaN(val)) return;
     setCustomProfile(prev => ({ ...prev, [prop]: { ...prev[prop], [field]: val } }));
-    setLocalProfileName('custom');
-    onProfileRef?.(MPO_PROFILE_REFS.custom);
+    setProfileName('custom');
   };
 
   const scored = useMemo(() => {
@@ -259,7 +280,7 @@ function MPOView({
       <div>
         <h3 className="text-[14px] font-medium text-[var(--text-heading)]">MPO Desirability Scoring</h3>
         <p className="text-[12px] text-[var(--text2)] mt-0.5">
-          Geometric mean of the same desirability windows as the Pareto front. A missing property drops out of the mean. A value outside its window still counts as 0.01.
+          Geometric mean of per-property desirability (0-1). Each property scored against an ideal range.
         </p>
       </div>
 
@@ -269,10 +290,9 @@ function MPOView({
           {Object.entries(PROFILES).map(([name, def]) => (
             <button
               key={name}
-              onClick={() => selectProfile(name as MpoProfileKey)}
-              aria-pressed={selectedKey === name}
+              onClick={() => selectProfile(name as keyof typeof PROFILES)}
               className={`px-3 py-1.5 text-[12px] font-medium transition-colors border-b-2 ${
-                selectedKey === name
+                profileName === name
                   ? 'border-[var(--accent)] text-[var(--text-heading)]'
                   : 'border-transparent text-[var(--text2)] hover:text-[var(--text)]'
               }`}
@@ -302,7 +322,7 @@ function MPOView({
             {(['linear', 'sigmoid'] as const).map(ct => (
               <button
                 key={ct}
-                onClick={() => chooseCurve(ct)}
+                onClick={() => setCurveType(ct)}
                 className={`px-2.5 py-1 text-[10px] font-medium transition-colors ${
                   curveType === ct
                     ? 'bg-[#5F7367]/20 text-[#8fad9a]'
@@ -326,7 +346,7 @@ function MPOView({
         </div>
       </div>
 
-      <p className="text-[11px] text-[var(--text2)]/70 -mt-3 italic">{selectedKey ? PROFILES[selectedKey].desc : (profileRef ?? PROFILES.oral.desc)}</p>
+      <p className="text-[11px] text-[var(--text2)]/70 -mt-3 italic">{PROFILES[profileName].desc}</p>
 
       {/* Range editor */}
       {showRangeEditor && (

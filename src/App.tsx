@@ -5,29 +5,20 @@ import Content from './components/Content';
 import DocsPage from './components/DocsPage';
 import CopilotPanel from './components/CopilotPanel';
 import KeyboardShortcuts from './components/KeyboardShortcuts';
-import type { Molecule, ParetoObjective, FormulaColumn } from '@paretomol/core';
-import { objectivesForPreset, rankUnder } from '@paretomol/core';
-import type { Constraint, ObjectiveWindow, ScoringPreset } from '@paretomol/core';
-import { EXAMPLES } from './data/examples';
-import { parseFormula } from '@paretomol/core';
+import type { Molecule, ParetoObjective, FormulaColumn } from './utils/types';
+import { DEFAULT_PARETO_OBJECTIVES, EXAMPLES } from './utils/types';
+import { parseFormula } from './utils/formula';
 import { autoSave, loadAutoSession, clearAutoSession, formatSessionTime, CURRENT_SCHEMA_VERSION } from './utils/session';
 import type { SerializedMolecule } from './utils/session';
-import { packFingerprint, parseAndAnalyze, filterBySubstructure, initRDKitCache } from './utils/chem';
+import { packFingerprint, parseAndAnalyze, filterBySubstructure, computeParetoAndDominance } from './utils/chem';
 import { useTheme } from './contexts/ThemeContext';
 import { detectLocalServer } from './utils/admetTiers';
-import { warmupAdmetEndpoint, getAdmetAIEndpoint } from './utils/admetAI';
-import { buildDecisionRecord, parseDecisionRecord, selectedIndices, reviewTokenFromUrl, decodeReview, getProfile, verifyDecision } from '@paretomol/core';
-import type { CurveType, ReviewVerdict } from '@paretomol/core';
-import { decisionExportFields } from './utils/decisionExport';
-import ReviewPanel from './components/ReviewPanel';
-import type { ReviewState } from './components/ReviewPanel';
 import { fetchRAScore, getRascoreUrl } from './utils/rascore';
 import { fetchBuyabilityBatch } from './utils/cost';
 import { fetchZincPrices } from './utils/zinc';
 
 import { getInitialPayloadFromUrl, getInitialTabFromUrl, getShareableUrl } from './utils/share';
-import { track } from './lib/track';
-import { downloadDecisionRecord, downloadCSV, downloadScoredCSV, downloadJSON, downloadSDF, downloadSDFPareto, downloadManifest, downloadSummaryReport, downloadCanvasPng } from './utils/export';
+import { downloadCSV, downloadScoredCSV, downloadJSON, downloadSDF, downloadSDFPareto, downloadManifest } from './utils/export';
 import { clearSvgCache } from './utils/chem';
 import { applyPropertyFilters } from './components/PropertyFilters';
 
@@ -42,19 +33,8 @@ export default function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [customPropNames, setCustomPropNames] = useState<string[]>([]);
-  const [scoringPreset, setScoringPreset] = useState<ScoringPreset>('oral@1');
-  const [customWindows, setCustomWindows] = useState<Record<string, ObjectiveWindow> | null>(null);
-  const [paretoObjectives, setParetoObjectives] = useState<ParetoObjective[]>(() => objectivesForPreset('oral@1'));
-  const [mpoCurve, setMpoCurve] = useState<CurveType>('linear');
-  const [constraints, setConstraints] = useState<Constraint[]>([]);
-  const [robustFront, setRobustFront] = useState(false);
-  const scoringProfileRef = scoringPreset === 'paper' || scoringPreset === 'custom' ? 'oral@1' : scoringPreset;
+  const [paretoObjectives, setParetoObjectives] = useState<ParetoObjective[]>(DEFAULT_PARETO_OBJECTIVES);
   const [admetPropNames, setAdmetPropNames] = useState<string[]>([]);
-  const rankObjectives = useMemo(() => {
-    if (!robustFront) return paretoObjectives;
-    const predicted = new Set(admetPropNames);
-    return paretoObjectives.map((o) => predicted.has(o.key) ? { ...o, epsilon: 0.05 } : o);
-  }, [paretoObjectives, robustFront, admetPropNames]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(() => window.location.search.includes('docs'));
   const [sidebarWidth, setSidebarWidth] = useState(380);
@@ -72,19 +52,12 @@ export default function App() {
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
-  const [review, setReview] = useState<ReviewState | null>(null);
-  const [reviewLinkError, setReviewLinkError] = useState<string | null>(null);
-  // Captured on first render, before any effect rewrites the URL.
-  const [reviewToken] = useState(() => reviewTokenFromUrl(window.location.href));
   const [sessionToast, setSessionToast] = useState<{ molCount: number; time: string } | null>(null);
   const sessionRestoreRef = useRef(false);
 
-  // Probe for a local ADMET server, then wake whatever endpoint predictions will use.
-  // One GET /health per page session; failures stay silent and nothing here blocks paint.
+  // Auto-detect local ADMET-AI server once on startup
   useEffect(() => {
-    void detectLocalServer().finally(() => {
-      warmupAdmetEndpoint();
-    });
+    detectLocalServer(); // fire-and-forget — updates localStorage, components re-read on next prediction
   }, []);
 
   // Persist formula columns
@@ -168,13 +141,10 @@ export default function App() {
         customPropNames,
         activeTab,
         shortlist: Array.from(shortlist),
-        scoringProfile: scoringProfileRef,
-        mpoCurve,
-        constraints,
       });
     }, 2000);
     return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
-  }, [molecules, paretoObjectives, formulaColumns, customPropNames, activeTab, shortlist, scoringProfileRef, mpoCurve, constraints]);
+  }, [molecules, paretoObjectives, formulaColumns, customPropNames, activeTab, shortlist]);
 
   // Session restore on load
   useEffect(() => {
@@ -210,21 +180,16 @@ export default function App() {
       restored = session.molecules.map(sm => ({
         ...sm,
         svg: '',
-        props: sm.props as unknown as import('@paretomol/core').MolProps,
+        props: sm.props as unknown as import('./utils/types').MolProps,
         fpPacked: packFingerprint(sm.fingerprint),
       }));
     }
 
     // Ranks are always recomputed: front indices are derived from the active
     // objectives, and a stored rank can only be stale.
-    rankUnder(restored, session.objectives ?? objectivesForPreset('oral@1'), session.constraints ?? []);
+    computeParetoAndDominance(restored, session.objectives ?? DEFAULT_PARETO_OBJECTIVES);
     setMolecules(restored);
     if (session.objectives) setParetoObjectives(session.objectives);
-    if (session.scoringProfile) {
-      try { setScoringPreset(getProfile(session.scoringProfile).ref as ScoringPreset); } catch { /* keep the default */ }
-    }
-    if (session.mpoCurve === 'linear' || session.mpoCurve === 'sigmoid') setMpoCurve(session.mpoCurve);
-    if (session.constraints) setConstraints(session.constraints);
     if (session.formulaColumns) setFormulaColumns(session.formulaColumns);
     if (session.customPropNames) setCustomPropNames(session.customPropNames);
     if (session.activeTab) setActiveTab(session.activeTab);
@@ -243,114 +208,21 @@ export default function App() {
     if (payload) setInitialPayloadFromUrl(payload);
   }, []);
 
-  // Open review link (#r= or ?r=, docs/review-url.md): an agent's shortlist
-  // opens straight into review mode with Accept/Reject per molecule.
-  useEffect(() => {
-    const token = reviewToken;
-    if (!token) return;
-    void (async () => {
-      try {
-        const payload = decodeReview(token);
-        const text = payload.molecules.map(m => `${m.smiles} ${m.name}`).join('\n');
-        const { molecules: fresh } = await parseAndAnalyze(text);
-        if (fresh.length !== payload.molecules.length) throw new Error(`${payload.molecules.length - fresh.length} structures did not parse`);
-        const mols = fresh.map((m, i) => ({ ...m, name: payload.molecules[i].name, customProps: { ...(payload.molecules[i].customProps ?? {}) } }));
-        const objectives = payload.objectives ?? objectivesForPreset(payload.profile ?? 'oral@1');
-        if (payload.profile) {
-          try { setScoringPreset(getProfile(payload.profile).ref as ScoringPreset); } catch { /* payload profile already validated */ }
-        }
-        rankUnder(mols, objectives, constraints);
-        setMolecules(mols);
-        setParetoObjectives(objectives);
-        setCustomPropNames(Array.from(new Set(mols.flatMap(m => Object.keys(m.customProps)))));
-        setShortlist(new Set());
-        setSessionToast(null);
-        setReview({ payload, decisions: {} });
-        track('review/opened');
-        setToast(`Review: ${mols.length} molecules${payload.source ? ` from ${payload.source}` : ''}`);
-      } catch (e) {
-        setReviewLinkError(e instanceof Error ? e.message : String(e));
-      }
-    })();
-  }, [reviewToken]);
-
-  const handleReviewDecide = useCallback((idx: number, v: ReviewVerdict | null) => {
-    setReview(prev => {
-      if (!prev) return prev;
-      const decisions = { ...prev.decisions };
-      if (v) decisions[idx] = v; else delete decisions[idx];
-      return { ...prev, decisions };
-    });
-    setShortlist(prev => { const next = new Set(prev); if (v === 'accept') next.add(idx); else next.delete(idx); return next; });
-  }, []);
-
-  const handleReviewExport = async (note: string) => {
-    if (!review || molecules.length === 0) return;
-    const RDKit = await initRDKitCache();
-    const accepted = Object.entries(review.decisions).filter(([, v]) => v === 'accept').map(([k]) => Number(k));
-    const names = new Map(molecules.map((m, i) => [m.name, i] as const));
-    const scoring = decisionExportFields({
-      kind: 'review',
-      profileRef: scoringProfileRef,
-      curve: mpoCurve,
-      reviewProfile: review.payload.profile,
-      admetColumns: admetPropNames.length,
-      admetEndpoint: getAdmetAIEndpoint(),
-    });
-    const rec = buildDecisionRecord({
-      molecules,
-      objectives: rankObjectives,
-      constraints,
-      profile: scoring.profile,
-      curve: scoring.curve,
-      selected: accepted,
-      rationale: note,
-      rdkitVersion: typeof RDKit?.version === 'function' ? String(RDKit.version()) : 'unknown',
-      admetEndpoint: scoring.admetEndpoint,
-      view: { activeTab, formulaColumns, customPropNames, admetPropNames, propertyFilters, substructureFilter },
-      review: { source: review.payload.source, decisions: review.decisions, suggested: (review.payload.suggested ?? []).flatMap(n => names.has(n) ? [names.get(n)!] : []) },
-    });
-    downloadDecisionRecord(rec, 'paretomol_review.json');
-    track('review/exported');
-    setToast(`Review exported: ${accepted.length} accepted`);
-  };
-
   const handleLoadExample = useCallback(async (key: string) => {
     const smiles = (EXAMPLES as Record<string, string>)[key];
     if (!smiles) return;
     try {
       const { molecules: newMols } = await parseAndAnalyze(smiles);
       if (newMols.length > 0) {
-        rankUnder(newMols, paretoObjectives, constraints);
         setMolecules(newMols);
         setSelectedMolIdx(null);
         setCompareIndices([]);
         setToast(`Loaded ${newMols.length} molecules`);
-        track('molecules/example');
       }
     } catch {
       setToast('Failed to load example');
     }
-  }, [paretoObjectives, constraints]);
-
-  const rankKey = JSON.stringify(rankObjectives);
-  const constraintKey = JSON.stringify(constraints);
-  useEffect(() => {
-    setMolecules((prev) => {
-      if (prev.length === 0) return prev;
-      rankUnder(prev, rankObjectives, constraints);
-      return [...prev];
-    });
-    // Recompute when the objective list or the constraints change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rankKey, constraintKey]);
-
-  const applyScoringPreset = useCallback((preset: ScoringPreset, windows?: Record<string, ObjectiveWindow> | null) => {
-    setScoringPreset(preset);
-    const nextWindows = windows === undefined ? customWindows : windows;
-    if (windows !== undefined) setCustomWindows(windows);
-    setParetoObjectives(objectivesForPreset(preset, customPropNames, nextWindows));
-  }, [customPropNames, customWindows]);
+  }, []);
 
   useEffect(() => {
     if (!toast) return;
@@ -456,9 +328,6 @@ export default function App() {
       // Arrow keys — molecule navigation (only when molecules loaded)
       if (molecules.length === 0) return;
 
-      const focus = e.target as HTMLElement | null;
-      const inList = Boolean(focus?.closest('[data-mol-list], [data-pareto-chart]'));
-      if (!inList) return;
       if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
         e.preventDefault();
         setSelectedMolIdx(prev => prev === null ? 0 : Math.min(prev + 1, molecules.length - 1));
@@ -600,79 +469,6 @@ export default function App() {
     );
   };
 
-  // Decision record (paretomol.decision/1): export the current decision and
-  // re-open it later with the exact same view. See docs/decision-record.md.
-  const handleExportDecisionRecord = async () => {
-    if (molecules.length === 0) return;
-    const rationale = window.prompt('Why these picks? (optional, saved in the record)', '');
-    if (rationale === null) return;
-    const RDKit = await initRDKitCache();
-    const scoring = decisionExportFields({
-      kind: 'workspace',
-      profileRef: scoringProfileRef,
-      curve: mpoCurve,
-      admetColumns: admetPropNames.length,
-      admetEndpoint: getAdmetAIEndpoint(),
-    });
-    const rec = buildDecisionRecord({
-      molecules,
-      objectives: rankObjectives,
-      constraints,
-      profile: scoring.profile,
-      curve: scoring.curve,
-      selected: Array.from(shortlist),
-      rationale,
-      rdkitVersion: typeof RDKit?.version === 'function' ? String(RDKit.version()) : 'unknown',
-      admetEndpoint: scoring.admetEndpoint,
-      view: { activeTab, formulaColumns, customPropNames, admetPropNames, propertyFilters, substructureFilter },
-    });
-    downloadDecisionRecord(rec);
-    setToast(`Decision record exported (${rec.selected.length} selected)`);
-  };
-
-  const handleImportDecisionRecord = async (file: File) => {
-    try {
-      const raw = await file.text();
-      const RDKit = await initRDKitCache();
-      const check = verifyDecision(raw, RDKit);
-      const blocking = check.issues.filter((i) => i.code !== 'rank' && i.code !== 'mpo');
-      if (blocking.length || check.recomputed.length === 0) {
-        setToast(`Could not open record: ${(blocking[0] ?? check.issues[0])?.message ?? 'unreadable record'}`);
-        return;
-      }
-      const rec = parseDecisionRecord(raw);
-      const text = rec.input.molecules.map(m => `${m.smiles} ${m.name}`).join('\n');
-      const { molecules: fresh } = await parseAndAnalyze(text);
-      if (fresh.length !== rec.input.molecules.length) throw new Error(`${rec.input.molecules.length - fresh.length} structures did not parse`);
-      const restored = fresh.map((m, i) => ({ ...m, name: rec.input.molecules[i].name, customProps: { ...(rec.input.molecules[i].customProps ?? {}) } }));
-      rankUnder(restored, rec.objectives, rec.constraints ?? []);
-      const v = rec.view ?? {};
-      setMolecules(restored);
-      setParetoObjectives(rec.objectives);
-      setConstraints(rec.constraints ?? []);
-      try { setScoringPreset(getProfile(rec.profile.ref).ref as ScoringPreset); } catch { /* unknown profile: leave the current one */ }
-      if (rec.profile.curve === 'linear' || rec.profile.curve === 'sigmoid') setMpoCurve(rec.profile.curve);
-      setFormulaColumns(v.formulaColumns ?? []);
-      setCustomPropNames(v.customPropNames ?? Array.from(new Set(restored.flatMap(m => Object.keys(m.customProps)))));
-      setAdmetPropNames(v.admetPropNames ?? []);
-      setPropertyFilters(v.propertyFilters ?? {});
-      setSubstructureFilter(v.substructureFilter ?? '');
-      setShortlist(new Set(selectedIndices(rec)));
-      setSelectedMolIdx(null);
-      setCompareIndices([]);
-      setSessionToast(null);
-      if (v.activeTab) setActiveTab(v.activeTab);
-      track('decision/imported');
-      if (check.issues.length) {
-        setToast(`Opened record with differences. ${check.issues.slice(0, 2).map((i) => i.message).join(' ')}`);
-      } else {
-        setToast(`Opened decision record: ${restored.length} molecules, ${rec.selected.length} selected`);
-      }
-    } catch (e) {
-      setToast(`Could not open record: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  };
-
   const handleExportCSV = () => {
     if (molecules.length === 0) return;
     downloadCSV(molecules);
@@ -700,11 +496,13 @@ export default function App() {
       return;
     }
     if (canvases.length === 1) {
-      downloadCanvasPng(canvases[0], 'paretomol_figure.png');
+      const url = canvases[0].toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = url; a.download = 'paretomol_figure.png'; a.click();
       setToast('Figure exported');
       return;
     }
-    // Multiple canvases (e.g. Pareto with 6 charts): stitch into a grid, then add the citation footer.
+    // Multiple canvases (e.g. Pareto with 6 charts) — stitch into grid
     const cols = 2;
     const rows = Math.ceil(canvases.length / cols);
     const w = Math.max(...canvases.map(c => c.width));
@@ -720,7 +518,10 @@ export default function App() {
       const row = Math.floor(i / cols);
       ctx.drawImage(c, col * w, row * h, w, h);
     });
-    downloadCanvasPng(out, 'paretomol_figure.png');
+    const a = document.createElement('a');
+    a.href = out.toDataURL('image/png');
+    a.download = 'paretomol_figure.png';
+    a.click();
     setToast(`Figure exported (${canvases.length} charts)`);
   };
 
@@ -736,10 +537,28 @@ export default function App() {
     return result;
   }, [molecules, moleculesWithFormulas, substructureFilter, propertyFilters]);
 
+  const handleCite = () => {
+    const citation = `@article{yabbarov2026paretomol,
+  author  = {Yabbarov, Ilkham and Vargas-Hernández, Rodrigo A.},
+  title   = {ParetoMol: A Free Web Application for Multi-Objective Pareto Analysis of Molecular Safety and Pharmacokinetics},
+  journal = {ChemRxiv},
+  year    = {2026},
+  doi     = {10.26434/chemrxiv.15002217/v1},
+  url     = {https://doi.org/10.26434/chemrxiv.15002217/v1},
+  note    = {Preprint}
+}`;
+    navigator.clipboard.writeText(citation).then(
+      () => setToast('BibTeX citation copied'),
+      () => {
+        window.prompt('Copy BibTeX citation:', citation);
+      }
+    );
+  };
+
   return (
     <div className="h-screen max-w-[100vw] overflow-hidden bg-[var(--bg-deep)] flex flex-col font-sans text-[var(--text)]">
       {toast && (
-        <div className="fixed top-14 inset-x-3 z-[60] px-4 py-2 bg-[var(--surface2)] border border-[var(--accent)] rounded-md text-sm text-[var(--text)] shadow-lg animate-fade-in md:top-4 md:inset-x-auto md:left-1/2 md:-translate-x-1/2">
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 bg-[var(--surface2)] border border-[var(--accent)] rounded-md text-sm text-[var(--text)] shadow-lg animate-fade-in">
           {toast}
         </div>
       )}
@@ -762,17 +581,15 @@ export default function App() {
       )}
       <Header
         moleculeCount={filteredMolecules.length}
-        onReset={() => { setReview(null); setMolecules([]); setSelectedMolIdx(null); setCompareIndices([]); setSubstructureFilter(''); setPropertyFilters({}); clearSvgCache(); window.history.replaceState(null, '', window.location.pathname); }}
+        onReset={() => { setMolecules([]); setSelectedMolIdx(null); setCompareIndices([]); setSubstructureFilter(''); setPropertyFilters({}); clearSvgCache(); window.history.replaceState(null, '', window.location.pathname); }}
         onShareURL={handleShareURL}
         onExportCSV={handleExportCSV}
         onExportJSON={() => { if (molecules.length > 0) { downloadJSON(molecules); setToast('JSON exported'); } }}
         onExportSDF={() => { if (molecules.length > 0) { downloadSDF(molecules); setToast('SDF exported (all)'); } }}
         onExportSDFPareto={() => { const pareto = molecules.filter(m => m.paretoRank === 1); if (pareto.length > 0) { downloadSDFPareto(molecules); setToast(`SDF exported (${pareto.length} Pareto-optimal)`); } else { setToast('No Pareto-optimal molecules'); } }}
         onExportFigure={handleExportFigure}
-        onExportSummaryReport={() => { if (molecules.length > 0) { downloadSummaryReport(molecules, paretoObjectives, admetPropNames); setToast('Summary report exported'); } }}
-        onExportDecisionRecord={handleExportDecisionRecord}
-        onImportDecisionRecord={handleImportDecisionRecord}
         onExportManifest={() => { if (molecules.length > 0) { downloadManifest(molecules, paretoObjectives, propertyFilters, substructureFilter, formulaColumns); setToast('Reproducibility manifest exported'); } }}
+        onCite={handleCite}
         onDocs={() => setDocsOpen(true)}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen(v => !v)}
@@ -809,11 +626,6 @@ export default function App() {
             setCustomPropNames={setCustomPropNames}
             paretoObjectives={paretoObjectives}
             setParetoObjectives={setParetoObjectives}
-            scoringPreset={scoringPreset}
-            onScoringPreset={applyScoringPreset}
-            objectiveWindows={scoringPreset === 'custom' ? customWindows : scoringPreset === 'paper' ? null : getProfile(scoringPreset).desirability}
-            constraints={constraints}
-            onConstraints={setConstraints}
             admetPropNames={admetPropNames}
             substructureFilter={substructureFilter}
             onSubstructureFilterChange={(smarts) => {
@@ -851,27 +663,7 @@ export default function App() {
           />
         </div>
 
-        {review && (
-          <div className="fixed inset-0 z-[45] flex min-h-0 flex-col bg-[var(--bg)] md:static md:inset-auto md:z-auto md:h-full md:w-[320px] md:shrink-0 md:border-l md:border-[var(--border-5)]">
-            <ReviewPanel
-              review={review}
-              molecules={molecules}
-              objectives={paretoObjectives}
-              onDecide={handleReviewDecide}
-              onExport={(note) => { void handleReviewExport(note); }}
-              onExit={() => { setReview(null); window.history.replaceState(null, '', window.location.pathname + window.location.search); }}
-              onSelect={setSelectedMolIdx}
-            />
-          </div>
-        )}
-
-        <div className="flex-1 bg-[var(--bg)] min-w-0 min-h-0 flex flex-col">
-          {reviewLinkError && (
-            <div role="alert" className="m-4 rounded-md border border-[var(--border-10)] bg-[var(--surface)] p-3 text-[13px] text-[var(--text)]">
-              <p>Could not open review link: {reviewLinkError}</p>
-              <button type="button" className="mt-2 text-[12px] text-[var(--text2)]" onClick={() => setReviewLinkError(null)}>Dismiss</button>
-            </div>
-          )}
+        <div className="flex-1 bg-[var(--bg)] min-w-0 min-h-0">
           <Content
             molecules={filteredMolecules}
             compareIndices={compareIndices}
@@ -882,8 +674,6 @@ export default function App() {
             isInitialLoading={isInitialLoading}
             customPropNames={allCustomPropNames}
             paretoObjectives={paretoObjectives}
-            scoringPreset={scoringPreset}
-            onScoringPreset={applyScoringPreset}
             onADMETPredictions={handleADMETPredictions}
             onComputeMakeability={handleComputeMakeability}
             onCheckBuyability={handleCheckBuyability}
@@ -900,35 +690,27 @@ export default function App() {
             toggleShortlist={toggleShortlist}
             formulaColumns={formulaColumns}
             setFormulaColumns={setFormulaColumns}
-            scoringProfileRef={scoringProfileRef}
-            onScoringProfileRef={(ref) => applyScoringPreset(ref === 'custom@1' ? 'custom' : ref as ScoringPreset)}
-            mpoCurve={mpoCurve}
-            onMpoCurve={setMpoCurve}
-            robustFront={robustFront}
-            onRobustFront={setRobustFront}
           />
         </div>
       </main>
 
       <button
         onClick={() => setIsCopilotOpen(true)}
-        className="hidden md:flex fixed bottom-6 right-6 w-12 h-12 bg-[var(--surface2)] border border-[var(--border-10)] rounded-full items-center justify-center text-base font-semibold text-[var(--text)] hover:bg-[var(--accent)] hover:border-transparent hover:text-[var(--text-heading)] transition-all z-40 shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--text)]"
+        className="fixed bottom-6 right-6 w-12 h-12 bg-[var(--surface2)] border border-[var(--border-10)] rounded-full flex items-center justify-center text-base font-semibold text-[var(--text)] hover:bg-[var(--accent)] hover:border-transparent hover:text-[var(--text-heading)] transition-all z-40 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#5F7367]/50"
         title="AI Copilot ( / )"
       >
         AI
       </button>
 
-      {/* Quiet footer controls. Shortcuts stay desktop-only; Cite is always there. */}
-      <div className="fixed bottom-6 left-6 flex items-center gap-2 z-40">
-        <button
-          onClick={() => setShortcutsOpen(true)}
-          className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] text-[var(--text2)] hover:text-[var(--text)] bg-[var(--surface2)] border border-[var(--border-5)] rounded-md transition-colors"
-          title="Keyboard shortcuts"
-        >
-          <kbd className="text-[10px] font-mono bg-[var(--surface2)] px-1 py-0.5 rounded border border-[var(--border-10)]">?</kbd>
-          <span>Shortcuts</span>
-        </button>
-      </div>
+      {/* Keyboard shortcuts hint — bottom left, only on desktop */}
+      <button
+        onClick={() => setShortcutsOpen(true)}
+        className="hidden md:flex fixed bottom-6 left-6 items-center gap-1.5 px-2.5 py-1.5 text-[11px] text-[var(--text2)]/40 hover:text-[var(--text2)] bg-[var(--surface2)]/50 border border-[var(--border-5)] rounded-md transition-colors z-40"
+        title="Keyboard shortcuts"
+      >
+        <kbd className="text-[10px] font-mono bg-[var(--surface2)] px-1 py-0.5 rounded border border-[var(--border-10)]">?</kbd>
+        <span>Shortcuts</span>
+      </button>
 
       <KeyboardShortcuts isOpen={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       {docsOpen && <DocsPage onClose={() => setDocsOpen(false)} />}
