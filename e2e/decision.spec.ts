@@ -59,6 +59,21 @@ test('decision record uses the MPO profile and curve', async ({ page }) => {
   expect(rec.profile.ref).toBe('cns@1');
   expect(rec.profile.hash).toBe(getProfile('cns@1').hash);
   expect(rec.profile.curve).toBe('sigmoid');
+
+  // A fresh page has the default profile. Opening the record puts cns@1 back.
+  await page.goto('/');
+  await waitForRDKit(page);
+  const file = join(DIR, 'cns-sigmoid.json');
+  writeFileSync(file, stringifyDecisionRecord(rec));
+  await page.getByTestId('decision-record-input').setInputFiles(file);
+  await expect(page.getByText(/Opened decision record/).first()).toBeVisible();
+  await page.getByRole('button', { name: 'More' }).click();
+  await page.getByRole('menuitem', { name: 'MPO' }).click();
+  await expect(page.getByRole('button', { name: 'CNS Drug' })).toHaveAttribute('aria-pressed', 'true');
+  const again = await exportRecord(page, 'cns sigmoid');
+  expect(again.profile.ref).toBe('cns@1');
+  expect(again.profile.hash).toBe(getProfile('cns@1').hash);
+  expect(again.profile.curve).toBe('sigmoid');
 });
 
 test('decision record round-trips to the exact same view', async ({ page }) => {

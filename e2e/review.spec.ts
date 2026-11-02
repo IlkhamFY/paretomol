@@ -27,6 +27,12 @@ test('review link opens in review mode and exports the verdicts as a decision re
   await page.goto(`/#r=${encodeReview(payload)}`);
   const panel = page.getByTestId('review-panel');
   await expect(panel).toBeVisible({ timeout: 60_000 });
+  // The fragment has to survive while review mode is open, or a reload or a
+  // copied link loses the review. Analytics strip `r` before a hit is sent.
+  expect(new URL(page.url()).hash.startsWith('#r=')).toBe(true);
+  await page.reload();
+  await expect(page.getByTestId('review-panel')).toBeVisible({ timeout: 60_000 });
+  expect(new URL(page.url()).hash.startsWith('#r=')).toBe(true);
   await expect(panel).toContainText('Kinase shortlist');
   await expect(panel).toContainText('e2e-agent');
   await expect(page.getByTestId('review-note')).toContainText('check caffeine');
