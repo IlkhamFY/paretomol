@@ -1,0 +1,153 @@
+{
+  "schema": "paretomol.agentbench.chembl/1",
+  "chembl_db_version": "ChEMBL_37",
+  "chembl_release_date": "2026-05-01",
+  "release_doi": "https://doi.org/10.6019/CHEMBL.database.37",
+  "citation": "Mendez D, Gaulton A, Bento AP, et al. ChEMBL: towards direct deposition of bioassay data. Nucleic Acids Res. 2019, 47(D1):D930-D940. DOI: 10.1093/nar/gky1075",
+  "license": "CC BY-SA 3.0",
+  "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+  "attribution": "ChEMBL, EMBL-EBI. ChEMBL IDs are preserved. Release number is ChEMBL_37.",
+  "api": {
+    "canonical": "https://www.ebi.ac.uk/chembl/api/data",
+    "fetched_from": "https://wwwdev.ebi.ac.uk/chembl/api/data",
+    "fetched_at": "2026-11-01T07:51:28.369Z",
+    "note": "The canonical data API returned an error during this fetch. The dev host served the same ChEMBL_37 release."
+  },
+  "selection": {
+    "standard_type": "IC50",
+    "standard_relation": "=",
+    "pchembl": "not null",
+    "potential_duplicate": false,
+    "data_validity_comment": null,
+    "assay_type": "B (binding) preferred. F (functional) only when that molecule and target have no qualifying binding IC50. Kinases are binding only.",
+    "wild_type": "assay_variant_mutation is null",
+    "single_protein_bao": "single protein format",
+    "representative": "lower median pchembl_value; ties broken by the smaller activity_id. One cited row per molecule per target."
+  },
+  "targets": [
+    {
+      "target_chembl_id": "CHEMBL1824",
+      "symbol": "ERBB2",
+      "name": "Receptor tyrosine-protein kinase erbB-2",
+      "organism": "Homo sapiens",
+      "type": "SINGLE PROTEIN",
+      "assay_type": "B",
+      "wild_type_only": true
+    },
+    {
+      "target_chembl_id": "CHEMBL1949",
+      "symbol": "PPIA",
+      "name": "Peptidyl-prolyl cis-trans isomerase A",
+      "organism": "Homo sapiens",
+      "type": "SINGLE PROTEIN",
+      "assay_type": "B",
+      "assay_types": [
+        "B",
+        "F"
+      ],
+      "wild_type_only": true
+    },
+    {
+      "target_chembl_id": "CHEMBL203",
+      "symbol": "EGFR",
+      "name": "Epidermal growth factor receptor",
+      "organism": "Homo sapiens",
+      "type": "SINGLE PROTEIN",
+      "assay_type": "B",
+      "wild_type_only": true
+    },
+    {
+      "target_chembl_id": "CHEMBL221",
+      "symbol": "PTGS1",
+      "name": "Prostaglandin G/H synthase 1",
+      "organism": "Homo sapiens",
+      "type": "SINGLE PROTEIN",
+      "assay_type": "B",
+      "assay_types": [
+        "B",
+        "F"
+      ],
+      "wild_type_only": true
+    },
+    {
+      "target_chembl_id": "CHEMBL230",
+      "symbol": "PTGS2",
+      "name": "Prostaglandin G/H synthase 2",
+      "organism": "Homo sapiens",
+      "type": "SINGLE PROTEIN",
+      "assay_type": "B",
+      "assay_types": [
+        "B",
+        "F"
+      ],
+      "wild_type_only": true
+    },
+    {
+      "target_chembl_id": "CHEMBL402",
+      "symbol": "HMGCR",
+      "name": "3-hydroxy-3-methylglutaryl-coenzyme A reductase",
+      "organism": "Homo sapiens",
+      "type": "SINGLE PROTEIN",
+      "assay_type": "B",
+      "assay_types": [
+        "B",
+        "F"
+      ],
+      "wild_type_only": true
+    }
+  ],
+  "assay_chembl_ids": [
+    "CHEMBL1071045",
+    "CHEMBL2390159",
+    "CHEMBL3385196",
+    "CHEMBL3705968",
+    "CHEMBL3743215",
+    "CHEMBL3750871",
+    "CHEMBL3766407",
+    "CHEMBL3870705",
+    "CHEMBL3887053",
+    "CHEMBL4810017",
+    "CHEMBL5161060",
+    "CHEMBL5162369",
+    "CHEMBL5386905",
+    "CHEMBL5737313",
+    "CHEMBL677388",
+    "CHEMBL769654",
+    "CHEMBL832902",
+    "CHEMBL914258"
+  ],
+  "activity_ids": [
+    3130635,
+    15112203,
+    25706595,
+    16416986,
+    23148927,
+    16811393,
+    16479890,
+    24902285,
+    28497443,
+    13322674,
+    24907891,
+    16352077,
+    17621510,
+    318309,
+    1864554,
+    557524,
+    1439884,
+    16404212
+  ],
+  "skipped": [
+    {
+      "id": "CHEMBL3353410",
+      "name": "OSIMERTINIB",
+      "target_chembl_id": "CHEMBL1824",
+      "reason": "searched, no qualifying activity"
+    },
+    {
+      "id": "CHEMBL24828",
+      "name": "VANDETANIB",
+      "target_chembl_id": "CHEMBL1824",
+      "reason": "searched, no qualifying activity"
+    }
+  ]
+}

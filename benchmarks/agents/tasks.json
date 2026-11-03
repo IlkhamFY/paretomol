@@ -1,0 +1,2603 @@
+{
+  "schema": "paretomol.agentbench/1",
+  "data": {
+    "chembl_release": "ChEMBL_37",
+    "manifest": "data/manifest.json",
+    "activities": "data/activities.json",
+    "molecules": "data/molecules.json",
+    "rdkit_python": "data/rdkit_python.json",
+    "license": "CC BY-SA 3.0"
+  },
+  "tasks": [
+    {
+      "id": "t01",
+      "kind": "set",
+      "source": "core",
+      "molecules": [
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "name": "gefitinib",
+          "chembl_id": "CHEMBL939",
+          "props": {
+            "pchembl_egfr": 7.68,
+            "pchembl_erbb2": 6
+          }
+        },
+        {
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "name": "erlotinib",
+          "chembl_id": "CHEMBL553",
+          "props": {
+            "pchembl_egfr": 7.43,
+            "pchembl_erbb2": 6.39
+          }
+        },
+        {
+          "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+          "name": "lapatinib",
+          "chembl_id": "CHEMBL554",
+          "props": {
+            "pchembl_egfr": 7.82,
+            "pchembl_erbb2": 7.62
+          }
+        },
+        {
+          "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+          "name": "afatinib",
+          "chembl_id": "CHEMBL1173655",
+          "props": {
+            "pchembl_egfr": 8.8,
+            "pchembl_erbb2": 7.9
+          }
+        },
+        {
+          "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+          "name": "osimertinib",
+          "chembl_id": "CHEMBL3353410",
+          "props": {
+            "pchembl_egfr": 7.6
+          }
+        },
+        {
+          "smiles": "CCOc1cc2ncc(C#N)c(Nc3ccc(OCc4ccccn4)c(Cl)c3)c2cc1NC(=O)/C=C/CN(C)C",
+          "name": "neratinib",
+          "chembl_id": "CHEMBL180022",
+          "props": {
+            "pchembl_egfr": 8.66,
+            "pchembl_erbb2": 8.34
+          }
+        },
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1NC(=O)/C=C/CN1CCCCC1",
+          "name": "dacomitinib anhydrous",
+          "chembl_id": "CHEMBL2110732",
+          "props": {
+            "pchembl_egfr": 8.16,
+            "pchembl_erbb2": 7.78
+          }
+        },
+        {
+          "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+          "name": "vandetanib",
+          "chembl_id": "CHEMBL24828",
+          "props": {
+            "pchembl_egfr": 6.7
+          }
+        },
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin",
+          "chembl_id": "CHEMBL25",
+          "props": {
+            "pchembl_ptgs1": 4.94
+          }
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(C(C)C(=O)O)cc1",
+          "name": "ibuprofen",
+          "chembl_id": "CHEMBL521",
+          "props": {
+            "pchembl_ptgs2": 5.1
+          }
+        },
+        {
+          "smiles": "CC(C)c1c(C(=O)Nc2ccccc2)c(-c2ccccc2)c(-c2ccc(F)cc2)n1CC[C@@H](O)C[C@@H](O)CC(=O)O",
+          "name": "atorvastatin",
+          "chembl_id": "CHEMBL1487",
+          "props": {
+            "pchembl_hmgcr": 8.22
+          }
+        },
+        {
+          "smiles": "C/C=C/C[C@@H](C)[C@@H](O)[C@H]1C(=O)N[C@@H](CC)C(=O)N(C)CC(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C)C(=O)N[C@H](C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](C(C)C)C(=O)N1C",
+          "name": "cyclosporine",
+          "chembl_id": "CHEMBL160",
+          "props": {
+            "pchembl_ppia": 7.64
+          }
+        }
+      ],
+      "objectives": [
+        {
+          "key": "MW",
+          "direction": "min"
+        },
+        {
+          "key": "LogP",
+          "direction": "min"
+        },
+        {
+          "key": "TPSA",
+          "direction": "min"
+        }
+      ],
+      "prompt": "Which molecules are on the Pareto front minimising MW, LogP and TPSA?",
+      "computes": "front",
+      "truth": [
+        "aspirin",
+        "ibuprofen"
+      ]
+    },
+    {
+      "id": "t02",
+      "kind": "set",
+      "source": "core",
+      "molecules": [
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "name": "gefitinib",
+          "chembl_id": "CHEMBL939",
+          "props": {
+            "pchembl_egfr": 7.68,
+            "pchembl_erbb2": 6
+          }
+        },
+        {
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "name": "erlotinib",
+          "chembl_id": "CHEMBL553",
+          "props": {
+            "pchembl_egfr": 7.43,
+            "pchembl_erbb2": 6.39
+          }
+        },
+        {
+          "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+          "name": "lapatinib",
+          "chembl_id": "CHEMBL554",
+          "props": {
+            "pchembl_egfr": 7.82,
+            "pchembl_erbb2": 7.62
+          }
+        },
+        {
+          "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+          "name": "afatinib",
+          "chembl_id": "CHEMBL1173655",
+          "props": {
+            "pchembl_egfr": 8.8,
+            "pchembl_erbb2": 7.9
+          }
+        },
+        {
+          "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+          "name": "osimertinib",
+          "chembl_id": "CHEMBL3353410",
+          "props": {
+            "pchembl_egfr": 7.6
+          }
+        },
+        {
+          "smiles": "CCOc1cc2ncc(C#N)c(Nc3ccc(OCc4ccccn4)c(Cl)c3)c2cc1NC(=O)/C=C/CN(C)C",
+          "name": "neratinib",
+          "chembl_id": "CHEMBL180022",
+          "props": {
+            "pchembl_egfr": 8.66,
+            "pchembl_erbb2": 8.34
+          }
+        },
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1NC(=O)/C=C/CN1CCCCC1",
+          "name": "dacomitinib anhydrous",
+          "chembl_id": "CHEMBL2110732",
+          "props": {
+            "pchembl_egfr": 8.16,
+            "pchembl_erbb2": 7.78
+          }
+        },
+        {
+          "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+          "name": "vandetanib",
+          "chembl_id": "CHEMBL24828",
+          "props": {
+            "pchembl_egfr": 6.7
+          }
+        },
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin",
+          "chembl_id": "CHEMBL25",
+          "props": {
+            "pchembl_ptgs1": 4.94
+          }
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(C(C)C(=O)O)cc1",
+          "name": "ibuprofen",
+          "chembl_id": "CHEMBL521",
+          "props": {
+            "pchembl_ptgs2": 5.1
+          }
+        },
+        {
+          "smiles": "CC(C)c1c(C(=O)Nc2ccccc2)c(-c2ccccc2)c(-c2ccc(F)cc2)n1CC[C@@H](O)C[C@@H](O)CC(=O)O",
+          "name": "atorvastatin",
+          "chembl_id": "CHEMBL1487",
+          "props": {
+            "pchembl_hmgcr": 8.22
+          }
+        },
+        {
+          "smiles": "C/C=C/C[C@@H](C)[C@@H](O)[C@H]1C(=O)N[C@@H](CC)C(=O)N(C)CC(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C)C(=O)N[C@H](C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](C(C)C)C(=O)N1C",
+          "name": "cyclosporine",
+          "chembl_id": "CHEMBL160",
+          "props": {
+            "pchembl_ppia": 7.64
+          }
+        }
+      ],
+      "objectives": [
+        {
+          "key": "QED",
+          "direction": "max"
+        },
+        {
+          "key": "MW",
+          "direction": "min"
+        }
+      ],
+      "prompt": "Which molecules are Pareto-optimal for maximising QED and minimising MW?",
+      "computes": "front",
+      "truth": [
+        "aspirin",
+        "ibuprofen"
+      ]
+    },
+    {
+      "id": "t03",
+      "kind": "set",
+      "source": "core",
+      "molecules": [
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "name": "gefitinib",
+          "chembl_id": "CHEMBL939",
+          "props": {
+            "pchembl_egfr": 7.68,
+            "pchembl_erbb2": 6
+          }
+        },
+        {
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "name": "erlotinib",
+          "chembl_id": "CHEMBL553",
+          "props": {
+            "pchembl_egfr": 7.43,
+            "pchembl_erbb2": 6.39
+          }
+        },
+        {
+          "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+          "name": "lapatinib",
+          "chembl_id": "CHEMBL554",
+          "props": {
+            "pchembl_egfr": 7.82,
+            "pchembl_erbb2": 7.62
+          }
+        },
+        {
+          "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+          "name": "afatinib",
+          "chembl_id": "CHEMBL1173655",
+          "props": {
+            "pchembl_egfr": 8.8,
+            "pchembl_erbb2": 7.9
+          }
+        },
+        {
+          "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+          "name": "osimertinib",
+          "chembl_id": "CHEMBL3353410",
+          "props": {
+            "pchembl_egfr": 7.6
+          }
+        },
+        {
+          "smiles": "CCOc1cc2ncc(C#N)c(Nc3ccc(OCc4ccccn4)c(Cl)c3)c2cc1NC(=O)/C=C/CN(C)C",
+          "name": "neratinib",
+          "chembl_id": "CHEMBL180022",
+          "props": {
+            "pchembl_egfr": 8.66,
+            "pchembl_erbb2": 8.34
+          }
+        },
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1NC(=O)/C=C/CN1CCCCC1",
+          "name": "dacomitinib anhydrous",
+          "chembl_id": "CHEMBL2110732",
+          "props": {
+            "pchembl_egfr": 8.16,
+            "pchembl_erbb2": 7.78
+          }
+        },
+        {
+          "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+          "name": "vandetanib",
+          "chembl_id": "CHEMBL24828",
+          "props": {
+            "pchembl_egfr": 6.7
+          }
+        }
+      ],
+      "objectives": [
+        {
+          "key": "pchembl_egfr",
+          "direction": "max"
+        },
+        {
+          "key": "pchembl_erbb2",
+          "direction": "max"
+        }
+      ],
+      "prompt": "Which kinase inhibitors are on the Pareto front for maximum EGFR pChEMBL and maximum ERBB2 pChEMBL?",
+      "computes": "front",
+      "truth": [
+        "afatinib",
+        "neratinib"
+      ]
+    },
+    {
+      "id": "t04",
+      "kind": "set",
+      "source": "core",
+      "molecules": [
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "name": "gefitinib",
+          "chembl_id": "CHEMBL939",
+          "props": {
+            "pchembl_egfr": 7.68,
+            "pchembl_erbb2": 6
+          }
+        },
+        {
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "name": "erlotinib",
+          "chembl_id": "CHEMBL553",
+          "props": {
+            "pchembl_egfr": 7.43,
+            "pchembl_erbb2": 6.39
+          }
+        },
+        {
+          "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+          "name": "lapatinib",
+          "chembl_id": "CHEMBL554",
+          "props": {
+            "pchembl_egfr": 7.82,
+            "pchembl_erbb2": 7.62
+          }
+        },
+        {
+          "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+          "name": "afatinib",
+          "chembl_id": "CHEMBL1173655",
+          "props": {
+            "pchembl_egfr": 8.8,
+            "pchembl_erbb2": 7.9
+          }
+        },
+        {
+          "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+          "name": "osimertinib",
+          "chembl_id": "CHEMBL3353410",
+          "props": {
+            "pchembl_egfr": 7.6
+          }
+        },
+        {
+          "smiles": "CCOc1cc2ncc(C#N)c(Nc3ccc(OCc4ccccn4)c(Cl)c3)c2cc1NC(=O)/C=C/CN(C)C",
+          "name": "neratinib",
+          "chembl_id": "CHEMBL180022",
+          "props": {
+            "pchembl_egfr": 8.66,
+            "pchembl_erbb2": 8.34
+          }
+        },
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1NC(=O)/C=C/CN1CCCCC1",
+          "name": "dacomitinib anhydrous",
+          "chembl_id": "CHEMBL2110732",
+          "props": {
+            "pchembl_egfr": 8.16,
+            "pchembl_erbb2": 7.78
+          }
+        },
+        {
+          "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+          "name": "vandetanib",
+          "chembl_id": "CHEMBL24828",
+          "props": {
+            "pchembl_egfr": 6.7
+          }
+        }
+      ],
+      "objectives": [
+        {
+          "key": "pchembl_egfr",
+          "direction": "max"
+        },
+        {
+          "key": "LogP",
+          "direction": "min"
+        },
+        {
+          "key": "MW",
+          "direction": "min"
+        }
+      ],
+      "prompt": "Which kinase inhibitors are on the front for maximum EGFR pChEMBL, minimum LogP and minimum MW?",
+      "computes": "front",
+      "truth": [
+        "afatinib",
+        "dacomitinib anhydrous",
+        "erlotinib",
+        "gefitinib"
+      ]
+    },
+    {
+      "id": "t05",
+      "kind": "set",
+      "source": "core",
+      "molecules": [
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "name": "gefitinib",
+          "chembl_id": "CHEMBL939",
+          "props": {
+            "pchembl_egfr": 7.68,
+            "pchembl_erbb2": 6
+          }
+        },
+        {
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "name": "erlotinib",
+          "chembl_id": "CHEMBL553",
+          "props": {
+            "pchembl_egfr": 7.43,
+            "pchembl_erbb2": 6.39
+          }
+        },
+        {
+          "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+          "name": "lapatinib",
+          "chembl_id": "CHEMBL554",
+          "props": {
+            "pchembl_egfr": 7.82,
+            "pchembl_erbb2": 7.62
+          }
+        },
+        {
+          "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+          "name": "afatinib",
+          "chembl_id": "CHEMBL1173655",
+          "props": {
+            "pchembl_egfr": 8.8,
+            "pchembl_erbb2": 7.9
+          }
+        },
+        {
+          "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+          "name": "osimertinib",
+          "chembl_id": "CHEMBL3353410",
+          "props": {
+            "pchembl_egfr": 7.6
+          }
+        },
+        {
+          "smiles": "CCOc1cc2ncc(C#N)c(Nc3ccc(OCc4ccccn4)c(Cl)c3)c2cc1NC(=O)/C=C/CN(C)C",
+          "name": "neratinib",
+          "chembl_id": "CHEMBL180022",
+          "props": {
+            "pchembl_egfr": 8.66,
+            "pchembl_erbb2": 8.34
+          }
+        },
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1NC(=O)/C=C/CN1CCCCC1",
+          "name": "dacomitinib anhydrous",
+          "chembl_id": "CHEMBL2110732",
+          "props": {
+            "pchembl_egfr": 8.16,
+            "pchembl_erbb2": 7.78
+          }
+        },
+        {
+          "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+          "name": "vandetanib",
+          "chembl_id": "CHEMBL24828",
+          "props": {
+            "pchembl_egfr": 6.7
+          }
+        }
+      ],
+      "objectives": [
+        {
+          "key": "pchembl_egfr",
+          "direction": "max"
+        },
+        {
+          "key": "pchembl_erbb2",
+          "direction": "max"
+        }
+      ],
+      "prompt": "Which compounds form the second Pareto front (rank 2) for maximum EGFR pChEMBL and maximum ERBB2 pChEMBL?",
+      "computes": "rank2",
+      "truth": [
+        "dacomitinib anhydrous"
+      ]
+    },
+    {
+      "id": "t06",
+      "kind": "set",
+      "source": "core",
+      "molecules": [
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "name": "gefitinib",
+          "chembl_id": "CHEMBL939",
+          "props": {
+            "pchembl_egfr": 7.68,
+            "pchembl_erbb2": 6
+          }
+        },
+        {
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "name": "erlotinib",
+          "chembl_id": "CHEMBL553",
+          "props": {
+            "pchembl_egfr": 7.43,
+            "pchembl_erbb2": 6.39
+          }
+        },
+        {
+          "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+          "name": "lapatinib",
+          "chembl_id": "CHEMBL554",
+          "props": {
+            "pchembl_egfr": 7.82,
+            "pchembl_erbb2": 7.62
+          }
+        },
+        {
+          "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+          "name": "afatinib",
+          "chembl_id": "CHEMBL1173655",
+          "props": {
+            "pchembl_egfr": 8.8,
+            "pchembl_erbb2": 7.9
+          }
+        },
+        {
+          "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+          "name": "osimertinib",
+          "chembl_id": "CHEMBL3353410",
+          "props": {
+            "pchembl_egfr": 7.6
+          }
+        },
+        {
+          "smiles": "CCOc1cc2ncc(C#N)c(Nc3ccc(OCc4ccccn4)c(Cl)c3)c2cc1NC(=O)/C=C/CN(C)C",
+          "name": "neratinib",
+          "chembl_id": "CHEMBL180022",
+          "props": {
+            "pchembl_egfr": 8.66,
+            "pchembl_erbb2": 8.34
+          }
+        },
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1NC(=O)/C=C/CN1CCCCC1",
+          "name": "dacomitinib anhydrous",
+          "chembl_id": "CHEMBL2110732",
+          "props": {
+            "pchembl_egfr": 8.16,
+            "pchembl_erbb2": 7.78
+          }
+        },
+        {
+          "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+          "name": "vandetanib",
+          "chembl_id": "CHEMBL24828",
+          "props": {
+            "pchembl_egfr": 6.7
+          }
+        }
+      ],
+      "objectives": [
+        {
+          "key": "pchembl_egfr",
+          "direction": "max"
+        },
+        {
+          "key": "pchembl_erbb2",
+          "direction": "max"
+        }
+      ],
+      "prompt": "Which compounds cannot be ranked for maximum EGFR pChEMBL and maximum ERBB2 pChEMBL because a value is missing?",
+      "computes": "unranked",
+      "truth": [
+        "osimertinib",
+        "vandetanib"
+      ]
+    },
+    {
+      "id": "t07",
+      "kind": "name",
+      "source": "core",
+      "molecules": [
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "name": "gefitinib",
+          "chembl_id": "CHEMBL939",
+          "props": {
+            "pchembl_egfr": 7.68,
+            "pchembl_erbb2": 6
+          }
+        },
+        {
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "name": "erlotinib",
+          "chembl_id": "CHEMBL553",
+          "props": {
+            "pchembl_egfr": 7.43,
+            "pchembl_erbb2": 6.39
+          }
+        },
+        {
+          "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+          "name": "lapatinib",
+          "chembl_id": "CHEMBL554",
+          "props": {
+            "pchembl_egfr": 7.82,
+            "pchembl_erbb2": 7.62
+          }
+        },
+        {
+          "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+          "name": "afatinib",
+          "chembl_id": "CHEMBL1173655",
+          "props": {
+            "pchembl_egfr": 8.8,
+            "pchembl_erbb2": 7.9
+          }
+        },
+        {
+          "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+          "name": "osimertinib",
+          "chembl_id": "CHEMBL3353410",
+          "props": {
+            "pchembl_egfr": 7.6
+          }
+        },
+        {
+          "smiles": "CCOc1cc2ncc(C#N)c(Nc3ccc(OCc4ccccn4)c(Cl)c3)c2cc1NC(=O)/C=C/CN(C)C",
+          "name": "neratinib",
+          "chembl_id": "CHEMBL180022",
+          "props": {
+            "pchembl_egfr": 8.66,
+            "pchembl_erbb2": 8.34
+          }
+        },
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1NC(=O)/C=C/CN1CCCCC1",
+          "name": "dacomitinib anhydrous",
+          "chembl_id": "CHEMBL2110732",
+          "props": {
+            "pchembl_egfr": 8.16,
+            "pchembl_erbb2": 7.78
+          }
+        },
+        {
+          "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+          "name": "vandetanib",
+          "chembl_id": "CHEMBL24828",
+          "props": {
+            "pchembl_egfr": 6.7
+          }
+        },
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin",
+          "chembl_id": "CHEMBL25",
+          "props": {
+            "pchembl_ptgs1": 4.94
+          }
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(C(C)C(=O)O)cc1",
+          "name": "ibuprofen",
+          "chembl_id": "CHEMBL521",
+          "props": {
+            "pchembl_ptgs2": 5.1
+          }
+        },
+        {
+          "smiles": "CC(C)c1c(C(=O)Nc2ccccc2)c(-c2ccccc2)c(-c2ccc(F)cc2)n1CC[C@@H](O)C[C@@H](O)CC(=O)O",
+          "name": "atorvastatin",
+          "chembl_id": "CHEMBL1487",
+          "props": {
+            "pchembl_hmgcr": 8.22
+          }
+        },
+        {
+          "smiles": "C/C=C/C[C@@H](C)[C@@H](O)[C@H]1C(=O)N[C@@H](CC)C(=O)N(C)CC(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C)C(=O)N[C@H](C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](C(C)C)C(=O)N1C",
+          "name": "cyclosporine",
+          "chembl_id": "CHEMBL160",
+          "props": {
+            "pchembl_ppia": 7.64
+          }
+        }
+      ],
+      "profile": "oral@1",
+      "prompt": "Under the oral@1 profile, which molecule has the highest MPO score?",
+      "computes": "top_mpo",
+      "truth": "aspirin"
+    },
+    {
+      "id": "t08",
+      "kind": "name",
+      "source": "core",
+      "molecules": [
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "name": "gefitinib",
+          "chembl_id": "CHEMBL939",
+          "props": {
+            "pchembl_egfr": 7.68,
+            "pchembl_erbb2": 6
+          }
+        },
+        {
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "name": "erlotinib",
+          "chembl_id": "CHEMBL553",
+          "props": {
+            "pchembl_egfr": 7.43,
+            "pchembl_erbb2": 6.39
+          }
+        },
+        {
+          "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+          "name": "lapatinib",
+          "chembl_id": "CHEMBL554",
+          "props": {
+            "pchembl_egfr": 7.82,
+            "pchembl_erbb2": 7.62
+          }
+        },
+        {
+          "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+          "name": "afatinib",
+          "chembl_id": "CHEMBL1173655",
+          "props": {
+            "pchembl_egfr": 8.8,
+            "pchembl_erbb2": 7.9
+          }
+        },
+        {
+          "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+          "name": "osimertinib",
+          "chembl_id": "CHEMBL3353410",
+          "props": {
+            "pchembl_egfr": 7.6
+          }
+        },
+        {
+          "smiles": "CCOc1cc2ncc(C#N)c(Nc3ccc(OCc4ccccn4)c(Cl)c3)c2cc1NC(=O)/C=C/CN(C)C",
+          "name": "neratinib",
+          "chembl_id": "CHEMBL180022",
+          "props": {
+            "pchembl_egfr": 8.66,
+            "pchembl_erbb2": 8.34
+          }
+        },
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1NC(=O)/C=C/CN1CCCCC1",
+          "name": "dacomitinib anhydrous",
+          "chembl_id": "CHEMBL2110732",
+          "props": {
+            "pchembl_egfr": 8.16,
+            "pchembl_erbb2": 7.78
+          }
+        },
+        {
+          "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+          "name": "vandetanib",
+          "chembl_id": "CHEMBL24828",
+          "props": {
+            "pchembl_egfr": 6.7
+          }
+        }
+      ],
+      "profile": "cns@1",
+      "prompt": "Under the cns@1 profile, which kinase inhibitor has the highest MPO score?",
+      "computes": "top_mpo",
+      "truth": "vandetanib"
+    },
+    {
+      "id": "t09",
+      "kind": "set",
+      "source": "core",
+      "molecules": [
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "name": "gefitinib",
+          "chembl_id": "CHEMBL939",
+          "props": {
+            "pchembl_egfr": 7.68,
+            "pchembl_erbb2": 6
+          }
+        },
+        {
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "name": "erlotinib",
+          "chembl_id": "CHEMBL553",
+          "props": {
+            "pchembl_egfr": 7.43,
+            "pchembl_erbb2": 6.39
+          }
+        },
+        {
+          "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+          "name": "lapatinib",
+          "chembl_id": "CHEMBL554",
+          "props": {
+            "pchembl_egfr": 7.82,
+            "pchembl_erbb2": 7.62
+          }
+        },
+        {
+          "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+          "name": "afatinib",
+          "chembl_id": "CHEMBL1173655",
+          "props": {
+            "pchembl_egfr": 8.8,
+            "pchembl_erbb2": 7.9
+          }
+        },
+        {
+          "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+          "name": "osimertinib",
+          "chembl_id": "CHEMBL3353410",
+          "props": {
+            "pchembl_egfr": 7.6
+          }
+        },
+        {
+          "smiles": "CCOc1cc2ncc(C#N)c(Nc3ccc(OCc4ccccn4)c(Cl)c3)c2cc1NC(=O)/C=C/CN(C)C",
+          "name": "neratinib",
+          "chembl_id": "CHEMBL180022",
+          "props": {
+            "pchembl_egfr": 8.66,
+            "pchembl_erbb2": 8.34
+          }
+        },
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1NC(=O)/C=C/CN1CCCCC1",
+          "name": "dacomitinib anhydrous",
+          "chembl_id": "CHEMBL2110732",
+          "props": {
+            "pchembl_egfr": 8.16,
+            "pchembl_erbb2": 7.78
+          }
+        },
+        {
+          "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+          "name": "vandetanib",
+          "chembl_id": "CHEMBL24828",
+          "props": {
+            "pchembl_egfr": 6.7
+          }
+        },
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin",
+          "chembl_id": "CHEMBL25",
+          "props": {
+            "pchembl_ptgs1": 4.94
+          }
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(C(C)C(=O)O)cc1",
+          "name": "ibuprofen",
+          "chembl_id": "CHEMBL521",
+          "props": {
+            "pchembl_ptgs2": 5.1
+          }
+        },
+        {
+          "smiles": "CC(C)c1c(C(=O)Nc2ccccc2)c(-c2ccccc2)c(-c2ccc(F)cc2)n1CC[C@@H](O)C[C@@H](O)CC(=O)O",
+          "name": "atorvastatin",
+          "chembl_id": "CHEMBL1487",
+          "props": {
+            "pchembl_hmgcr": 8.22
+          }
+        },
+        {
+          "smiles": "C/C=C/C[C@@H](C)[C@@H](O)[C@H]1C(=O)N[C@@H](CC)C(=O)N(C)CC(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C)C(=O)N[C@H](C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](C(C)C)C(=O)N1C",
+          "name": "cyclosporine",
+          "chembl_id": "CHEMBL160",
+          "props": {
+            "pchembl_ppia": 7.64
+          }
+        }
+      ],
+      "profile": "lipinski@1",
+      "prompt": "Which molecules fail the lipinski@1 filter (more than one Rule-of-5 violation)?",
+      "computes": "filter_fail",
+      "truth": [
+        "atorvastatin",
+        "cyclosporine",
+        "lapatinib",
+        "neratinib"
+      ]
+    },
+    {
+      "id": "t10",
+      "kind": "name",
+      "source": "core",
+      "molecules": [
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "name": "gefitinib",
+          "chembl_id": "CHEMBL939",
+          "props": {
+            "pchembl_egfr": 7.68,
+            "pchembl_erbb2": 6
+          }
+        },
+        {
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "name": "erlotinib",
+          "chembl_id": "CHEMBL553",
+          "props": {
+            "pchembl_egfr": 7.43,
+            "pchembl_erbb2": 6.39
+          }
+        },
+        {
+          "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+          "name": "lapatinib",
+          "chembl_id": "CHEMBL554",
+          "props": {
+            "pchembl_egfr": 7.82,
+            "pchembl_erbb2": 7.62
+          }
+        },
+        {
+          "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+          "name": "afatinib",
+          "chembl_id": "CHEMBL1173655",
+          "props": {
+            "pchembl_egfr": 8.8,
+            "pchembl_erbb2": 7.9
+          }
+        },
+        {
+          "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+          "name": "osimertinib",
+          "chembl_id": "CHEMBL3353410",
+          "props": {
+            "pchembl_egfr": 7.6
+          }
+        },
+        {
+          "smiles": "CCOc1cc2ncc(C#N)c(Nc3ccc(OCc4ccccn4)c(Cl)c3)c2cc1NC(=O)/C=C/CN(C)C",
+          "name": "neratinib",
+          "chembl_id": "CHEMBL180022",
+          "props": {
+            "pchembl_egfr": 8.66,
+            "pchembl_erbb2": 8.34
+          }
+        },
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1NC(=O)/C=C/CN1CCCCC1",
+          "name": "dacomitinib anhydrous",
+          "chembl_id": "CHEMBL2110732",
+          "props": {
+            "pchembl_egfr": 8.16,
+            "pchembl_erbb2": 7.78
+          }
+        },
+        {
+          "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+          "name": "vandetanib",
+          "chembl_id": "CHEMBL24828",
+          "props": {
+            "pchembl_egfr": 6.7
+          }
+        },
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin",
+          "chembl_id": "CHEMBL25",
+          "props": {
+            "pchembl_ptgs1": 4.94
+          }
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(C(C)C(=O)O)cc1",
+          "name": "ibuprofen",
+          "chembl_id": "CHEMBL521",
+          "props": {
+            "pchembl_ptgs2": 5.1
+          }
+        },
+        {
+          "smiles": "CC(C)c1c(C(=O)Nc2ccccc2)c(-c2ccccc2)c(-c2ccc(F)cc2)n1CC[C@@H](O)C[C@@H](O)CC(=O)O",
+          "name": "atorvastatin",
+          "chembl_id": "CHEMBL1487",
+          "props": {
+            "pchembl_hmgcr": 8.22
+          }
+        },
+        {
+          "smiles": "C/C=C/C[C@@H](C)[C@@H](O)[C@H]1C(=O)N[C@@H](CC)C(=O)N(C)CC(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C)C(=O)N[C@H](C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](C(C)C)C(=O)N1C",
+          "name": "cyclosporine",
+          "chembl_id": "CHEMBL160",
+          "props": {
+            "pchembl_ppia": 7.64
+          }
+        }
+      ],
+      "profile": "leadlike@1",
+      "prompt": "Under the leadlike@1 profile, which molecule has the highest MPO score?",
+      "computes": "top_mpo",
+      "truth": "aspirin"
+    },
+    {
+      "id": "t11",
+      "kind": "number",
+      "tol": 0.5,
+      "source": "core",
+      "descriptor": {
+        "name": "cyclosporine",
+        "key": "MW"
+      },
+      "molecules": [
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "name": "gefitinib",
+          "chembl_id": "CHEMBL939",
+          "props": {
+            "pchembl_egfr": 7.68,
+            "pchembl_erbb2": 6
+          }
+        },
+        {
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "name": "erlotinib",
+          "chembl_id": "CHEMBL553",
+          "props": {
+            "pchembl_egfr": 7.43,
+            "pchembl_erbb2": 6.39
+          }
+        },
+        {
+          "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+          "name": "lapatinib",
+          "chembl_id": "CHEMBL554",
+          "props": {
+            "pchembl_egfr": 7.82,
+            "pchembl_erbb2": 7.62
+          }
+        },
+        {
+          "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+          "name": "afatinib",
+          "chembl_id": "CHEMBL1173655",
+          "props": {
+            "pchembl_egfr": 8.8,
+            "pchembl_erbb2": 7.9
+          }
+        },
+        {
+          "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+          "name": "osimertinib",
+          "chembl_id": "CHEMBL3353410",
+          "props": {
+            "pchembl_egfr": 7.6
+          }
+        },
+        {
+          "smiles": "CCOc1cc2ncc(C#N)c(Nc3ccc(OCc4ccccn4)c(Cl)c3)c2cc1NC(=O)/C=C/CN(C)C",
+          "name": "neratinib",
+          "chembl_id": "CHEMBL180022",
+          "props": {
+            "pchembl_egfr": 8.66,
+            "pchembl_erbb2": 8.34
+          }
+        },
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1NC(=O)/C=C/CN1CCCCC1",
+          "name": "dacomitinib anhydrous",
+          "chembl_id": "CHEMBL2110732",
+          "props": {
+            "pchembl_egfr": 8.16,
+            "pchembl_erbb2": 7.78
+          }
+        },
+        {
+          "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+          "name": "vandetanib",
+          "chembl_id": "CHEMBL24828",
+          "props": {
+            "pchembl_egfr": 6.7
+          }
+        },
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin",
+          "chembl_id": "CHEMBL25",
+          "props": {
+            "pchembl_ptgs1": 4.94
+          }
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(C(C)C(=O)O)cc1",
+          "name": "ibuprofen",
+          "chembl_id": "CHEMBL521",
+          "props": {
+            "pchembl_ptgs2": 5.1
+          }
+        },
+        {
+          "smiles": "CC(C)c1c(C(=O)Nc2ccccc2)c(-c2ccccc2)c(-c2ccc(F)cc2)n1CC[C@@H](O)C[C@@H](O)CC(=O)O",
+          "name": "atorvastatin",
+          "chembl_id": "CHEMBL1487",
+          "props": {
+            "pchembl_hmgcr": 8.22
+          }
+        },
+        {
+          "smiles": "C/C=C/C[C@@H](C)[C@@H](O)[C@H]1C(=O)N[C@@H](CC)C(=O)N(C)CC(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C)C(=O)N[C@H](C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](C(C)C)C(=O)N1C",
+          "name": "cyclosporine",
+          "chembl_id": "CHEMBL160",
+          "props": {
+            "pchembl_ppia": 7.64
+          }
+        }
+      ],
+      "prompt": "What is the average molecular weight of cyclosporine (Da)?",
+      "computes": "descriptor",
+      "truth": 1202.635
+    },
+    {
+      "id": "t12",
+      "kind": "number",
+      "tol": 0.5,
+      "source": "core",
+      "descriptor": {
+        "name": "aspirin",
+        "key": "TPSA"
+      },
+      "molecules": [
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "name": "gefitinib",
+          "chembl_id": "CHEMBL939",
+          "props": {
+            "pchembl_egfr": 7.68,
+            "pchembl_erbb2": 6
+          }
+        },
+        {
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "name": "erlotinib",
+          "chembl_id": "CHEMBL553",
+          "props": {
+            "pchembl_egfr": 7.43,
+            "pchembl_erbb2": 6.39
+          }
+        },
+        {
+          "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+          "name": "lapatinib",
+          "chembl_id": "CHEMBL554",
+          "props": {
+            "pchembl_egfr": 7.82,
+            "pchembl_erbb2": 7.62
+          }
+        },
+        {
+          "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+          "name": "afatinib",
+          "chembl_id": "CHEMBL1173655",
+          "props": {
+            "pchembl_egfr": 8.8,
+            "pchembl_erbb2": 7.9
+          }
+        },
+        {
+          "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+          "name": "osimertinib",
+          "chembl_id": "CHEMBL3353410",
+          "props": {
+            "pchembl_egfr": 7.6
+          }
+        },
+        {
+          "smiles": "CCOc1cc2ncc(C#N)c(Nc3ccc(OCc4ccccn4)c(Cl)c3)c2cc1NC(=O)/C=C/CN(C)C",
+          "name": "neratinib",
+          "chembl_id": "CHEMBL180022",
+          "props": {
+            "pchembl_egfr": 8.66,
+            "pchembl_erbb2": 8.34
+          }
+        },
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1NC(=O)/C=C/CN1CCCCC1",
+          "name": "dacomitinib anhydrous",
+          "chembl_id": "CHEMBL2110732",
+          "props": {
+            "pchembl_egfr": 8.16,
+            "pchembl_erbb2": 7.78
+          }
+        },
+        {
+          "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+          "name": "vandetanib",
+          "chembl_id": "CHEMBL24828",
+          "props": {
+            "pchembl_egfr": 6.7
+          }
+        },
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin",
+          "chembl_id": "CHEMBL25",
+          "props": {
+            "pchembl_ptgs1": 4.94
+          }
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(C(C)C(=O)O)cc1",
+          "name": "ibuprofen",
+          "chembl_id": "CHEMBL521",
+          "props": {
+            "pchembl_ptgs2": 5.1
+          }
+        },
+        {
+          "smiles": "CC(C)c1c(C(=O)Nc2ccccc2)c(-c2ccccc2)c(-c2ccc(F)cc2)n1CC[C@@H](O)C[C@@H](O)CC(=O)O",
+          "name": "atorvastatin",
+          "chembl_id": "CHEMBL1487",
+          "props": {
+            "pchembl_hmgcr": 8.22
+          }
+        },
+        {
+          "smiles": "C/C=C/C[C@@H](C)[C@@H](O)[C@H]1C(=O)N[C@@H](CC)C(=O)N(C)CC(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C)C(=O)N[C@H](C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](C(C)C)C(=O)N1C",
+          "name": "cyclosporine",
+          "chembl_id": "CHEMBL160",
+          "props": {
+            "pchembl_ppia": 7.64
+          }
+        }
+      ],
+      "prompt": "What is the TPSA of aspirin (RDKit, A^2)?",
+      "computes": "descriptor",
+      "truth": 63.6
+    },
+    {
+      "id": "t13",
+      "kind": "number",
+      "tol": 0.05,
+      "source": "core",
+      "descriptor": {
+        "name": "ibuprofen",
+        "key": "LogP"
+      },
+      "molecules": [
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "name": "gefitinib",
+          "chembl_id": "CHEMBL939",
+          "props": {
+            "pchembl_egfr": 7.68,
+            "pchembl_erbb2": 6
+          }
+        },
+        {
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "name": "erlotinib",
+          "chembl_id": "CHEMBL553",
+          "props": {
+            "pchembl_egfr": 7.43,
+            "pchembl_erbb2": 6.39
+          }
+        },
+        {
+          "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+          "name": "lapatinib",
+          "chembl_id": "CHEMBL554",
+          "props": {
+            "pchembl_egfr": 7.82,
+            "pchembl_erbb2": 7.62
+          }
+        },
+        {
+          "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+          "name": "afatinib",
+          "chembl_id": "CHEMBL1173655",
+          "props": {
+            "pchembl_egfr": 8.8,
+            "pchembl_erbb2": 7.9
+          }
+        },
+        {
+          "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+          "name": "osimertinib",
+          "chembl_id": "CHEMBL3353410",
+          "props": {
+            "pchembl_egfr": 7.6
+          }
+        },
+        {
+          "smiles": "CCOc1cc2ncc(C#N)c(Nc3ccc(OCc4ccccn4)c(Cl)c3)c2cc1NC(=O)/C=C/CN(C)C",
+          "name": "neratinib",
+          "chembl_id": "CHEMBL180022",
+          "props": {
+            "pchembl_egfr": 8.66,
+            "pchembl_erbb2": 8.34
+          }
+        },
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1NC(=O)/C=C/CN1CCCCC1",
+          "name": "dacomitinib anhydrous",
+          "chembl_id": "CHEMBL2110732",
+          "props": {
+            "pchembl_egfr": 8.16,
+            "pchembl_erbb2": 7.78
+          }
+        },
+        {
+          "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+          "name": "vandetanib",
+          "chembl_id": "CHEMBL24828",
+          "props": {
+            "pchembl_egfr": 6.7
+          }
+        },
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin",
+          "chembl_id": "CHEMBL25",
+          "props": {
+            "pchembl_ptgs1": 4.94
+          }
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(C(C)C(=O)O)cc1",
+          "name": "ibuprofen",
+          "chembl_id": "CHEMBL521",
+          "props": {
+            "pchembl_ptgs2": 5.1
+          }
+        },
+        {
+          "smiles": "CC(C)c1c(C(=O)Nc2ccccc2)c(-c2ccccc2)c(-c2ccc(F)cc2)n1CC[C@@H](O)C[C@@H](O)CC(=O)O",
+          "name": "atorvastatin",
+          "chembl_id": "CHEMBL1487",
+          "props": {
+            "pchembl_hmgcr": 8.22
+          }
+        },
+        {
+          "smiles": "C/C=C/C[C@@H](C)[C@@H](O)[C@H]1C(=O)N[C@@H](CC)C(=O)N(C)CC(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C)C(=O)N[C@H](C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](C(C)C)C(=O)N1C",
+          "name": "cyclosporine",
+          "chembl_id": "CHEMBL160",
+          "props": {
+            "pchembl_ppia": 7.64
+          }
+        }
+      ],
+      "prompt": "What is the Crippen LogP of ibuprofen?",
+      "computes": "descriptor",
+      "truth": 3.073
+    },
+    {
+      "id": "t14",
+      "kind": "number",
+      "tol": 0.02,
+      "source": "core",
+      "descriptor": {
+        "name": "gefitinib",
+        "key": "QED"
+      },
+      "molecules": [
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "name": "gefitinib",
+          "chembl_id": "CHEMBL939",
+          "props": {
+            "pchembl_egfr": 7.68,
+            "pchembl_erbb2": 6
+          }
+        },
+        {
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "name": "erlotinib",
+          "chembl_id": "CHEMBL553",
+          "props": {
+            "pchembl_egfr": 7.43,
+            "pchembl_erbb2": 6.39
+          }
+        },
+        {
+          "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+          "name": "lapatinib",
+          "chembl_id": "CHEMBL554",
+          "props": {
+            "pchembl_egfr": 7.82,
+            "pchembl_erbb2": 7.62
+          }
+        },
+        {
+          "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+          "name": "afatinib",
+          "chembl_id": "CHEMBL1173655",
+          "props": {
+            "pchembl_egfr": 8.8,
+            "pchembl_erbb2": 7.9
+          }
+        },
+        {
+          "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+          "name": "osimertinib",
+          "chembl_id": "CHEMBL3353410",
+          "props": {
+            "pchembl_egfr": 7.6
+          }
+        },
+        {
+          "smiles": "CCOc1cc2ncc(C#N)c(Nc3ccc(OCc4ccccn4)c(Cl)c3)c2cc1NC(=O)/C=C/CN(C)C",
+          "name": "neratinib",
+          "chembl_id": "CHEMBL180022",
+          "props": {
+            "pchembl_egfr": 8.66,
+            "pchembl_erbb2": 8.34
+          }
+        },
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1NC(=O)/C=C/CN1CCCCC1",
+          "name": "dacomitinib anhydrous",
+          "chembl_id": "CHEMBL2110732",
+          "props": {
+            "pchembl_egfr": 8.16,
+            "pchembl_erbb2": 7.78
+          }
+        },
+        {
+          "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+          "name": "vandetanib",
+          "chembl_id": "CHEMBL24828",
+          "props": {
+            "pchembl_egfr": 6.7
+          }
+        },
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin",
+          "chembl_id": "CHEMBL25",
+          "props": {
+            "pchembl_ptgs1": 4.94
+          }
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(C(C)C(=O)O)cc1",
+          "name": "ibuprofen",
+          "chembl_id": "CHEMBL521",
+          "props": {
+            "pchembl_ptgs2": 5.1
+          }
+        },
+        {
+          "smiles": "CC(C)c1c(C(=O)Nc2ccccc2)c(-c2ccccc2)c(-c2ccc(F)cc2)n1CC[C@@H](O)C[C@@H](O)CC(=O)O",
+          "name": "atorvastatin",
+          "chembl_id": "CHEMBL1487",
+          "props": {
+            "pchembl_hmgcr": 8.22
+          }
+        },
+        {
+          "smiles": "C/C=C/C[C@@H](C)[C@@H](O)[C@H]1C(=O)N[C@@H](CC)C(=O)N(C)CC(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C)C(=O)N[C@H](C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](C(C)C)C(=O)N1C",
+          "name": "cyclosporine",
+          "chembl_id": "CHEMBL160",
+          "props": {
+            "pchembl_ppia": 7.64
+          }
+        }
+      ],
+      "prompt": "What is the QED of gefitinib?",
+      "computes": "descriptor",
+      "truth": 0.518
+    },
+    {
+      "id": "t15",
+      "kind": "string",
+      "source": "core",
+      "molecules": [
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "name": "gefitinib",
+          "chembl_id": "CHEMBL939",
+          "props": {
+            "pchembl_egfr": 7.68,
+            "pchembl_erbb2": 6
+          }
+        },
+        {
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "name": "erlotinib",
+          "chembl_id": "CHEMBL553",
+          "props": {
+            "pchembl_egfr": 7.43,
+            "pchembl_erbb2": 6.39
+          }
+        },
+        {
+          "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+          "name": "lapatinib",
+          "chembl_id": "CHEMBL554",
+          "props": {
+            "pchembl_egfr": 7.82,
+            "pchembl_erbb2": 7.62
+          }
+        },
+        {
+          "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+          "name": "afatinib",
+          "chembl_id": "CHEMBL1173655",
+          "props": {
+            "pchembl_egfr": 8.8,
+            "pchembl_erbb2": 7.9
+          }
+        },
+        {
+          "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+          "name": "osimertinib",
+          "chembl_id": "CHEMBL3353410",
+          "props": {
+            "pchembl_egfr": 7.6
+          }
+        },
+        {
+          "smiles": "CCOc1cc2ncc(C#N)c(Nc3ccc(OCc4ccccn4)c(Cl)c3)c2cc1NC(=O)/C=C/CN(C)C",
+          "name": "neratinib",
+          "chembl_id": "CHEMBL180022",
+          "props": {
+            "pchembl_egfr": 8.66,
+            "pchembl_erbb2": 8.34
+          }
+        },
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1NC(=O)/C=C/CN1CCCCC1",
+          "name": "dacomitinib anhydrous",
+          "chembl_id": "CHEMBL2110732",
+          "props": {
+            "pchembl_egfr": 8.16,
+            "pchembl_erbb2": 7.78
+          }
+        },
+        {
+          "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+          "name": "vandetanib",
+          "chembl_id": "CHEMBL24828",
+          "props": {
+            "pchembl_egfr": 6.7
+          }
+        }
+      ],
+      "objectives": [
+        {
+          "key": "pchembl_egfr",
+          "direction": "max"
+        },
+        {
+          "key": "pchembl_erbb2",
+          "direction": "max"
+        }
+      ],
+      "compare": [
+        "gefitinib",
+        "lapatinib"
+      ],
+      "prompt": "For maximum EGFR pChEMBL and maximum ERBB2 pChEMBL, does gefitinib dominate lapatinib, does lapatinib dominate gefitinib, or neither? Answer \"gefitinib\", \"lapatinib\" or \"neither\".",
+      "computes": "relation",
+      "truth": "lapatinib"
+    },
+    {
+      "id": "t16",
+      "kind": "string",
+      "source": "core",
+      "molecules": [
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "name": "gefitinib",
+          "chembl_id": "CHEMBL939",
+          "props": {
+            "pchembl_egfr": 7.68,
+            "pchembl_erbb2": 6
+          }
+        },
+        {
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "name": "erlotinib",
+          "chembl_id": "CHEMBL553",
+          "props": {
+            "pchembl_egfr": 7.43,
+            "pchembl_erbb2": 6.39
+          }
+        },
+        {
+          "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+          "name": "lapatinib",
+          "chembl_id": "CHEMBL554",
+          "props": {
+            "pchembl_egfr": 7.82,
+            "pchembl_erbb2": 7.62
+          }
+        },
+        {
+          "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+          "name": "afatinib",
+          "chembl_id": "CHEMBL1173655",
+          "props": {
+            "pchembl_egfr": 8.8,
+            "pchembl_erbb2": 7.9
+          }
+        },
+        {
+          "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+          "name": "osimertinib",
+          "chembl_id": "CHEMBL3353410",
+          "props": {
+            "pchembl_egfr": 7.6
+          }
+        },
+        {
+          "smiles": "CCOc1cc2ncc(C#N)c(Nc3ccc(OCc4ccccn4)c(Cl)c3)c2cc1NC(=O)/C=C/CN(C)C",
+          "name": "neratinib",
+          "chembl_id": "CHEMBL180022",
+          "props": {
+            "pchembl_egfr": 8.66,
+            "pchembl_erbb2": 8.34
+          }
+        },
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1NC(=O)/C=C/CN1CCCCC1",
+          "name": "dacomitinib anhydrous",
+          "chembl_id": "CHEMBL2110732",
+          "props": {
+            "pchembl_egfr": 8.16,
+            "pchembl_erbb2": 7.78
+          }
+        },
+        {
+          "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+          "name": "vandetanib",
+          "chembl_id": "CHEMBL24828",
+          "props": {
+            "pchembl_egfr": 6.7
+          }
+        },
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin",
+          "chembl_id": "CHEMBL25",
+          "props": {
+            "pchembl_ptgs1": 4.94
+          }
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(C(C)C(=O)O)cc1",
+          "name": "ibuprofen",
+          "chembl_id": "CHEMBL521",
+          "props": {
+            "pchembl_ptgs2": 5.1
+          }
+        },
+        {
+          "smiles": "CC(C)c1c(C(=O)Nc2ccccc2)c(-c2ccccc2)c(-c2ccc(F)cc2)n1CC[C@@H](O)C[C@@H](O)CC(=O)O",
+          "name": "atorvastatin",
+          "chembl_id": "CHEMBL1487",
+          "props": {
+            "pchembl_hmgcr": 8.22
+          }
+        },
+        {
+          "smiles": "C/C=C/C[C@@H](C)[C@@H](O)[C@H]1C(=O)N[C@@H](CC)C(=O)N(C)CC(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C)C(=O)N[C@H](C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](C(C)C)C(=O)N1C",
+          "name": "cyclosporine",
+          "chembl_id": "CHEMBL160",
+          "props": {
+            "pchembl_ppia": 7.64
+          }
+        }
+      ],
+      "objectives": [
+        {
+          "key": "MW",
+          "direction": "min"
+        },
+        {
+          "key": "LogP",
+          "direction": "min"
+        },
+        {
+          "key": "TPSA",
+          "direction": "min"
+        }
+      ],
+      "compare": [
+        "aspirin",
+        "cyclosporine"
+      ],
+      "prompt": "Minimising MW, LogP and TPSA: does aspirin dominate cyclosporine, cyclosporine dominate aspirin, or neither? Answer \"aspirin\", \"cyclosporine\" or \"neither\".",
+      "computes": "relation",
+      "truth": "aspirin"
+    },
+    {
+      "id": "t17",
+      "kind": "set",
+      "source": "core",
+      "molecules": [
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "name": "gefitinib",
+          "chembl_id": "CHEMBL939",
+          "props": {
+            "pchembl_egfr": 7.68,
+            "pchembl_erbb2": 6
+          }
+        },
+        {
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "name": "erlotinib",
+          "chembl_id": "CHEMBL553",
+          "props": {
+            "pchembl_egfr": 7.43,
+            "pchembl_erbb2": 6.39
+          }
+        },
+        {
+          "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+          "name": "lapatinib",
+          "chembl_id": "CHEMBL554",
+          "props": {
+            "pchembl_egfr": 7.82,
+            "pchembl_erbb2": 7.62
+          }
+        },
+        {
+          "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+          "name": "afatinib",
+          "chembl_id": "CHEMBL1173655",
+          "props": {
+            "pchembl_egfr": 8.8,
+            "pchembl_erbb2": 7.9
+          }
+        },
+        {
+          "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+          "name": "osimertinib",
+          "chembl_id": "CHEMBL3353410",
+          "props": {
+            "pchembl_egfr": 7.6
+          }
+        },
+        {
+          "smiles": "CCOc1cc2ncc(C#N)c(Nc3ccc(OCc4ccccn4)c(Cl)c3)c2cc1NC(=O)/C=C/CN(C)C",
+          "name": "neratinib",
+          "chembl_id": "CHEMBL180022",
+          "props": {
+            "pchembl_egfr": 8.66,
+            "pchembl_erbb2": 8.34
+          }
+        },
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1NC(=O)/C=C/CN1CCCCC1",
+          "name": "dacomitinib anhydrous",
+          "chembl_id": "CHEMBL2110732",
+          "props": {
+            "pchembl_egfr": 8.16,
+            "pchembl_erbb2": 7.78
+          }
+        },
+        {
+          "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+          "name": "vandetanib",
+          "chembl_id": "CHEMBL24828",
+          "props": {
+            "pchembl_egfr": 6.7
+          }
+        }
+      ],
+      "objectives": [
+        {
+          "key": "pchembl_egfr",
+          "direction": "max"
+        },
+        {
+          "key": "pchembl_erbb2",
+          "direction": "max"
+        },
+        {
+          "key": "MW",
+          "direction": "min"
+        }
+      ],
+      "prompt": "Among maximum EGFR pChEMBL, maximum ERBB2 pChEMBL and minimum MW, which pair of objectives is in the sharpest trade-off? Answer the two keys.",
+      "computes": "tradeoff_pair",
+      "truth": [
+        "MW",
+        "pchembl_erbb2"
+      ]
+    },
+    {
+      "id": "t18",
+      "kind": "number",
+      "tol": 0,
+      "source": "core",
+      "molecules": [
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "name": "gefitinib",
+          "chembl_id": "CHEMBL939",
+          "props": {
+            "pchembl_egfr": 7.68,
+            "pchembl_erbb2": 6
+          }
+        },
+        {
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "name": "erlotinib",
+          "chembl_id": "CHEMBL553",
+          "props": {
+            "pchembl_egfr": 7.43,
+            "pchembl_erbb2": 6.39
+          }
+        },
+        {
+          "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+          "name": "lapatinib",
+          "chembl_id": "CHEMBL554",
+          "props": {
+            "pchembl_egfr": 7.82,
+            "pchembl_erbb2": 7.62
+          }
+        },
+        {
+          "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+          "name": "afatinib",
+          "chembl_id": "CHEMBL1173655",
+          "props": {
+            "pchembl_egfr": 8.8,
+            "pchembl_erbb2": 7.9
+          }
+        },
+        {
+          "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+          "name": "osimertinib",
+          "chembl_id": "CHEMBL3353410",
+          "props": {
+            "pchembl_egfr": 7.6
+          }
+        },
+        {
+          "smiles": "CCOc1cc2ncc(C#N)c(Nc3ccc(OCc4ccccn4)c(Cl)c3)c2cc1NC(=O)/C=C/CN(C)C",
+          "name": "neratinib",
+          "chembl_id": "CHEMBL180022",
+          "props": {
+            "pchembl_egfr": 8.66,
+            "pchembl_erbb2": 8.34
+          }
+        },
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1NC(=O)/C=C/CN1CCCCC1",
+          "name": "dacomitinib anhydrous",
+          "chembl_id": "CHEMBL2110732",
+          "props": {
+            "pchembl_egfr": 8.16,
+            "pchembl_erbb2": 7.78
+          }
+        },
+        {
+          "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+          "name": "vandetanib",
+          "chembl_id": "CHEMBL24828",
+          "props": {
+            "pchembl_egfr": 6.7
+          }
+        },
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin",
+          "chembl_id": "CHEMBL25",
+          "props": {
+            "pchembl_ptgs1": 4.94
+          }
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(C(C)C(=O)O)cc1",
+          "name": "ibuprofen",
+          "chembl_id": "CHEMBL521",
+          "props": {
+            "pchembl_ptgs2": 5.1
+          }
+        },
+        {
+          "smiles": "CC(C)c1c(C(=O)Nc2ccccc2)c(-c2ccccc2)c(-c2ccc(F)cc2)n1CC[C@@H](O)C[C@@H](O)CC(=O)O",
+          "name": "atorvastatin",
+          "chembl_id": "CHEMBL1487",
+          "props": {
+            "pchembl_hmgcr": 8.22
+          }
+        },
+        {
+          "smiles": "C/C=C/C[C@@H](C)[C@@H](O)[C@H]1C(=O)N[C@@H](CC)C(=O)N(C)CC(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C)C(=O)N[C@H](C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](C(C)C)C(=O)N1C",
+          "name": "cyclosporine",
+          "chembl_id": "CHEMBL160",
+          "props": {
+            "pchembl_ppia": 7.64
+          }
+        }
+      ],
+      "objectives": [
+        {
+          "key": "QED",
+          "direction": "max"
+        },
+        {
+          "key": "TPSA",
+          "direction": "min"
+        },
+        {
+          "key": "FrCSP3",
+          "direction": "max"
+        }
+      ],
+      "prompt": "How many molecules are on the Pareto front for maximum QED, minimum TPSA and maximum FrCSP3?",
+      "computes": "front_size",
+      "truth": 2
+    },
+    {
+      "id": "t19",
+      "kind": "set",
+      "source": "core",
+      "prompt": "Another agent made these claims about ChEMBL_37 structures. Which claim ids are wrong?",
+      "claims": [
+        {
+          "id": "c1",
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "properties": {
+            "MW": 446.91,
+            "LogP": 4.28
+          }
+        },
+        {
+          "id": "c2",
+          "smiles": "C/C=C/C[C@@H](C)[C@@H](O)[C@H]1C(=O)N[C@@H](CC)C(=O)N(C)CC(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C)C(=O)N[C@H](C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](C(C)C)C(=O)N1C",
+          "properties": {
+            "MW": 500
+          }
+        },
+        {
+          "id": "c3",
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "properties": {
+            "HBD": 5
+          }
+        },
+        {
+          "id": "c4",
+          "smiles": "c1ccccc1",
+          "objectives": [
+            {
+              "key": "QED",
+              "direction": "min"
+            }
+          ]
+        },
+        {
+          "id": "c5",
+          "smiles": "C1=CC=CN=C1C(",
+          "properties": {
+            "MW": 80
+          }
+        }
+      ],
+      "computes": "flagged",
+      "truth": [
+        "c2",
+        "c3",
+        "c4",
+        "c5"
+      ]
+    },
+    {
+      "id": "t20",
+      "kind": "set",
+      "source": "core",
+      "prompt": "Which of these descriptor claims are wrong?",
+      "claims": [
+        {
+          "id": "d1",
+          "smiles": "CC(C)Cc1ccc(C(C)C(=O)O)cc1",
+          "properties": {
+            "HBD": 1,
+            "HBA": 2,
+            "RotBonds": 4
+          }
+        },
+        {
+          "id": "d2",
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "properties": {
+            "HBD": 4
+          }
+        },
+        {
+          "id": "d3",
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "properties": {
+            "MW": 393.44,
+            "Rings": 3
+          }
+        },
+        {
+          "id": "d4",
+          "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+          "properties": {
+            "AromaticRings": 9
+          }
+        }
+      ],
+      "computes": "flagged",
+      "truth": [
+        "d1",
+        "d2",
+        "d4"
+      ]
+    },
+    {
+      "id": "t21",
+      "kind": "number",
+      "tol": 0.01,
+      "source": "rdkit-python",
+      "descriptor": {
+        "name": "gefitinib",
+        "key": "MW"
+      },
+      "molecules": [
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "name": "gefitinib",
+          "chembl_id": "CHEMBL939",
+          "props": {
+            "pchembl_egfr": 7.68,
+            "pchembl_erbb2": 6
+          }
+        },
+        {
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "name": "erlotinib",
+          "chembl_id": "CHEMBL553",
+          "props": {
+            "pchembl_egfr": 7.43,
+            "pchembl_erbb2": 6.39
+          }
+        },
+        {
+          "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+          "name": "lapatinib",
+          "chembl_id": "CHEMBL554",
+          "props": {
+            "pchembl_egfr": 7.82,
+            "pchembl_erbb2": 7.62
+          }
+        },
+        {
+          "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+          "name": "afatinib",
+          "chembl_id": "CHEMBL1173655",
+          "props": {
+            "pchembl_egfr": 8.8,
+            "pchembl_erbb2": 7.9
+          }
+        },
+        {
+          "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+          "name": "osimertinib",
+          "chembl_id": "CHEMBL3353410",
+          "props": {
+            "pchembl_egfr": 7.6
+          }
+        },
+        {
+          "smiles": "CCOc1cc2ncc(C#N)c(Nc3ccc(OCc4ccccn4)c(Cl)c3)c2cc1NC(=O)/C=C/CN(C)C",
+          "name": "neratinib",
+          "chembl_id": "CHEMBL180022",
+          "props": {
+            "pchembl_egfr": 8.66,
+            "pchembl_erbb2": 8.34
+          }
+        },
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1NC(=O)/C=C/CN1CCCCC1",
+          "name": "dacomitinib anhydrous",
+          "chembl_id": "CHEMBL2110732",
+          "props": {
+            "pchembl_egfr": 8.16,
+            "pchembl_erbb2": 7.78
+          }
+        },
+        {
+          "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+          "name": "vandetanib",
+          "chembl_id": "CHEMBL24828",
+          "props": {
+            "pchembl_egfr": 6.7
+          }
+        },
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin",
+          "chembl_id": "CHEMBL25",
+          "props": {
+            "pchembl_ptgs1": 4.94
+          }
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(C(C)C(=O)O)cc1",
+          "name": "ibuprofen",
+          "chembl_id": "CHEMBL521",
+          "props": {
+            "pchembl_ptgs2": 5.1
+          }
+        },
+        {
+          "smiles": "CC(C)c1c(C(=O)Nc2ccccc2)c(-c2ccccc2)c(-c2ccc(F)cc2)n1CC[C@@H](O)C[C@@H](O)CC(=O)O",
+          "name": "atorvastatin",
+          "chembl_id": "CHEMBL1487",
+          "props": {
+            "pchembl_hmgcr": 8.22
+          }
+        },
+        {
+          "smiles": "C/C=C/C[C@@H](C)[C@@H](O)[C@H]1C(=O)N[C@@H](CC)C(=O)N(C)CC(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C)C(=O)N[C@H](C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](C(C)C)C(=O)N1C",
+          "name": "cyclosporine",
+          "chembl_id": "CHEMBL160",
+          "props": {
+            "pchembl_ppia": 7.64
+          }
+        }
+      ],
+      "prompt": "What is the RDKit Descriptors.MolWt of gefitinib (Da)? The reference value is from RDKit Python 2026.03.4.",
+      "computes": "descriptor",
+      "truth": 446.91
+    },
+    {
+      "id": "t22",
+      "kind": "number",
+      "tol": 0.01,
+      "source": "rdkit-python",
+      "descriptor": {
+        "name": "lapatinib",
+        "key": "LogP"
+      },
+      "molecules": [
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "name": "gefitinib",
+          "chembl_id": "CHEMBL939",
+          "props": {
+            "pchembl_egfr": 7.68,
+            "pchembl_erbb2": 6
+          }
+        },
+        {
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "name": "erlotinib",
+          "chembl_id": "CHEMBL553",
+          "props": {
+            "pchembl_egfr": 7.43,
+            "pchembl_erbb2": 6.39
+          }
+        },
+        {
+          "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+          "name": "lapatinib",
+          "chembl_id": "CHEMBL554",
+          "props": {
+            "pchembl_egfr": 7.82,
+            "pchembl_erbb2": 7.62
+          }
+        },
+        {
+          "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+          "name": "afatinib",
+          "chembl_id": "CHEMBL1173655",
+          "props": {
+            "pchembl_egfr": 8.8,
+            "pchembl_erbb2": 7.9
+          }
+        },
+        {
+          "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+          "name": "osimertinib",
+          "chembl_id": "CHEMBL3353410",
+          "props": {
+            "pchembl_egfr": 7.6
+          }
+        },
+        {
+          "smiles": "CCOc1cc2ncc(C#N)c(Nc3ccc(OCc4ccccn4)c(Cl)c3)c2cc1NC(=O)/C=C/CN(C)C",
+          "name": "neratinib",
+          "chembl_id": "CHEMBL180022",
+          "props": {
+            "pchembl_egfr": 8.66,
+            "pchembl_erbb2": 8.34
+          }
+        },
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1NC(=O)/C=C/CN1CCCCC1",
+          "name": "dacomitinib anhydrous",
+          "chembl_id": "CHEMBL2110732",
+          "props": {
+            "pchembl_egfr": 8.16,
+            "pchembl_erbb2": 7.78
+          }
+        },
+        {
+          "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+          "name": "vandetanib",
+          "chembl_id": "CHEMBL24828",
+          "props": {
+            "pchembl_egfr": 6.7
+          }
+        },
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin",
+          "chembl_id": "CHEMBL25",
+          "props": {
+            "pchembl_ptgs1": 4.94
+          }
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(C(C)C(=O)O)cc1",
+          "name": "ibuprofen",
+          "chembl_id": "CHEMBL521",
+          "props": {
+            "pchembl_ptgs2": 5.1
+          }
+        },
+        {
+          "smiles": "CC(C)c1c(C(=O)Nc2ccccc2)c(-c2ccccc2)c(-c2ccc(F)cc2)n1CC[C@@H](O)C[C@@H](O)CC(=O)O",
+          "name": "atorvastatin",
+          "chembl_id": "CHEMBL1487",
+          "props": {
+            "pchembl_hmgcr": 8.22
+          }
+        },
+        {
+          "smiles": "C/C=C/C[C@@H](C)[C@@H](O)[C@H]1C(=O)N[C@@H](CC)C(=O)N(C)CC(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C)C(=O)N[C@H](C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](C(C)C)C(=O)N1C",
+          "name": "cyclosporine",
+          "chembl_id": "CHEMBL160",
+          "props": {
+            "pchembl_ppia": 7.64
+          }
+        }
+      ],
+      "prompt": "What is the RDKit Crippen MolLogP of lapatinib? The reference value is from RDKit Python 2026.03.4.",
+      "computes": "descriptor",
+      "truth": 6.1391
+    },
+    {
+      "id": "t23",
+      "kind": "number",
+      "tol": 0.01,
+      "source": "rdkit-python",
+      "descriptor": {
+        "name": "cyclosporine",
+        "key": "TPSA"
+      },
+      "molecules": [
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "name": "gefitinib",
+          "chembl_id": "CHEMBL939",
+          "props": {
+            "pchembl_egfr": 7.68,
+            "pchembl_erbb2": 6
+          }
+        },
+        {
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "name": "erlotinib",
+          "chembl_id": "CHEMBL553",
+          "props": {
+            "pchembl_egfr": 7.43,
+            "pchembl_erbb2": 6.39
+          }
+        },
+        {
+          "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+          "name": "lapatinib",
+          "chembl_id": "CHEMBL554",
+          "props": {
+            "pchembl_egfr": 7.82,
+            "pchembl_erbb2": 7.62
+          }
+        },
+        {
+          "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+          "name": "afatinib",
+          "chembl_id": "CHEMBL1173655",
+          "props": {
+            "pchembl_egfr": 8.8,
+            "pchembl_erbb2": 7.9
+          }
+        },
+        {
+          "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+          "name": "osimertinib",
+          "chembl_id": "CHEMBL3353410",
+          "props": {
+            "pchembl_egfr": 7.6
+          }
+        },
+        {
+          "smiles": "CCOc1cc2ncc(C#N)c(Nc3ccc(OCc4ccccn4)c(Cl)c3)c2cc1NC(=O)/C=C/CN(C)C",
+          "name": "neratinib",
+          "chembl_id": "CHEMBL180022",
+          "props": {
+            "pchembl_egfr": 8.66,
+            "pchembl_erbb2": 8.34
+          }
+        },
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1NC(=O)/C=C/CN1CCCCC1",
+          "name": "dacomitinib anhydrous",
+          "chembl_id": "CHEMBL2110732",
+          "props": {
+            "pchembl_egfr": 8.16,
+            "pchembl_erbb2": 7.78
+          }
+        },
+        {
+          "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+          "name": "vandetanib",
+          "chembl_id": "CHEMBL24828",
+          "props": {
+            "pchembl_egfr": 6.7
+          }
+        },
+        {
+          "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+          "name": "aspirin",
+          "chembl_id": "CHEMBL25",
+          "props": {
+            "pchembl_ptgs1": 4.94
+          }
+        },
+        {
+          "smiles": "CC(C)Cc1ccc(C(C)C(=O)O)cc1",
+          "name": "ibuprofen",
+          "chembl_id": "CHEMBL521",
+          "props": {
+            "pchembl_ptgs2": 5.1
+          }
+        },
+        {
+          "smiles": "CC(C)c1c(C(=O)Nc2ccccc2)c(-c2ccccc2)c(-c2ccc(F)cc2)n1CC[C@@H](O)C[C@@H](O)CC(=O)O",
+          "name": "atorvastatin",
+          "chembl_id": "CHEMBL1487",
+          "props": {
+            "pchembl_hmgcr": 8.22
+          }
+        },
+        {
+          "smiles": "C/C=C/C[C@@H](C)[C@@H](O)[C@H]1C(=O)N[C@@H](CC)C(=O)N(C)CC(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C)C(=O)N[C@H](C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](C(C)C)C(=O)N1C",
+          "name": "cyclosporine",
+          "chembl_id": "CHEMBL160",
+          "props": {
+            "pchembl_ppia": 7.64
+          }
+        }
+      ],
+      "prompt": "What is the RDKit Descriptors.TPSA of cyclosporine? The reference value is from RDKit Python 2026.03.4.",
+      "computes": "descriptor",
+      "truth": 278.8
+    },
+    {
+      "id": "t24",
+      "kind": "set",
+      "source": "hand",
+      "molecules": [
+        {
+          "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+          "name": "gefitinib",
+          "chembl_id": "CHEMBL939",
+          "props": {
+            "pchembl_egfr": 7.68,
+            "pchembl_erbb2": 6
+          }
+        },
+        {
+          "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+          "name": "erlotinib",
+          "chembl_id": "CHEMBL553",
+          "props": {
+            "pchembl_egfr": 7.43,
+            "pchembl_erbb2": 6.39
+          }
+        },
+        {
+          "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+          "name": "lapatinib",
+          "chembl_id": "CHEMBL554",
+          "props": {
+            "pchembl_egfr": 7.82,
+            "pchembl_erbb2": 7.62
+          }
+        },
+        {
+          "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+          "name": "afatinib",
+          "chembl_id": "CHEMBL1173655",
+          "props": {
+            "pchembl_egfr": 8.8,
+            "pchembl_erbb2": 7.9
+          }
+        }
+      ],
+      "objectives": [
+        {
+          "key": "pchembl_egfr",
+          "direction": "max"
+        },
+        {
+          "key": "pchembl_erbb2",
+          "direction": "min"
+        }
+      ],
+      "prompt": "Hand-checked subset. Which molecules are on the Pareto front for maximum EGFR pChEMBL and minimum ERBB2 pChEMBL?",
+      "computes": "front",
+      "truth": [
+        "afatinib",
+        "gefitinib",
+        "lapatinib"
+      ]
+    },
+    {
+      "id": "t25",
+      "kind": "set",
+      "source": "csv",
+      "text": "smiles,name,chembl_id,potency,bulk\n\"C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1\",erlotinib,CHEMBL553,9,5\n\"COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1\",\"gefitinib, free base\",CHEMBL939,7,2\n\"CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1\",\"lapatinib, ditosylate\",CHEMBL554,8,6\n\"CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1\",afatinib,CHEMBL1173655,6,4\n",
+      "objectives": [
+        {
+          "key": "potency",
+          "direction": "max"
+        },
+        {
+          "key": "bulk",
+          "direction": "min"
+        }
+      ],
+      "prompt": "This CSV quotes fields that contain commas. Which molecules are on the Pareto front for maximum potency and minimum bulk? Answer the name cells.",
+      "computes": "quoted_csv",
+      "truth": [
+        "erlotinib",
+        "gefitinib, free base"
+      ]
+    },
+    {
+      "id": "t26",
+      "kind": "set",
+      "source": "csv",
+      "text": "smiles,name,chembl_id,potency\nCOc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1,gefitinib,CHEMBL939,6\nC#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1,gefitinib,CHEMBL553,8\n",
+      "objectives": [
+        {
+          "key": "potency",
+          "direction": "max"
+        }
+      ],
+      "prompt": "Two rows share the name gefitinib. What molecule ids does a decision record assign, in the documented name / name~2 scheme?",
+      "computes": "duplicate_ids",
+      "truth": [
+        "gefitinib",
+        "gefitinib~2"
+      ]
+    },
+    {
+      "id": "t27",
+      "kind": "string",
+      "source": "decision",
+      "record": {
+        "input": {
+          "count": 2,
+          "molecules": [
+            {
+              "id": "ethanol",
+              "name": "ethanol",
+              "smiles": "CCO"
+            },
+            {
+              "id": "benzene",
+              "name": "benzene",
+              "smiles": "c1ccccc1"
+            }
+          ],
+          "sha256": "sha256:ca7b7e7bc0b69a6dfd95338bd990eb78d0d68424144b1d9c8ea7f6fd752e8026"
+        },
+        "models": {
+          "admet": null,
+          "core": "0.1.0",
+          "rdkitjs": "2025.03.4"
+        },
+        "objectives": [
+          {
+            "direction": "min",
+            "key": "MW"
+          },
+          {
+            "direction": "min",
+            "key": "LogP"
+          },
+          {
+            "direction": "min",
+            "key": "TPSA"
+          }
+        ],
+        "profile": {
+          "hash": "sha256:7080e8a28f05205467a7502f2f8092390e1b5c551922229e071b4ee5020c3a39",
+          "ref": "oral@1"
+        },
+        "rationale": "smallest molecule",
+        "recordHash": "sha256:452281a6ce85e7cdf40a9be3ddf0f96ad05e1d1bbf21aa375ce7ea6b3658f17a",
+        "results": [
+          {
+            "id": "ethanol",
+            "mpo": 1.220469,
+            "paretoRank": 1
+          },
+          {
+            "id": "benzene",
+            "mpo": 0.215443,
+            "paretoRank": 1
+          }
+        ],
+        "schema": "paretomol.decision/0",
+        "selected": [
+          "ethanol"
+        ],
+        "timestamp": "2026-11-01T00:00:00.000Z"
+      },
+      "prompt": "This decision record was edited after export: results[0].mpo was increased by 1 and recordHash was left unchanged. Does verification pass or fail? Answer \"pass\" or \"fail\".",
+      "computes": "decision_status",
+      "truth": "fail"
+    }
+  ]
+}

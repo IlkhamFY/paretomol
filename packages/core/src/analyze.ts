@@ -1,0 +1,396 @@
+// RDKit-backed molecule analysis shared by the web app and the CLI.
+// The RDKit.js module is passed in, so this file has no DOM or network access:
+// the browser hands in window.RDKitModule, Node hands in @rdkit/rdkit.
+import type { Molecule, MolProps, FilterResult } from './types.js';
+import { DRUG_FILTERS } from './types.js';
+import { checkFilter } from './filters.js';
+import { computeQED } from './qed.js';
+import { QED_ALERT_SMARTS } from './qedAlerts.js';
+import { packFingerprint } from './similarity.js';
+import { syntheticComplexityFromDescriptors } from './synth.js';
+import { activityColumns, activityHeader } from './assayValue.js';
+
+/** The subset of an RDKit.js molecule this module uses. */
+export interface RDKitMolLike {
+  is_valid: () => boolean;
+  delete: () => void;
+  get_descriptors: () => string;
+  get_morgan_fp: (opts: string) => string;
+  get_substruct_match: (q: RDKitMolLike) => string;
+}
+/** The subset of the RDKit.js module this module uses. */
+export interface RDKitLike {
+  get_mol: (s: string) => RDKitMolLike | null;
+  get_qmol: (s: string) => RDKitMolLike | null;
+  version?: () => string;
+}
+
+const qmolCaches = new WeakMap<RDKitLike, Map<string, RDKitMolLike | null>>();
+
+/** Number of canonical-QED structural alerts a molecule matches.
+ *
+ *  QED's alert term counts how many of the reference implementation's 116
+ *  patterns match at least once — not the total number of matches. These
+ *  patterns are specific to QED and are not the PAINS/Brenk/NIH catalogues
+ *  used elsewhere in this file, so the two counts are not interchangeable.
+ *  Compiled queries are cached across molecules; without that, 116 SMARTS
+ *  would be recompiled for every structure. */
+export function countQEDAlerts(mol: RDKitMolLike, RDKit: RDKitLike): number {
+  let qmolCache = qmolCaches.get(RDKit);
+  if (!qmolCache) { qmolCache = new Map(); qmolCaches.set(RDKit, qmolCache); }
+  let n = 0;
+  for (const smarts of QED_ALERT_SMARTS) {
+    let q = qmolCache.get(smarts);
+    if (q === undefined) {
+      try {
+        q = RDKit.get_qmol(smarts);
+        if (q && !q.is_valid()) { q.delete(); q = null; }
+      } catch { q = null; }
+      qmolCache.set(smarts, q);
+    }
+    if (!q) continue;
+    try {
+      // Existence is all QED needs, so stop at the first match rather than
+      // enumerating every occurrence.
+      const hit = mol.get_substruct_match(q);
+      if (hit && hit !== '{}' && hit !== '') n++;
+    } catch { /* pattern not applicable to this molecule */ }
+  }
+  return n;
+}
+
+
+const SMILES_HEADERS = ['smiles', 'smi', 'structure', 'canonical_smiles', 'molecule', 'mol', 'compound_smiles'];
+
+/** Split a delimiter-separated table, honouring RFC 4180 quotes.
+ *  A quoted field may contain the separator, a newline, or a doubled quote (`""`).
+ *  Cells are trimmed. Empty trailing records are dropped. */
+export function parseDelimited(text: string, separator: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cur = '';
+  let quoted = false;
+  const s = text.replace(/^\uFEFF/, '');
+  const pushRow = () => {
+    row.push(cur);
+    cur = '';
+    if (row.some((cell) => cell.trim() !== '')) rows.push(row.map((cell) => cell.trim()));
+    row = [];
+  };
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (quoted) {
+      if (c === '"') {
+        if (s[i + 1] === '"') { cur += '"'; i++; }
+        else quoted = false;
+      } else cur += c;
+    } else if (c === '"') {
+      quoted = true;
+    } else if (c === separator) {
+      row.push(cur);
+      cur = '';
+    } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && s[i + 1] === '\n') i++;
+      pushRow();
+    } else cur += c;
+  }
+  if (cur.length > 0 || row.length > 0) pushRow();
+  return rows;
+}
+
+/** Same parser. The e2e corpus and older notes use this name. */
+export function parseRfc4180(text: string, separator: string): string[][] {
+  return parseDelimited(text, separator);
+}
+
+/** Separator of the first record: a tab wins over a comma. Counts only outside quotes. */
+export function detectSeparator(input: string): ',' | '\t' | '' {
+  const s = input.replace(/^\uFEFF/, '');
+  let quoted = false;
+  let commas = 0;
+  let tabs = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (quoted) {
+      if (c === '"') {
+        if (s[i + 1] === '"') { i++; continue; }
+        quoted = false;
+      }
+      continue;
+    }
+    if (c === '"') { quoted = true; continue; }
+    if (c === '\n' || c === '\r') break;
+    if (c === ',') commas++;
+    else if (c === '\t') tabs++;
+  }
+  if (tabs >= 1) return '\t';
+  if (commas >= 1) return ',';
+  return '';
+}
+
+/** Parsed delimiter-separated table, or null when the text is not a table. */
+export function readTable(input: string): { separator: ',' | '\t'; rows: string[][] } | null {
+  const separator = detectSeparator(input);
+  if (!separator) return null;
+  const rows = parseDelimited(input, separator);
+  if (rows.length === 0) return null;
+  return { separator, rows };
+}
+
+/** Detect if input is CSV/TSV with a header row. Returns parsed rows + header info, or null if not CSV. */
+export function detectCSV(input: string): { separator: string; headers: string[]; rows: string[][]; smilesCol: number } | null {
+  const table = readTable(input);
+  if (!table || table.rows.length < 2) return null;
+  const headers = table.rows[0];
+
+  let smilesCol = -1;
+  for (let i = 0; i < headers.length; i++) {
+    if (SMILES_HEADERS.includes(headers[i].toLowerCase())) {
+      smilesCol = i;
+      break;
+    }
+  }
+
+  if (smilesCol === -1) {
+    const secondRowCells = table.rows[1];
+    for (let i = 0; i < secondRowCells.length; i++) {
+      const cell = secondRowCells[i];
+      if (/[()=[\]#@\\/]/.test(cell) || /^[A-Za-z][A-Za-z0-9()=[\]#@\\/+\-.*]+$/.test(cell)) {
+        smilesCol = i;
+        break;
+      }
+    }
+  }
+
+  if (smilesCol === -1) return null;
+
+  const smilesHeader = headers[smilesCol].toLowerCase();
+  const isHeaderRow = SMILES_HEADERS.includes(smilesHeader) || !/[()=[\]#@\\/]/.test(headers[smilesCol]);
+
+  const dataStart = isHeaderRow ? 1 : 0;
+  const actualHeaders = isHeaderRow ? headers : headers.map((_, i) => `Col${i}`);
+  const rows = table.rows.slice(dataStart).filter((cells) => cells[smilesCol]);
+  return { separator: table.separator, headers: actualHeaders, rows, smilesCol };
+}
+
+/** Parse a CSV cell as a number, or null if it carries no measurement.
+ *  `Number('')` is 0 and `Number('   ')` is 0, so a naive coercion turns every
+ *  blank cell into a real-looking 0.0 — which then enters the Pareto analysis
+ *  as the best possible value for any minimised objective. Common textual
+ *  missing-data placeholders are treated as absent for the same reason. */
+export function parseNumericCell(raw: string | undefined | null): number | null {
+  if (raw === undefined || raw === null) return null;
+  const s = String(raw).trim();
+  if (s === '' || /^(na|n\/a|nan|nd|null|none|-|\.)$/i.test(s)) return null;
+  const v = Number(s);
+  return Number.isFinite(v) ? v : null;
+}
+
+/** Extract SMILES lines and custom properties from CSV data. */
+export function parseCSVData(csv: { headers: string[]; rows: string[][]; smilesCol: number }): { smilesLines: string[]; customPropNames: string[]; customPropValues: Record<string, number>[]; notes: string[] } {
+  const { headers, rows, smilesCol } = csv;
+  const NAME_HEADERS = ['name', 'id', 'molecule', 'compound', 'compound id', 'compound_id', 'mol_name', 'title'];
+  let nameIdx = -1;
+  type PlainCol = { kind: 'plain'; idx: number; name: string };
+  type ActCol = { kind: 'activity'; interpreted: ReturnType<typeof activityColumns> & object };
+  const customCols: Array<PlainCol | ActCol> = [];
+  const notes: string[] = [];
+
+  for (let i = 0; i < headers.length; i++) {
+    if (i === smilesCol) continue;
+    const h = headers[i].toLowerCase();
+    if (nameIdx === -1 && NAME_HEADERS.includes(h)) {
+      nameIdx = i;
+      continue;
+    }
+    const header = activityHeader(headers[i]);
+    if (header && !header.alreadyP) {
+      const interpreted = activityColumns(headers[i], rows.map((r) => r[i] ?? ''));
+      if (interpreted) {
+        notes.push(interpreted.note);
+        if (interpreted.raw.some((v) => v !== null)) customCols.push({ kind: 'activity', interpreted });
+      } else {
+        notes.push(`${headers[i]} has no unit, so it was not converted to a p-scale.`);
+      }
+      continue;
+    }
+    let numericCount = 0;
+    const checkRows = Math.min(3, rows.length);
+    for (let r = 0; r < checkRows; r++) {
+      if (parseNumericCell(rows[r]?.[i]) !== null) numericCount++;
+    }
+    if (numericCount > 0) {
+      customCols.push({ kind: 'plain', idx: i, name: headers[i] });
+    } else if (nameIdx === -1) {
+      nameIdx = i;
+    }
+  }
+
+  const smilesLines: string[] = [];
+  const customPropValues: Record<string, number>[] = [];
+  const names = new Set<string>();
+
+  rows.forEach((row, rowIndex) => {
+    const smiles = row[smilesCol];
+    if (!smiles) return;
+    const name = nameIdx >= 0 ? row[nameIdx] || '' : '';
+    smilesLines.push(name ? `${smiles} ${name}` : smiles);
+
+    const props: Record<string, number> = {};
+    for (const col of customCols) {
+      if (col.kind === 'plain') {
+        const val = parseNumericCell(row[col.idx]);
+        if (val !== null) { props[col.name] = val; names.add(col.name); }
+      } else {
+        const raw = col.interpreted.raw[rowIndex];
+        const p = col.interpreted.p[rowIndex];
+        if (raw !== null) { props[col.interpreted.rawName] = raw; names.add(col.interpreted.rawName); }
+        if (p !== null) { props[col.interpreted.pName] = p; names.add(col.interpreted.pName); }
+      }
+    }
+    customPropValues.push(props);
+  });
+
+  return { smilesLines, customPropNames: [...names], customPropValues, notes };
+}
+
+/** What the descriptor path computes beyond the physicochemical properties.
+ *  Omit a flag (or leave it undefined) to compute it. Pass false to skip it.
+ *  Fingerprints are only needed for similarity. QED alerts are only needed for QED. */
+export interface AnalyzeOptions {
+  fingerprint?: boolean;
+  qed?: boolean;
+}
+
+function wants(opts: AnalyzeOptions | undefined, key: keyof AnalyzeOptions): boolean {
+  return opts?.[key] !== false;
+}
+
+/** Cheap tier: skip the Morgan fingerprint and the QED alert SMARTS unless `keys` asks for QED. */
+export function descriptorTier(keys: Iterable<string>): AnalyzeOptions {
+  let qed = false;
+  for (const key of keys) if (key === 'QED') qed = true;
+  return { fingerprint: false, qed };
+}
+
+/** Parse one resolved "SMILES name" line into a Molecule (no SVG: rendering is the caller's job).
+ *  This is the single descriptor path shared by the web app and the CLI.
+ *  The default computes fingerprints and QED. Pass `descriptorTier` to skip both. */
+export function analyzeMolecule(
+  line: string,
+  index: number,
+  RDKit: RDKitLike,
+  customPropValues: Record<string, number>[],
+  opts?: AnalyzeOptions,
+): Molecule | null {
+  const parts = line.trim().split(/\s+/);
+  const smiles = parts[0];
+  const name = (parts.slice(1).join(' ') || `mol_${index + 1}`).replace(/_/g, ' ');
+
+  try {
+    const mol = RDKit.get_mol(smiles);
+    if (!mol || !mol.is_valid()) return null;
+
+    const desc = JSON.parse(mol.get_descriptors());
+    const numAtoms = (desc.NumHeavyAtoms || desc.HeavyAtomCount || 0) + (desc.NumHs || 0);
+
+    const doFp = wants(opts, 'fingerprint');
+    const doQed = wants(opts, 'qed');
+    let fingerprint = '';
+    if (doFp) {
+      try { fingerprint = mol.get_morgan_fp(JSON.stringify({ radius: 2, nBits: 2048 })); } catch { /* fingerprint unavailable */ }
+    }
+
+    // Counted while the molecule is still alive. QED's alert term needs it.
+    const nAlerts = doQed ? countQEDAlerts(mol, RDKit) : 0;
+
+    mol.delete();
+
+    // Average molecular weight, not the monoisotopic exact mass. Lipinski's
+    // Ro5 (MW <= 500) is defined on average MW, and the reference datasets
+    // used throughout are built with RDKit's Descriptors.MolWt (also average),
+    // so `exactmw` made the app disagree with both by ~0.4 Da.
+    const mw = desc.amw || desc.exactmw || 0;
+    const logp = desc.CrippenClogP || 0;
+    const hbd = desc.NumHBD || 0;
+    const hba = desc.NumHBA || 0;
+    const tpsa = desc.tpsa || 0;
+    const rotBonds = desc.NumRotatableBonds || 0;
+    const arom = desc.NumAromaticRings || 0;
+    const qedWeighted = doQed
+      ? computeQED({ MW: mw, ALOGP: logp, HBA: hba, HBD: hbd, PSA: tpsa, ROTB: rotBonds, AROM: arom, ALERTS: nAlerts }).qedWeighted
+      : Number.NaN;
+    const sc = syntheticComplexityFromDescriptors(desc);
+
+    const props: MolProps = {
+      MW: mw,
+      LogP: logp,
+      HBD: hbd,
+      HBA: hba,
+      TPSA: tpsa,
+      RotBonds: rotBonds,
+      FrCSP3: desc.FractionCSP3 || 0,
+      Rings: desc.NumRings || 0,
+      AromaticRings: arom,
+      HeavyAtoms: desc.NumHeavyAtoms || desc.HeavyAtomCount || 0,
+      MR: desc.CrippenMR || 0,
+      NumAtoms: numAtoms > 0 ? numAtoms : (desc.NumHeavyAtoms || 0),
+      QED: doQed ? Math.round(qedWeighted * 1000) / 1000 : Number.NaN,
+      SC: Math.round(sc.score * 10) / 10,
+    };
+
+    const filters: Record<string, FilterResult> = {};
+    for (const filterName of Object.keys(DRUG_FILTERS)) {
+      filters[filterName] = checkFilter(filterName, props);
+    }
+
+    return {
+      name,
+      smiles,
+      svg: '', // deferred — use getMolSvg(smiles) on demand
+      formula: desc.MolFormula || '',
+      fingerprint,
+      fpPacked: packFingerprint(fingerprint),
+      props,
+      customProps: customPropValues[index] || {},
+      filters,
+      lipinski: filters.lipinski,
+      scFactors: sc.factors,
+      paretoRank: null,
+      dominates: [],
+      dominatedBy: [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+
+export interface AnalyzeResult {
+  molecules: Molecule[];
+  /** Input lines that did not parse as SMILES. */
+  errors: number;
+  customPropNames: string[];
+  /** Notes about assay units and p-scale columns. Empty for SMILES text. */
+  notes: string[];
+}
+
+/** Split raw input (CSV/TSV with a SMILES column, or "SMILES name" lines). */
+export function splitInput(input: string): { smilesLines: string[]; customPropNames: string[]; customPropValues: Record<string, number>[]; notes: string[] } {
+  const csv = detectCSV(input);
+  if (csv) return parseCSVData(csv);
+  return { smilesLines: input.split('\n').filter(l => l.trim()), customPropNames: [], customPropValues: [], notes: [] };
+}
+
+/** Synchronous, offline analysis of raw input: no name resolution and no Pareto
+ *  ranking (call computeParetoAndDominance with the objectives you want). */
+export function analyzeInput(input: string, RDKit: RDKitLike, opts?: AnalyzeOptions): AnalyzeResult {
+  const { smilesLines, customPropNames, customPropValues, notes } = splitInput(input);
+  const molecules: Molecule[] = [];
+  let errors = 0;
+  for (let i = 0; i < smilesLines.length; i++) {
+    const m = analyzeMolecule(smilesLines[i], i, RDKit, customPropValues, opts);
+    if (m) molecules.push(m); else errors++;
+  }
+  return { molecules, errors, customPropNames, notes };
+}

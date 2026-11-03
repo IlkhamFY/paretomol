@@ -1,0 +1,72 @@
+{
+  "schema": "paretomol.profile/1",
+  "id": "lipinski",
+  "version": 1,
+  "label": "Lipinski Ro5",
+  "description": "Rule of five: at most one violation of MW <= 500, LogP <= 5, HBD <= 5, HBA <= 10. Desirability is 1 inside each limit with a short linear tail beyond it.",
+  "objectives": [
+    {
+      "key": "MW",
+      "direction": "min"
+    },
+    {
+      "key": "LogP",
+      "direction": "min"
+    },
+    {
+      "key": "TPSA",
+      "direction": "min"
+    }
+  ],
+  "desirability": {
+    "MW": {
+      "idealMin": 0,
+      "idealMax": 500,
+      "acceptMin": 0,
+      "acceptMax": 550
+    },
+    "LogP": {
+      "idealMin": -5,
+      "idealMax": 5,
+      "acceptMin": -6,
+      "acceptMax": 5.5
+    },
+    "HBD": {
+      "idealMin": 0,
+      "idealMax": 5,
+      "acceptMin": 0,
+      "acceptMax": 6
+    },
+    "HBA": {
+      "idealMin": 0,
+      "idealMax": 10,
+      "acceptMin": 0,
+      "acceptMax": 11
+    }
+  },
+  "filter": {
+    "rules": [
+      {
+        "key": "MW",
+        "op": "<=",
+        "val": 500
+      },
+      {
+        "key": "LogP",
+        "op": "<=",
+        "val": 5
+      },
+      {
+        "key": "HBD",
+        "op": "<=",
+        "val": 5
+      },
+      {
+        "key": "HBA",
+        "op": "<=",
+        "val": 10
+      }
+    ],
+    "maxViolations": 1
+  }
+}

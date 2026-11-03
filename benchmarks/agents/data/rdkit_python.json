@@ -1,0 +1,107 @@
+{
+  "schema": "paretomol.agentbench.rdkit-python/1",
+  "rdkit": "2026.03.4",
+  "api": [
+    "rdkit.Chem.Descriptors.MolWt",
+    "rdkit.Chem.Crippen.MolLogP",
+    "rdkit.Chem.Descriptors.TPSA"
+  ],
+  "molecules": [
+    {
+      "molecule_chembl_id": "CHEMBL1173655",
+      "name": "afatinib",
+      "smiles": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+      "MW": 485.947,
+      "LogP": 4.3899,
+      "TPSA": 88.61
+    },
+    {
+      "molecule_chembl_id": "CHEMBL1487",
+      "name": "atorvastatin",
+      "smiles": "CC(C)c1c(C(=O)Nc2ccccc2)c(-c2ccccc2)c(-c2ccc(F)cc2)n1CC[C@@H](O)C[C@@H](O)CC(=O)O",
+      "MW": 558.65,
+      "LogP": 6.3136,
+      "TPSA": 111.79
+    },
+    {
+      "molecule_chembl_id": "CHEMBL160",
+      "name": "cyclosporine",
+      "smiles": "C/C=C/C[C@@H](C)[C@@H](O)[C@H]1C(=O)N[C@@H](CC)C(=O)N(C)CC(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N[C@@H](C)C(=O)N[C@H](C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](CC(C)C)C(=O)N(C)[C@@H](C(C)C)C(=O)N1C",
+      "MW": 1202.635,
+      "LogP": 3.269,
+      "TPSA": 278.8
+    },
+    {
+      "molecule_chembl_id": "CHEMBL180022",
+      "name": "neratinib",
+      "smiles": "CCOc1cc2ncc(C#N)c(Nc3ccc(OCc4ccccn4)c(Cl)c3)c2cc1NC(=O)/C=C/CN(C)C",
+      "MW": 557.054,
+      "LogP": 5.93248,
+      "TPSA": 112.4
+    },
+    {
+      "molecule_chembl_id": "CHEMBL2110732",
+      "name": "dacomitinib anhydrous",
+      "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1NC(=O)/C=C/CN1CCCCC1",
+      "MW": 469.948,
+      "LogP": 5.1551,
+      "TPSA": 79.38
+    },
+    {
+      "molecule_chembl_id": "CHEMBL24828",
+      "name": "vandetanib",
+      "smiles": "COc1cc2/c(=N/c3ccc(Br)cc3F)nc[nH]c2cc1OCC1CCN(C)CC1",
+      "MW": 475.362,
+      "LogP": 4.4261,
+      "TPSA": 62.74
+    },
+    {
+      "molecule_chembl_id": "CHEMBL25",
+      "name": "aspirin",
+      "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+      "MW": 180.159,
+      "LogP": 1.3101,
+      "TPSA": 63.6
+    },
+    {
+      "molecule_chembl_id": "CHEMBL3353410",
+      "name": "osimertinib",
+      "smiles": "C=CC(=O)Nc1cc(Nc2nccc(-c3cn(C)c4ccccc34)n2)c(OC)cc1N(C)CCN(C)C",
+      "MW": 499.619,
+      "LogP": 4.5098,
+      "TPSA": 87.55
+    },
+    {
+      "molecule_chembl_id": "CHEMBL521",
+      "name": "ibuprofen",
+      "smiles": "CC(C)Cc1ccc(C(C)C(=O)O)cc1",
+      "MW": 206.285,
+      "LogP": 3.0732,
+      "TPSA": 37.3
+    },
+    {
+      "molecule_chembl_id": "CHEMBL553",
+      "name": "erlotinib",
+      "smiles": "C#Cc1cccc(Nc2ncnc3cc(OCCOC)c(OCCOC)cc23)c1",
+      "MW": 393.443,
+      "LogP": 3.4051,
+      "TPSA": 74.73
+    },
+    {
+      "molecule_chembl_id": "CHEMBL554",
+      "name": "lapatinib",
+      "smiles": "CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1",
+      "MW": 581.069,
+      "LogP": 6.1391,
+      "TPSA": 106.35
+    },
+    {
+      "molecule_chembl_id": "CHEMBL939",
+      "name": "gefitinib",
+      "smiles": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+      "MW": 446.91,
+      "LogP": 4.2756,
+      "TPSA": 68.74
+    }
+  ]
+}
