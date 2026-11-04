@@ -34,20 +34,22 @@ cd paretomol && npm install && npm run dev
 TypeScript strict mode. `npm run build` must pass before committing.
 
 ## Citation
-If you use ParetoMol please cite the manuscript describing the methodology and case studies is in preparation. In the meantime:
+If you use ParetoMol, please cite:
 
-```
-@article{paretomol,
-author = {Ilkham Yabbarov  and Rodrigo A. Vargas-Hernández },
-title = {ParetoMol: A Free Web Application for Multi-Objective Pareto Analysis of Molecular Safety and Pharmacokinetics},
-journal = {ChemRxiv},
-volume = {2026},
-number = {0420},
-pages = {},
-year = {2026},
-doi = {10.26434/chemrxiv.15002217/v1},
-URL = {https://chemrxiv.org/doi/abs/10.26434/chemrxiv.15002217/v1},
-eprint = {https://chemrxiv.org/doi/pdf/10.26434/chemrxiv.15002217/v1},
+> Ilkham Yabbarov and Rodrigo A. Vargas-Hernández. ParetoMol: a free web application for multi-objective Pareto analysis of molecular safety and pharmacokinetics. *Digital Discovery* **5**, 4231-4247 (2026). [doi:10.1039/d6dd00366d](https://doi.org/10.1039/d6dd00366d)
+
+```bibtex
+@article{yabbarov2026paretomol,
+  author  = {Yabbarov, Ilkham and Vargas-Hern{\'a}ndez, Rodrigo A.},
+  title   = {ParetoMol: a free web application for multi-objective Pareto analysis of molecular safety and pharmacokinetics},
+  journal = {Digital Discovery},
+  volume  = {5},
+  number  = {10},
+  pages   = {4231--4247},
+  year    = {2026},
+  doi     = {10.1039/d6dd00366d},
+  url     = {https://doi.org/10.1039/d6dd00366d}
 }
-
 ```
+
+Preprint: [ChemRxiv 10.26434/chemrxiv.15002217/v1](https://doi.org/10.26434/chemrxiv.15002217/v1).

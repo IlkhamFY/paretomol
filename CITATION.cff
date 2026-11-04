@@ -29,5 +29,10 @@ preferred-citation:
       given-names: Ilkham
     - family-names: Vargas-Hernández
       given-names: Rodrigo A.
-  status: in-preparation
+  journal: "Digital Discovery"
+  volume: 5
+  issue: 10
+  start: 4231
+  end: 4247
   year: 2026
+  doi: "10.1039/d6dd00366d"
